@@ -620,11 +620,6 @@ _G.FishSec:Toggle({
 	Value = true,
 	Callback = function(state)
 		_G.sellActive = state
-		if state then
-			NotifySuccess("Auto Sell", "Limit: " .. _G.obtainedLimit)
-		else
-			NotifySuccess("Auto Sell", "Disabled")
-		end
 	end
 })
     
@@ -722,11 +717,6 @@ function ToggleAutoSellMythic(state)
 		return
 	end
 	autoSellMythic = state
-	if autoSellMythic then
-		NotifySuccess("AutoSellMythic", "Status: ON")
-	else
-		NotifyWarning("AutoSellMythic", "Status: OFF")
-	end
 end
 
 local oldFireServer
@@ -745,11 +735,6 @@ oldFireServer = hookmetamethod(game, "__namecall", function(self, ...)
 		task.delay(1, function()
 			pcall(function()
 				local result = RFSellItem:InvokeServer(uuid)
-				if result then
-					NotifySuccess("AutoSellMythic", "Items Sold!!")
-				else
-					NotifyError("AutoSellMythic", "Failed to sell item!!")
-				end
 			end)
 		end)
 	end
@@ -772,7 +757,6 @@ function sellAllFishes()
 	local char = charFolder and charFolder:FindFirstChild(LocalPlayer.Name)
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp then
-		NotifyError("Character Not Found", "HRP tidak ditemukan.")
 		return
 	end
 
@@ -780,18 +764,11 @@ function sellAllFishes()
 	local sellRemote = net:WaitForChild("RF/SellAllItems")
 
 	task.spawn(function()
-		NotifyInfo("Selling...", "I'm going to sell all the fish, please wait...", 3)
 
 		task.wait(1)
 		local success, err = pcall(function()
 			sellRemote:InvokeServer()
 		end)
-
-		if success then
-			NotifySuccess("Sold!", "All the fish were sold successfully.", 3)
-		else
-			NotifyError("Sell Failed", tostring(err, 3))
-		end
 
 	end)
 end
@@ -820,11 +797,9 @@ _G.FishSec:Button({
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
 		if not hrp then
-			NotifyError("Auto Enchant Rod", "Failed to get character HRP.")
 			return
 		end
 
-		NotifyInfo("Preparing Enchant...", "Please manually place Enchant Stone into slot 5 before we begin...", 5)
 
 		task.wait(3)
 
@@ -834,11 +809,8 @@ _G.FishSec:Button({
 		local itemName = slot5 and slot5:FindFirstChild("Inner") and slot5.Inner:FindFirstChild("Tags") and slot5.Inner.Tags:FindFirstChild("ItemName")
 
 		if not itemName or not itemName.Text:lower():find("enchant") then
-			NotifyError("Auto Enchant Rod", "Slot 5 does not contain an Enchant Stone.")
 			return
 		end
-
-		NotifyInfo("Enchanting...", "It is in the process of Enchanting, please wait until the Enchantment is complete", 7)
 
 		local originalPosition = hrp.Position
 		task.wait(1)
@@ -853,7 +825,6 @@ _G.FishSec:Button({
 			task.wait(0.5)
 			activateEnchant:FireServer()
 			task.wait(7)
-			NotifySuccess("Enchant", "Successfully Enchanted!", 3)
 		end)
 
 		task.wait(0.9)
@@ -924,13 +895,11 @@ local function floatingPlat(enabled)
 				end
 			end)
 
-			NotifySuccess("Float Enabled", "This feature has been successfully activated!")
 		else
 			if floatPlatform then
 				floatPlatform:Destroy()
 				floatPlatform = nil
 			end
-			NotifyWarning("Float Disabled", "Feature disabled")
 		end
 end
 
@@ -1119,7 +1088,6 @@ local function monitorAutoTP()
 					end
 					alreadyTeleported = true
 					teleportTime = tick()
-					NotifySuccess("Event Farm", "Teleported to: " .. selectedEvent)
 				end
 
 			elseif alreadyTeleported then
@@ -1131,7 +1099,6 @@ local function monitorAutoTP()
 					end
 					alreadyTeleported = false
 					teleportTime = nil
-					NotifyInfo("Event Timeout", "Returned after 15 minutes.")
 				-- event hilang
 				elseif not eventModel then
 					returnToOriginalPosition()
@@ -1140,7 +1107,7 @@ local function monitorAutoTP()
 					end
 					alreadyTeleported = false
 					teleportTime = nil
-					NotifyInfo("Event Ended", "Returned to start position.")
+					
 				end
 			end
 
@@ -1274,7 +1241,7 @@ local farmLocations = {
 }
 
 local function startAutoFarmLoop()
-    NotifySuccess("Auto Farm Enabled", "Fishing started on island: " .. selectedIsland)
+    
 
     while isAutoFarmRunning do  
         local islandSpots = farmLocations[selectedIsland]  
@@ -1285,14 +1252,12 @@ local function startAutoFarmLoop()
         end  
 
         if not location then  
-            NotifyError("Invalid Island", "Selected island name not found.")  
             return  
         end  
 
         local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)  
         local hrp = char and char:FindFirstChild("HumanoidRootPart")  
         if not hrp then  
-            NotifyError("Teleport Failed", "HumanoidRootPart not found.")  
             return  
         end  
 
@@ -1304,7 +1269,6 @@ local function startAutoFarmLoop()
         while isAutoFarmRunning do
             if not isAutoFarmRunning then  
                 _G.ToggleAutoClick(false)  
-                NotifyWarning("Auto Farm Stopped", "Auto Farm manually disabled. Auto Fish stopped.")  
                 break  
             end  
             task.wait(0.5)
@@ -1337,9 +1301,6 @@ local CodeIsland = AutoFarmTab:Dropdown({
         local islandName = islandCodes[code]
         if islandName and farmLocations[islandName] then
             selectedIsland = islandName
-            NotifySuccess("Island Selected", "Farming location set to " .. islandName)
-        else
-            NotifyError("Invalid Selection", "The island name is not recognized.")
         end
     end
 })
@@ -1374,7 +1335,6 @@ AutoFarmTab:Dropdown({
 	Callback = function(selected)
 		selectedEvent = selected
 		autoTPEvent = true
-		NotifyInfo("Event Selected", "Now monitoring event: " .. selectedEvent)
 	end
 })
 
@@ -1402,11 +1362,9 @@ _G.UnlockTemple = function()
 
         for _, artifact in ipairs(Artifacts) do
             REPlaceLeverItem:FireServer(artifact)
-            NotifyInfo("Temple Unlock", "Placing: " .. artifact)
             task.wait(2.1)
         end
 
-        NotifySuccess("Temple Unlock", "All Artifacts placed successfully!")
     end)
 end
 
@@ -1559,7 +1517,7 @@ AutoFarmArt:Dropdown({
 
             if hrp then
                 hrp.CFrame = spotCFrame
-                NotifySuccess("Lever Temple", "Teleported to " .. selected)
+                
             else
                 warn("HumanoidRootPart not found!")
             end
@@ -1892,7 +1850,6 @@ currentDropdown = Player:Dropdown({
         for _, p in pairs(Players:GetPlayers()) do
             if p.DisplayName == selectedDisplayName then
                 teleportToPlayerExact(p.Name)
-                NotifySuccess("Teleport Successfully", "Successfully Teleported to " .. p.DisplayName .. "!", 3)
                 break
             end
         end
@@ -2012,19 +1969,8 @@ local apiKey = FishNotif:Input({
         local isValid, result = validateWebhook(text)
         if isValid then
             webhookPath = result
-            WindUI:Notify({
-                Title = "Key Valid",
-                Content = "Webhook connected to channel!",
-                Duration = 5,
-                Icon = "circle-check"
-            })
         else
-            WindUI:Notify({
-                Title = "Key Invalid",
-                Content = tostring(result),
-                Duration = 5,
-                Icon = "ban"
-            })
+           return
         end
     end
 })
@@ -2087,12 +2033,6 @@ FishNotif:Dropdown({
 	Default = {"Secret"},
 	Callback = function(selected)
 		SelectedCategories = selected
-		WindUI:Notify({
-			Title = "Fish Category Updated",
-			Content = "Now tracking: " .. table.concat(SelectedCategories, ", "),
-			Duration = 5,
-			Icon = "circle-check"
-		})
 	end
 })
 
@@ -2277,19 +2217,12 @@ SettingsTab:Toggle({
 				end)
 			end)
 
-			if NotifySuccess then
-				NotifySuccess("Anti-AFK Activated", "You will now avoid being kicked.")
-			end
-
 		else
 			if _G.AFKConnection then
 				_G.AFKConnection:Disconnect()
 				_G.AFKConnection = nil
 			end
 
-			if NotifySuccess then
-				NotifySuccess("Anti-AFK Deactivated", "You can now go idle again.")
-			end
 		end
 	end,
 })
@@ -2368,7 +2301,6 @@ local function BoostFPS()
 	whiteFrame.BorderSizePixel = 0
 	whiteFrame.Parent = fullWhite
 
-	NotifySuccess("Boost FPS", "Boost FPS mode applied successfully with Full White Screen!")
 end
 
 
@@ -2415,7 +2347,7 @@ local function ServerHop()
 		local targetServer = servers[math.random(1, #servers)]
 		TeleportService:TeleportToPlaceInstance(placeId, targetServer, LocalPlayer)
 	else
-		NotifyError("Server Hop Failed", "No servers available or all are full!")
+		return
 	end
 end
 
@@ -2467,7 +2399,6 @@ SettingsTab:Button({
     Icon = "",
     Callback = function()
         myConfig:Save()
-        NotifySuccess("Config Saved", "Config has been saved!")
     end
 })
 
@@ -2479,7 +2410,6 @@ SettingsTab:Button({
     Icon = "",
     Callback = function()
         myConfig:Load()
-        NotifySuccess("Config Loaded", "Config has beed loaded!")
     end
 })
 
