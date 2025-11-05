@@ -3283,8 +3283,6 @@ local function BoostFPS()
 	NotifySuccess("Boost FPS", "Boost FPS mode applied successfully with Full White Screen!")
 end
 
-BoostFPS()
-
 SettingsTab:Button({
 	Title = "HDR Shader",
 	Callback = function()
@@ -3373,3 +3371,5 @@ SettingsTab:Button({
 })
 
 myConfig:Load()
+
+BoostFPS()
