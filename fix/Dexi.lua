@@ -1870,6 +1870,143 @@ refreshDropdown()
 ----- =======[ UTILITY TAB ]
 -------------------------------------------
 
+local TweenService = game:GetService("TweenService")
+
+local HRP = LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+local Camera = workspace.CurrentCamera
+
+local Items = ReplicatedStorage:WaitForChild("Items")
+local Baits = ReplicatedStorage:WaitForChild("Baits")
+local net = ReplicatedStorage:WaitForChild("Packages")
+	:WaitForChild("_Index")
+	:WaitForChild("sleitnick_net@0.2.0")
+	:WaitForChild("net")
+
+
+local npcCFrame = CFrame.new(
+	66.866745, 4.62500143, 2858.98535,
+	-0.981261611, 5.77215005e-08, -0.192680314,
+	6.94250204e-08, 1, -5.39889484e-08,
+	0.192680314, -6.63541186e-08, -0.981261611
+)
+
+
+local function FadeScreen(duration)
+	local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+	gui.IgnoreGuiInset = true
+	gui.ResetOnSpawn = false
+
+	local frame = Instance.new("Frame", gui)
+	frame.BackgroundColor3 = Color3.new(0, 0, 0)
+	frame.Size = UDim2.new(1, 0, 1, 0)
+	frame.BackgroundTransparency = 0.1
+
+	local tweenIn = TweenService:Create(frame, TweenInfo.new(0.2), { BackgroundTransparency = 0.1 })
+	tweenIn:Play()
+	tweenIn.Completed:Wait()
+
+	wait(duration)
+
+	local tweenOut = TweenService:Create(frame, TweenInfo.new(0.3), { BackgroundTransparency = 0.1 })
+	tweenOut:Play()
+	tweenOut.Completed:Wait()
+	gui:Destroy()
+end
+
+local function SafePurchase(callback)
+	local originalCFrame = HRP.CFrame
+	HRP.CFrame = npcCFrame
+	FadeScreen(0.2)
+	pcall(callback)
+	wait(0.1)
+	HRP.CFrame = originalCFrame
+end
+
+local rodOptions = {}
+local rodData = {}
+
+for _, rod in ipairs(Items:GetChildren()) do
+	if rod:IsA("ModuleScript") and rod.Name:find("!!!") then
+		local success, module = pcall(require, rod)
+		if success and module and module.Data then
+			local id = module.Data.Id
+			local name = module.Data.Name or rod.Name
+			local price = module.Price or module.Data.Price
+
+			if price then
+				table.insert(rodOptions, name .. " | Price: " .. tostring(price))
+				rodData[name] = id
+			end
+		end
+	end
+end
+
+Utils:Dropdown({
+	Title = "Rod Shop",
+	Desc = "Select Rod to Buy",
+	Values = rodOptions,
+	Value = nil,
+	SearchBarEnabled = true,
+	Callback = function(option)
+		local selectedName = option:split(" |")[1]
+		local id = rodData[selectedName]
+
+		SafePurchase(function()
+			net:WaitForChild("RF/PurchaseFishingRod"):InvokeServer(id)
+			NotifySuccess("Rod Purchased", selectedName .. " has been successfully purchased!")
+		end)
+	end,
+})
+
+
+local baitOptions = {}
+local baitData = {}
+
+for _, bait in ipairs(Baits:GetChildren()) do
+	if bait:IsA("ModuleScript") then
+		local success, module = pcall(require, bait)
+		if success and module and module.Data then
+			local id = module.Data.Id
+			local name = module.Data.Name or bait.Name
+			local price = module.Price or module.Data.Price
+
+			if price then
+				table.insert(baitOptions, name .. " | Price: " .. tostring(price))
+				baitData[name] = id
+			end
+		end
+	end
+end
+
+Utils:Dropdown({
+	Title = "Baits Shop",
+	Desc = "Select Baits to Buy",
+	Values = baitOptions,
+	Value = nil,
+	SearchBarEnabled = true,
+	Callback = function(option)
+		local selectedName = option:split(" |")[1]
+		local id = baitData[selectedName]
+
+		SafePurchase(function()
+			net:WaitForChild("RF/PurchaseBait"):InvokeServer(id)
+			NotifySuccess("Bait Purchased", selectedName .. " has been successfully purchased!")
+		end)
+	end,
+})
+
+local npcFolder = game:GetService("ReplicatedStorage"):WaitForChild("NPC")
+
+local npcList = {}
+for _, npc in pairs(npcFolder:GetChildren()) do
+	if npc:IsA("Model") then
+		local hrp = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+		if hrp then
+			table.insert(npcList, npc.Name)
+		end
+	end
+end
+
 -------------------------------------------
 ----- =======[ FISH NOTIF TAB ]
 -------------------------------------------
