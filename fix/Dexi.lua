@@ -1281,11 +1281,11 @@ local function startAutoFarmLoop()
         hrp.CFrame = location  
         task.wait(1.5)  
 
-        StartAutoFish5X()
+        _G.ToggleAutoClick(true)
         
         while isAutoFarmRunning do
             if not isAutoFarmRunning then  
-                StopAutoFish5X()  
+                _G.ToggleAutoClick(false)  
                 break  
             end  
             task.wait(0.5)
