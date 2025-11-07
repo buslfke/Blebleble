@@ -47,8 +47,14 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
 end)
 
-for i,v in next, getconnections(game:GetService("Players").LocalPlayer.Idled) do
-                    v:Disable()
+local VirtualUser = game:GetService("VirtualUser")
+
+if Player and VirtualUser then
+    Player.Idled:Connect(function()
+        pcall(function()
+            VirtualUser:CaptureController(); VirtualUser:ClickButton2(Vector2.new())
+        end)
+    end)
 end
 
 task.spawn(function()

@@ -39,8 +39,14 @@ end)
 local TeleportService = game:GetService("TeleportService")
 local PlaceId = game.PlaceId
 
-for i,v in next, getconnections(game:GetService("Players").LocalPlayer.Idled) do
-                    v:Disable()
+local VirtualUser = game:GetService("VirtualUser")
+
+if Player and VirtualUser then
+    Player.Idled:Connect(function()
+        pcall(function()
+            VirtualUser:CaptureController(); VirtualUser:ClickButton2(Vector2.new())
+        end)
+    end)
 end
 
 local function AutoReconnect()
