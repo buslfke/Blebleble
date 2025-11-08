@@ -1792,95 +1792,108 @@ AutoFarmArt:Button({
 ----- =======[ MASS TRADE TAB ]
 -------------------------------------------
 
-Trade:Section({
-	Title = "Auto Trade Menu",
-	TextSize = 22,
-	TextXAlignment = "Center",
-})
-
-local TradeFunction = {
-	TempTradeList = {},
-	saveTempMode = false,
-	onTrade = false,
-	targetUserId = nil,
-	tradingInProgress = false,
-	autoAcceptTrade = false,
-	AutoTrade = false
+-- [Trade State Baru]
+local tradeState = { 
+    mode = "V1",
+    selectedPlayerName = nil, 
+    selectedPlayerId = nil, 
+    tradeAmount = 0, 
+    autoTradeV2 = false,
+    filterUnfavorited = false,
+    
+    saveTempMode = false,
+    TempTradeList = {}, 
+    onTrade = false 
 }
 
-local RETextNotification = net["RE/TextNotification"]
-local RFAwaitTradeResponse = net["RF/AwaitTradeResponse"]
-local InitiateTrade = net["RF/InitiateTrade"]
+-- [Cache & Utility untuk Mode V2]
+local inventoryCache = {}
+local fullInventoryDropdownList = {}
 
-local function getPlayerList()
-    local list = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            table.insert(list, player.DisplayName .. " (" .. player.Name .. ")")
-        end
-    end
+-- Asumsi Modul game inti sudah tersedia (seperti Replion)
+local ItemUtility = _G.ItemUtility or require(ReplicatedStorage.Shared.ItemUtility) 
+local ItemStringUtility = _G.ItemStringUtility or require(ReplicatedStorage.Modules.ItemStringUtility)
+local InitiateTrade = net:WaitForChild("RF/InitiateTrade") 
+local RFAwaitTradeResponse = net:WaitForChild("RF/AwaitTradeResponse") 
+
+-- Fungsi utilitas untuk mendapatkan daftar pemain
+local function getPlayerListV2()
+    local list = {}; 
+    for _, p in ipairs(Players:GetPlayers()) do 
+        if p ~= LocalPlayer then 
+            table.insert(list, p.Name) 
+        end 
+    end; 
+    table.sort(list); 
     return list
 end
 
-local TradeTargetDropdown = Trade:Dropdown({
-    Title = "Select Trade Target",
-    Values = getPlayerList(),
-    Value = getPlayerList()[1] or nil,
-    Callback = function(selected)
-        local username = selected:match("%((.-)%)")
-        local player = Players:FindFirstChild(username)
-        if player then
-            TradeFunction.targetUserId = player.UserId
-            NotifySuccess("Trade Target", "Target found: " .. player.Name)
-        else
-            NotifyError("Trade Target", "Player not found!")
+-- =======================================================
+-- LOGIKA PEMBARUAN INVENTARIS 
+-- =======================================================
+
+local function refreshInventory()
+    local DataReplion = _G.Replion.Client:WaitReplion("Data")
+    if not DataReplion or not ItemUtility or not ItemStringUtility then 
+        warn("Cannot refresh inventory: Missing modules.")
+        return 
+    end
+    
+    local inventoryItems = DataReplion:Get({ "Inventory", "Items" })
+    local groupedItems = {}
+    inventoryCache = {}
+    fullInventoryDropdownList = {}
+
+    if not inventoryItems then return end
+
+    for _, itemData in ipairs(inventoryItems) do
+        local baseItemData = ItemUtility:GetItemData(itemData.Id)
+        
+        if baseItemData and baseItemData.Data and (baseItemData.Data.Type == "Fish" or baseItemData.Data.Type == "Enchant Stones") then
+            -- Filter Unfavorited (Mode V2)
+            if not (tradeState.filterUnfavorited and itemData.Favorited) then
+                local dynamicName = ItemStringUtility.GetItemName(itemData, baseItemData)
+                if not groupedItems[dynamicName] then
+                    groupedItems[dynamicName] = 0
+                    inventoryCache[dynamicName] = {}
+                end
+                groupedItems[dynamicName] = (groupedItems[dynamicName] or 0) + 1
+                table.insert(inventoryCache[dynamicName], itemData.UUID)
+            end
         end
     end
-})
 
-local function refreshDropdown()
-    local updatedList = getPlayerList()
-    TradeTargetDropdown:Refresh(updatedList)
+    for name, count in pairs(groupedItems) do
+        table.insert(fullInventoryDropdownList, string.format("%s (%dx)", name, count))
+    end
+    table.sort(fullInventoryDropdownList)
+
+    -- Perbarui Dropdown Item dan Pemain
+    if _G.InventoryDropdown then _G.InventoryDropdown:Refresh(fullInventoryDropdownList) end
+    if _G.PlayerDropdownTrade then _G.PlayerDropdownTrade:Refresh(getPlayerListV2()) end
 end
 
-Players.PlayerAdded:Connect(refreshDropdown)
-Players.PlayerRemoving:Connect(refreshDropdown)
-
-refreshDropdown()
-
-Trade:Toggle({
-    Title = "Mode Save Items",
-    Desc = "Click inventory item to add for Mass Trade",
-    Value = false,
-    Callback = function(state)
-        TradeFunction.saveTempMode = state
-        if state then
-            TradeFunction.TempTradeList = {}
-            NotifySuccess("Save Mode", "Enabled - Click items to save")
-        else
-            NotifyInfo("Save Mode", "Disabled - "..#TradeFunction.TempTradeList.." items saved")
-        end
-    end
-})
-
-
-_G.REEquipItem = game:GetService("ReplicatedStorage")
-    .Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
+-- =======================================================
+-- LOGIKA HOOKING
+-- =======================================================
 
 local mt = getrawmetatable(game)
 local oldNamecall = mt.__namecall
 setreadonly(mt, false)
+_G.REEquipItem = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
+
 
 mt.__namecall = newcclosure(function(self, ...)
     local args = {...}
     local method = getnamecallmethod()
 
+    -- Logika Save/Send Trade Original (Mode Quiet)
     if method == "FireServer" and self == _G.REEquipItem then
         local uuid, categoryName = args[1], args[2]
 
-        if TradeFunction.saveTempMode then
+        if tradeState.mode == "V1" and tradeState.saveTempMode then
             if uuid and categoryName then
-                table.insert(TradeFunction.TempTradeList, {
+                table.insert(tradeState.TempTradeList, {
                     UUID = uuid,
                     Category = categoryName
                 })
@@ -1891,11 +1904,10 @@ mt.__namecall = newcclosure(function(self, ...)
             return nil
         end
 
-        -- Mode Trade
-        if TradeFunction.onTrade then
-            if uuid and TradeFunction.targetUserId then
-                InitiateTrade:InvokeServer(TradeFunction.targetUserId, uuid)
-                NotifySuccess("Trade Sent", "Trade sent to " .. TradeFunction.targetUserId)
+        if tradeState.mode == "V1" and tradeState.onTrade then
+            if uuid and tradeState.selectedPlayerId then
+                InitiateTrade:InvokeServer(tradeState.selectedPlayerId, uuid)
+                NotifySuccess("Trade Sent", "Trade sent to " .. tradeState.selectedPlayerName or tradeState.selectedPlayerId)
             else
                 NotifyError("Trade Error", "Invalid target or item.")
             end
@@ -1903,118 +1915,141 @@ mt.__namecall = newcclosure(function(self, ...)
         end
     end
 
+	if _G.autoSellMythic 
+		and method == "FireServer"
+		and self == _G.REEquipItem 
+		and typeof(args[1]) == "string"
+		and args[2] == "Fishes" then
+
+		local uuid = args[1]
+
+		task.delay(1, function()
+			pcall(function()
+				local result = RFSellItem:InvokeServer(uuid)
+				if result then
+					NotifySuccess("AutoSellMythic", "Items Sold!!")
+				else
+					NotifyError("AutoSellMythic", "Failed to sell item!!")
+				end
+			end)
+		end)
+	end
+    
     return oldNamecall(self, ...)
 end)
-
 setreadonly(mt, true)
 
-local function TradeAll()        
-    if TradeFunction.tradingInProgress then        
-        NotifyWarning("Mass Trade", "Trade already in progress!")        
-        return        
-    end        
-    if not TradeFunction.targetUserId then        
-        NotifyError("Mass Trade", "Set trade target first!")        
-        return        
-    end        
-    if #TradeFunction.TempTradeList == 0 then        
-        NotifyWarning("Mass Trade", "No items saved!")        
-        return        
-    end        
-        
-    TradeFunction.tradingInProgress = true        
-    NotifyInfo("Mass Trade", "Starting trade of "..#TradeFunction.TempTradeList.." items...")        
-        
-    task.spawn(function()        
-        for i, item in ipairs(TradeFunction.TempTradeList) do        
-            if not TradeFunction.AutoTrade then        
-                NotifyWarning("Mass Trade", "Auto Trade stopped!")        
-                break        
-            end        
-        
-            local uuid = item.UUID        
-            local category = item.Category        
-        
-            NotifyInfo("Mass Trade", "Trade item "..i.." of "..#TradeFunction.TempTradeList)        
-            InitiateTrade:InvokeServer(TradeFunction.targetUserId, uuid, category)        
-        
-            local tradeCompleted = false        
-            local timeout = 15        
-            local elapsed = 0        
-            local lastTrigger = 0
-            local cooldown = 0.5        
-        
-            local notifGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Text Notifications")
-            local connection
-            connection = notifGui.Frame.ChildAdded:Connect(function(child)
-                if child.Name == "TextTile" then
-                    task.wait(0.5)
-                    local header = child:FindFirstChild("Header")
-                    if header and header:IsA("TextLabel") and header.Text == "Trade completed!" then
-                        local now = tick()
-                        if now - lastTrigger > cooldown then
-                            lastTrigger = now
-                            tradeCompleted = true
-                            NotifySuccess("Mass Trade", "Success "..i.." of "..#TradeFunction.TempTradeList)
-                        end
-                    end
-                end
-            end)        
-        
-            repeat        
-                task.wait(0.2)        
-                elapsed += 0.2        
-            until tradeCompleted or elapsed >= timeout        
-        
-            if connection then        
-                connection:Disconnect()        
-            end        
-        
-            if not tradeCompleted then        
-                NotifyWarning("Mass Trade", "Trade timeout for item "..i)        
-            else        
-                task.wait(6.5)        
-            end        
-        end        
-        
-        NotifySuccess("Mass Trade", "Finished trading!")        
-        TradeFunction.tradingInProgress = false        
-        TradeFunction.TempTradeList = {}        
-    end)        
-end
-
-Trade:Toggle({
-    Title = "Auto Trade",
-    Desc = "Trade all saved items automatically",
-    Value = false,
-    Callback = function(state)
-        TradeFunction.AutoTrade = state
-        if TradeFunction.AutoTrade then
-            if #TradeFunction.TempTradeList == 0 then
-                NotifyError("Mass Trade", "No items saved to trade!")
-                TradeFunction.AutoTrade = false
-                return
+-- Implementasi Auto Accept Trade
+pcall(function()
+    local PromptController = _G.PromptController or ReplicatedStorage:WaitForChild("Controllers").PromptController 
+    local Promise = _G.Promise or require(ReplicatedStorage.Packages.Promise) 
+    
+    if PromptController and PromptController.FirePrompt then
+        local oldFirePrompt = PromptController.FirePrompt
+        PromptController.FirePrompt = function(self, promptText, ...)
+            -- Cek apakah Auto Accept aktif dan prompt adalah Trade
+            if _G.AutoAcceptTradeEnabled and type(promptText) == "string" and promptText:find("Accept") and promptText:find("from:") then
+                -- Mengembalikan Promise yang otomatis me-resolve (menerima) setelah jeda.
+                return Promise.new(function(resolve)
+                    task.wait(2) -- Tunggu 2 detik
+                    resolve(true)
+                end)
             end
-            TradeAll()
-            NotifySuccess("Mass Trade", "Auto Trade Enabled")
-        else
-            NotifyWarning("Mass Trade", "Auto Trade Disabled")
+            return oldFirePrompt(self, promptText, ...)
+        end
+    end
+end)
+
+
+-- =======================================================
+-- DEFINISI UI
+-- =======================================================
+
+Trade:Section({Title = "Trade Mode Selection"})
+
+local modeDropdown = Trade:Dropdown({
+    Title = "Select Trade Mode",
+    Values = {"V1", "V2"},
+    Value = "V1",
+    Callback = function(v)
+        tradeState.mode = v
+        NotifySuccess("Mode Changed", "Trade mode set to: " .. v, 3)
+        local isQuiet = v == "Quiet"
+        if _G.TradeV2Elements then
+            for _, element in ipairs(_G.TradeV2Elements) do
+                if element.Element then element.Element.Visible = not isQuiet end
+            end
+        end
+        if _G.TradeQuietElements then
+            for _, element in ipairs(_G.TradeQuietElements) do
+                if element.Element then element.Element.Visible = isQuiet end
+            end
         end
     end
 })
 
-local OTBlockNotif = true
+local playerDropdown = Trade:Dropdown({
+    Title = "Select Trade Target",
+    Values = getPlayerListV2(),
+    Value = getPlayerListV2()[1] or nil,
+    SearchBarEnabled = true,
+    Callback = function(selected)
+        tradeState.selectedPlayerName = selected
+        local player = Players:FindFirstChild(selected)
+        if player then
+            tradeState.selectedPlayerId = player.UserId
+            NotifySuccess("Target Selected", "Target set to: " .. player.Name, 3)
+        else
+            tradeState.selectedPlayerId = nil
+            NotifyError("Target Error", "Player not found!", 3)
+        end
+    end
+})
+_G.PlayerDropdownTrade = playerDropdown -- Simpan referensi untuk refresh
+
+Trade:Section({Title = "Auto Accept Trade"})
 
 Trade:Toggle({
-    Title = "Trade (Original)",
+    Title = "Enable Auto Accept Trade",
+    Desc = "Automatically accepts incoming trade requests.",
+    Value = false,
+    Callback = function(value)
+        _G.AutoAcceptTradeEnabled = value
+        if value then
+            NotifySuccess("Auto Accept", "Auto accept trade enabled.", 3)
+        else
+            NotifyWarning("Auto Accept", "Auto accept trade disabled.", 3)
+        end
+    end
+})
+
+Trade:Section({Title = "Mode V1"})
+_G.TradeQuietElements = {}
+
+-- Toggle Mode Save Items (Mode V1)
+local saveModeToggle = Trade:Toggle({
+    Title = "Mode Save Items",
+    Desc = "Click inventory item to add for Mass Trade",
+    Value = false,
+    Callback = function(state)
+        tradeState.saveTempMode = state
+        if state then
+            tradeState.TempTradeList = {}
+            NotifySuccess("Save Mode", "Enabled - Click items to save")
+        else
+            NotifyInfo("Save Mode", "Disabled - "..#tradeState.TempTradeList.." items saved")
+        end
+    end
+})
+table.insert(_G.TradeQuietElements, {Element = saveModeToggle})
+
+-- Toggle Trade (Original Send) (V1)
+local originalTradeToggle = Trade:Toggle({
+    Title = "Trade (Original Send)",
     Desc = "Click inventory items to Send Trade",
     Value = false,
     Callback = function(state)
-				if OTBlockNotif then
-					OTBlockNotif = false
-					return
-				end
-        TradeFunction.onTrade = state
+        tradeState.onTrade = state
         if state then
             NotifySuccess("Trade", "Trade Mode Enabled. Click an item to send trade.")
         else
@@ -2022,37 +2057,181 @@ Trade:Toggle({
         end
     end
 })
+table.insert(_G.TradeQuietElements, {Element = originalTradeToggle})
 
-local RFAwaitTradeResponse = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/AwaitTradeResponse"]
-
-local autoAcceptTrade = false
-local TRADE_DELAY = 3
-
-RFAwaitTradeResponse.OnClientInvoke = function(fromPlayer, timeNow)
-	if autoAcceptTrade then
-
-		task.wait(TRADE_DELAY)
-
-		local newTime = workspace:GetServerTimeNow() + TRADE_DELAY
-
-		return true
-	else
-		return nil
-	end
+-- Fungsi Trade All (Mode V1)
+local function TradeAllQuiet()       
+    if not tradeState.selectedPlayerId then    
+        NotifyError("Mass Trade", "Set trade target first!")       
+        return         
+    end          
+    if #tradeState.TempTradeList == 0 then       
+        NotifyWarning("Mass Trade", "No items saved!")          
+        return         
+    end          
+    
+    NotifyInfo("Mass Trade", "Starting V1 trade of "..#tradeState.TempTradeList.." items...")      
+    
+    task.spawn(function()          
+        for i, item in ipairs(tradeState.TempTradeList) do          
+            if not tradeState.autoTradeV2 then
+                NotifyWarning("Mass Trade", "V1 Trade stopped!")         
+                break          
+            end          
+        
+            local uuid = item.UUID          
+            local category = item.Category          
+        
+            NotifyInfo("Mass Trade", "Trade item "..i.." of "..#tradeState.TempTradeList)          
+            InitiateTrade:InvokeServer(tradeState.selectedPlayerId, uuid, category)          
+        
+            -- Trade response logic (asli, tidak sempurna)
+            task.wait(6.5) -- Delay antar trade         
+        end          
+    
+        NotifySuccess("Mass Trade", "Finished V1 trading!")        
+        tradeState.autoTradeV2 = false          
+        tradeState.TempTradeList = {}          
+    end)          
 end
 
-Trade:Toggle({
-	Title = "Auto Accept Trade",
-	Value = false,
-	Callback = function(state)
-		autoAcceptTrade = state
-		if state then
-			NotifySuccess("Trade", "Auto Accept Trade Enabled")
-		else
-			NotifyWarning("Trade", "Auto Accept Trade Disabled")
-		end
-	end
+-- Toggle Auto Trade (Mode V1)
+local autoTradeQuietToggle = Trade:Toggle({
+    Title = "Start Mass Trade V1",
+    Desc = "Trade all saved items automatically.",
+    Value = false,
+    Callback = function(state)
+        tradeState.autoTradeV2 = state
+        if tradeState.mode == "V1" and state then
+            if #tradeState.TempTradeList == 0 then
+                NotifyError("Mass Trade", "No items saved to trade!")
+                tradeState.autoTradeV2 = false
+                return
+            end
+            TradeAllQuiet()
+            NotifySuccess("Mass Trade", "V1 Auto Trade Enabled")
+        else
+            NotifyWarning("Mass Trade", "V1 Auto Trade Disabled")
+        end
+    end
 })
+table.insert(_G.TradeQuietElements, {Element = autoTradeQuietToggle})
+
+Trade:Section({Title = "V2"})
+_G.TradeV2Elements = {}
+
+local filterToggleV2 = Trade:Toggle({
+    Title = "Filter Unfavorited Items Only",
+    Value = false,
+    Callback = function(val)
+        tradeState.filterUnfavorited = val
+        refreshInventory()
+        NotifyInfo("Filter Updated", "Inventory list refreshed.", 3)
+    end
+})
+table.insert(_G.TradeV2Elements, {Element = filterToggleV2})
+
+_G.InventoryDropdown = Trade:Dropdown({
+    Title = "Select Item from Inventory",
+    Values = {"- Refresh to load -"},
+    AllowNone = true,
+    SearchBarEnabled = true,
+    Callback = function(val)
+        tradeState.selectedItemName = val
+    end
+})
+table.insert(_G.TradeV2Elements, {Element = _G.InventoryDropdown})
+
+Trade:Button({ Title = "Refresh Inventory & Players", Icon = "refresh-cw", Callback = refreshInventory })
+
+local amountInputV2 = Trade:Input({
+    Title = "Amount to Trade",
+    Placeholder = "Enter amount...",
+    Type = "Input",
+    Callback = function(val)
+        tradeState.tradeAmount = tonumber(val) or 0
+    end
+})
+table.insert(_G.TradeV2Elements, {Element = amountInputV2})
+
+local statusParagraphV2 = Trade:Paragraph({ Title = "Status V2", Desc = "Waiting to start..." })
+table.insert(_G.TradeV2Elements, {Element = statusParagraphV2})
+
+-- Toggle Start Mass Trade (V2)
+Trade:Toggle({
+    Title = "Start Mass Trade V2",
+    Value = false,
+    Callback = function(value)
+        tradeState.autoTradeV2 = value
+        if tradeState.mode == "V2" and value then
+            task.spawn(function()
+                if not tradeState.selectedItemName or not tradeState.selectedPlayerId or tradeState.tradeAmount <= 0 then
+                    statusParagraphV2:SetDesc("Error: Select item, amount, and player.")
+                    tradeState.autoTradeV2 = false
+                    return
+                end
+
+                local cleanItemName = tradeState.selectedItemName:match("^(.*) %((%d+)x%)$")
+                if cleanItemName then cleanItemName = cleanItemName:match("^(.*)") end 
+                if not cleanItemName then cleanItemName = tradeState.selectedItemName end
+
+                local uuidsToSend = inventoryCache[cleanItemName]
+
+                if not uuidsToSend or #uuidsToSend < tradeState.tradeAmount then
+                    statusParagraphV2:SetDesc("Error: Not enough items. Refresh inventory.")
+                    tradeState.autoTradeV2 = false
+                    return
+                end
+
+                local successCount, failCount = 0, 0
+                local targetName = tradeState.selectedPlayerName
+
+                for i = 1, tradeState.tradeAmount do 
+                    if not tradeState.autoTradeV2 then
+                        statusParagraphV2:SetDesc("Process stopped by user.")
+                        break
+                    end
+
+                    local uuid = uuidsToSend[i]
+                    statusParagraphV2:SetDesc(string.format(
+                        "Progress: %d/%d | Sending to: %s | Status: <font color='#eab308'>Waiting...</font>",
+                        i, tradeState.tradeAmount, targetName))
+
+                    local success, result = pcall(InitiateTrade.InvokeServer, InitiateTrade, tradeState.selectedPlayerId, uuid)
+
+                    if success and result then
+                        successCount = successCount + 1
+                    else
+                        failCount = failCount + 1
+                    end
+
+                    statusParagraphV2:SetDesc(string.format(
+                        "Progress: %d/%d | Sent: %s | Success: %d | Failed: %d",
+                        i, tradeState.tradeAmount, success and "âœ…" or "âŒ", successCount, failCount))
+                    
+                    task.wait(5) 
+                end
+
+                statusParagraphV2:SetDesc(string.format(
+                    "Trade V2 Process Complete.\nSuccessful: %d | Failed: %d",
+                    successCount, failCount))
+
+                tradeState.autoTradeV2 = false
+                refreshInventory()
+            end)
+        end
+    end
+})
+
+-- Sembunyikan elemen GLua secara default, kecuali tombol refresh dan dropdown mode
+for _, element in ipairs(_G.TradeV2Elements) do
+    if element.Element then element.Element.Visible = false end
+end
+
+-- Pastikan elemen Quiet terlihat
+for _, element in ipairs(_G.TradeQuietElements) do
+    if element.Element then element.Element.Visible = true end
+end
 
 -------------------------------------------
 ----- =======[ PLAYER TAB ]

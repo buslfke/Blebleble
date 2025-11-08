@@ -311,7 +311,7 @@ _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1
 _G.obtainedFishUUIDs = {}
 _G.obtainedLimit = 30
-_G.sellActive = false
+_G.sellActive = true
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
@@ -622,7 +622,7 @@ _G.FishSec:Slider({
 
 _G.FishSec:Toggle({
     Title = "Auto Sell",
-    Value = false,
+    Value = true,
     Callback = function(state)
         _G.sellActive = state
         if state then
