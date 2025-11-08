@@ -177,22 +177,21 @@ end)
 -------------------------------------------
 
 WindUI:AddTheme({
-    Name = "Pink Blossom", -- Nama tema diubah
+    Name = "Deep Sea Dawn",
     Accent = WindUI:Gradient({
-        ["0"]   = { Color = Color3.fromHex("#FFC1E3"), Transparency = 0 }, -- Merah Muda Cerah (Light Pink)
-        ["100"] = { Color = Color3.fromHex("#DB6C91"), Transparency = 0 }, -- Warna Dasar (Rose Pink/Deep Pink)
+        ["0"]   = { Color = Color3.fromHex("#FFC700"), Transparency = 0 }, -- Cahaya Fajar/Emas Ikan
+        ["100"] = { Color = Color3.fromHex("#00BFFF"), Transparency = 0 }, -- Biru Langit Cerah
     }, {
-        Rotation = 90,
+        Rotation = 45,
     }),
-    Dialog = Color3.fromHex("#3F0B20"),      -- Latar Belakang Dialog Gelap (Deep Maroon/Burgundy)
-    Outline = Color3.fromHex("#FFEBF5"),     -- Garis Luar Sangat Terang (Near White)
-    Text = Color3.fromHex("#FFF0F5"),        -- Teks Utama (Blossom/Putih keMerahan)
-    Placeholder = Color3.fromHex("#CBAFBC"), -- Placeholder/Teks Sekunder (Muted Rose)
-    Background = Color3.fromHex("#2F0A18"),  -- Latar Belakang Utama Sangat Gelap (Very Deep Red/Plum)
-    Button = Color3.fromHex("#913D63"),      -- Tombol (Deep Mauve/Dark Magenta)
-    Icon = Color3.fromHex("#F5D5E3")         -- Ikon (Pale Pink)
+    Dialog = Color3.fromHex("#082A4D"),      -- Biru Tua Dalam
+    Outline = Color3.fromHex("#9BCFFF"),     -- Refleksi Air Laut
+    Text = Color3.fromHex("#E0F4FF"),        -- Putih Awan
+    Placeholder = Color3.fromHex("#5B8CA3"), -- Bayangan di Kedalaman
+    Background = Color3.fromHex("#051930"),  -- Dasar Laut yang Gelap
+    Button = Color3.fromHex("#176FA8"),      -- Biru Laut Menengah
+    Icon = Color3.fromHex("#FFD75F")         -- Emas Ikan
 })
-
 WindUI.TransparencyValue = 0.3
 
 local Window = WindUI:CreateWindow({
@@ -202,7 +201,7 @@ local Window = WindUI:CreateWindow({
     Folder = "Dhoing",
     Size = UDim2.fromOffset(600, 400),
     Transparent = true,
-    Theme = "Pink Blossom",
+    Theme = "Deep Sea Dawn",
     KeySystem = false,
     ScrollBarEnabled = true,
     HideSearchBar = true,
