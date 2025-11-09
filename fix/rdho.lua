@@ -614,7 +614,7 @@ _G.FishSec = AutoFish:Section({
     Opened = true
 })
 
-_G.FishSec:Slider({
+_G.DelayFinish = _G.FishSec:Slider({
     Title = "Delay Finish",
     Step = 0.01,
     Value = {
@@ -626,6 +626,8 @@ _G.FishSec:Slider({
         _G.FINISH_DELAY = value
     end
 })
+
+myConfig:Register("DelayFinish", _G.DelayFinish)
 
 _G.RecastCD = _G.FishSec:Slider({
     Title = "Speed Legit",

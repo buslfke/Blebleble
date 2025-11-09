@@ -2531,39 +2531,22 @@ startFishDetection()
 -------------------------------------------
 
 
-_G.AntiAFKEnabled = true
-_G.AFKConnection = nil
+local RunService = game:GetService("RunService")
+
+function _G.Disable3DRendering(enabled)
+	if enabled then
+		RunService:Set3dRenderingEnabled(false)
+	else
+		RunService:Set3dRenderingEnabled(true)
+	end
+end
 
 SettingsTab:Toggle({
-	Title = "Anti-AFK",
-	Value = true,
-	Callback = function(Value)
-  
-		_G.AntiAFKEnabled = Value
-		if AntiAFKEnabled then
-			if AFKConnection then
-				AFKConnection:Disconnect()
-			end
-			
-			
-			local VirtualUser = game:GetService("VirtualUser")
-
-			_G.AFKConnection = LocalPlayer.Idled:Connect(function()
-				pcall(function()
-					VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-					task.wait(1)
-					VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-				end)
-			end)
-
-		else
-			if _G.AFKConnection then
-				_G.AFKConnection:Disconnect()
-				_G.AFKConnection = nil
-			end
-
-		end
-	end,
+    Title = "Disable 3D Rendering",
+    Value = false,
+    Callback = function(state)
+        _G.Disable3DRendering(state)
+    end
 })
 
 SettingsTab:Space()

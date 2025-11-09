@@ -2926,52 +2926,22 @@ startFishDetection()
 ----- =======[ SETTINGS TAB ]
 -------------------------------------------
 
+local RunService = game:GetService("RunService")
 
-local AntiAFKEnabled = true
-local AFKConnection = nil
+function _G.Disable3DRendering(enabled)
+	if enabled then
+		RunService:Set3dRenderingEnabled(false)
+	else
+		RunService:Set3dRenderingEnabled(true)
+	end
+end
 
 SettingsTab:Toggle({
-	Title = "Anti-AFK",
-	Value = true,
-	Callback = function(Value)
-		if Notifs.AFKBN then
-			Notifs.AFKBN = false
-			return
-		end
-  
-		AntiAFKEnabled = Value
-		if AntiAFKEnabled then
-			if AFKConnection then
-				AFKConnection:Disconnect()
-			end
-
-			
-			
-			local VirtualUser = game:GetService("VirtualUser")
-
-			AFKConnection = LocalPlayer.Idled:Connect(function()
-				pcall(function()
-					VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-					task.wait(1)
-					VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-				end)
-			end)
-
-			if NotifySuccess then
-				NotifySuccess("Anti-AFK Activated", "You will now avoid being kicked.")
-			end
-
-		else
-			if AFKConnection then
-				AFKConnection:Disconnect()
-				AFKConnection = nil
-			end
-
-			if NotifySuccess then
-				NotifySuccess("Anti-AFK Deactivated", "You can now go idle again.")
-			end
-		end
-	end,
+    Title = "Disable 3D Rendering",
+    Value = false,
+    Callback = function(state)
+        _G.Disable3DRendering(state)
+    end
 })
 
 SettingsTab:Button({
