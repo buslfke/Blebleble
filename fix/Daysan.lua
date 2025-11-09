@@ -986,33 +986,35 @@ end
 
   
   
-local workspace = game:GetService("Workspace")  
+local workspace = game:GetService("Workspace")
 
-local BlockEnabled = false 
+local BlockEnabled = false
 
-local function createLocalBlock(size, position, color)    
-    local part = Instance.new("Part")    
-    part.Size = size or Vector3.new(5, 1, 5)    
-    part.Position = position or (LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart.Position + Vector3.new(0, -3, 0)) or Vector3.new(0,5,0)    
-    part.Anchored = true    
+local function createLocalBlock(size, position, color)
+    local part = Instance.new("Part")
+    part.Size = size or Vector3.new(5, 1, 5)
+    part.Position = position or
+    (LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart.Position + Vector3.new(0, -3, 0)) or
+    Vector3.new(0, 5, 0)
+    part.Anchored = true
     part.CanCollide = true
-    part.Color = color or Color3.fromRGB(0, 0, 255)    
-    part.Material = Enum.Material.ForceField    
-    part.Name = "LocalBlock"    
-    part.Parent = workspace    
-    return part    
-end    
+    part.Color = color or Color3.fromRGB(0, 0, 255)
+    part.Material = Enum.Material.ForceField
+    part.Name = "LocalBlock"
+    part.Parent = workspace
+    return part
+end
 
 
-local function createBlockUnderPlayer()    
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then    
-        local hrp = LocalPlayer.Character.HumanoidRootPart    
+local function createBlockUnderPlayer()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
         if workspace:FindFirstChild("LocalBlock") then
             workspace.LocalBlock:Destroy()
         end
-        createLocalBlock(Vector3.new(6,1,6), hrp.Position - Vector3.new(0, 3, 0), Color3.fromRGB(0,0,255))    
-    end    
-end    
+        createLocalBlock(Vector3.new(6, 1, 6), hrp.Position - Vector3.new(0, 3, 0), Color3.fromRGB(0, 0, 255))
+    end
+end
 
 
 local function ToggleBlockOnce(state)
@@ -1026,190 +1028,185 @@ local function ToggleBlockOnce(state)
     end
 end
 
-local knownEvents = {}
+local function getPartRecursive(o)
+    if o:IsA("BasePart") then return o end
+    for _, c in ipairs(o:GetChildren()) do
+        local p = getPartRecursive(c)
+        if p then return p end
+    end
+    return nil
+end
 
-local eventCodes = {
-	["1"] = "Ghost Shark Hunt",
-	["2"] = "Shark Hunt",
-	["3"] = "Worm Hunt",
-	["4"] = "Black Hole",
-	["5"] = "Meteor Rain",
-	["6"] = "Ghost Worm",
-	["7"] = "Shocked",
-	["8"] = "Megalodon Hunt",
+local eventMap = {
+    ["Shark Hunt"]       = { name = "Shark Hunt", part = nil },
+    ["Ghost Shark Hunt"] = { name = "Ghost Shark Hunt", part = "Part" },
+    ["Worm Hunt"]        = { name = "Model", part = "Part" },
+    ["Black Hole"]       = { name = "BlackHole", part = nil },
+    ["Meteor Rain"]      = { name = "MeteorRain", part = nil },
+    ["Ghost Worm"]       = { name = "Model", part = "Part" },
+    ["Shocked"]          = { name = "Shocked", part = nil },
+    ["Megalodon Hunt"]   = { name = "Megalodon Hunt", part = "Color" },
 }
+
+local eventNames = {}
+for _, data in pairs(eventMap) do
+    if data.name ~= "Model" then
+        table.insert(eventNames, data.name)
+    end
+end
+table.insert(eventNames, "Worm Hunt")
+table.insert(eventNames, "Ghost Worm")
 
 local autoTPEvent = false
 local savedCFrame = nil
 local alreadyTeleported = false
 local teleportTime = nil
 local selectedEvent = nil
+local wasAutoFishing = false
 
 local function teleportTo(position)
-	local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
-	if char and char:FindFirstChild("HumanoidRootPart") then
-		char.HumanoidRootPart.CFrame = CFrame.new(position + Vector3.new(0, 20, 0))
-	end
+    _G.isTeleporting = true
+    local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+    if hrp then
+        local wasLocked = hrp.Anchored -- Jika fitur Lock Position aktif
+        if wasLocked then hrp.Anchored = false end
+        task.wait(0.1)
+
+        -- Teleport
+        hrp.CFrame = CFrame.new(position + Vector3.new(0, 15, 0))
+        ToggleBlockOnce(true)
+
+        task.wait(0.5)
+        if wasLocked then hrp.Anchored = true end
+    end
+    _G.isTeleporting = false
 end
 
 local function saveOriginalPosition()
-	local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
-	if char and char:FindFirstChild("HumanoidRootPart") then
-		savedCFrame = char.HumanoidRootPart.CFrame
-	end
+    local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        savedCFrame = char.HumanoidRootPart.CFrame
+    end
 end
 
 local function returnToOriginalPosition()
-	if savedCFrame then
-		local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
-		if char and char:FindFirstChild("HumanoidRootPart") then
-			char.HumanoidRootPart.CFrame = savedCFrame
-		end
-	end
+    if savedCFrame then
+        local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = savedCFrame
+        end
+    end
 end
 
-local function findEventModel(eventName)
+local function findEventPart(eventName)
     local menuRings = workspace:FindFirstChild("!!! MENU RINGS")
-    if menuRings and menuRings:FindFirstChild("Props") then
-        local props = menuRings.Props
-        local eventModel = props:FindFirstChild(eventName)
-        
-        if eventModel and eventModel:IsA("Model") then
-            if eventName == "Megalodon Hunt" then
-                local colorPart = eventModel:FindFirstChild("Color")
-                if colorPart and colorPart:IsA("BasePart") then
-                    return colorPart
-                end
-            end
+    if not menuRings then return nil end
 
-            if eventName == "Worm Hunt" or eventName == "Ghost Worm" then
-                for _, part in ipairs(eventModel:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        local linkedEvent = part:GetAttribute("LinkedEvent")
-                        if linkedEvent and typeof(linkedEvent) == "string" then
-                            if eventName:find("Ghost Worm") and linkedEvent:find("Admin - Ghost Worm") then
-                                return part
-                            elseif eventName == "Worm Hunt" and linkedEvent:find("Worm Hunt") then
-                                return part
-                            end
-                        end
-                    end
-                end
-            end
+    local props = menuRings:FindFirstChild("Props")
+    if not props then return nil end
 
-            if eventModel.PrimaryPart then
-                return eventModel.PrimaryPart
-            end
-            local firstPart = eventModel:FindFirstChildWhichIsA("BasePart", true)
-            if firstPart then
-                return firstPart
-            end
-        end
+    local targetEventData = eventMap[eventName]
+    if not targetEventData then return nil end
+
+    local eventModel = props:FindFirstChild(targetEventData.name)
+    if not eventModel or not eventModel:IsA("Model") then return nil end
+
+    local targetPart = nil
+
+    if eventName == "Megalodon Hunt" then
+        targetPart = eventModel:FindFirstChild("Color")
+    elseif eventName == "Ghost Shark Hunt" then
+        targetPart = eventModel:FindFirstChild("Part")
+    elseif eventName == "Worm Hunt" or eventName == "Ghost Worm" then
+        targetPart = eventModel:FindFirstChild("Part")
+    elseif eventModel.PrimaryPart and eventModel.PrimaryPart:IsA("BasePart") then
+        targetPart = eventModel.PrimaryPart
+    else
+
+        targetPart = getPartRecursive(eventModel)
     end
 
-
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj.Name:match("^Props") then
-            for _, child in ipairs(obj:GetChildren()) do
-                if child:IsA("Model") and child.Name == eventName then
-                    if eventName == "Megalodon Hunt" then
-                        local colorPart = child:FindFirstChild("Color")
-                        if colorPart and colorPart:IsA("BasePart") then
-                            return colorPart
-                        end
-                    end
-                    if eventName == "Worm Hunt" or eventName == "Ghost Worm" then
-                        for _, part in ipairs(child:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                local linkedEvent = part:GetAttribute("LinkedEvent")
-                                if linkedEvent and typeof(linkedEvent) == "string" then
-                                    if eventName:find("Ghost Worm") and linkedEvent:find("Admin - Ghost Worm") then
-                                        return part
-                                    elseif eventName == "Worm Hunt" and linkedEvent:find("Worm Hunt") then
-                                        return part
-                                    end
-                                end
-                            end
-                        end
-                    end
-                    if child.PrimaryPart then
-                        return child.PrimaryPart
-                    end
-                    local firstPart = child:FindFirstChildWhichIsA("BasePart", true)
-                    if firstPart then
-                        return firstPart
-                    end
-                end
-            end
-        end
+    if targetPart and targetPart:IsA("BasePart") then
+        return targetPart
     end
+
     return nil
 end
 
--- loop utama
 local function monitorAutoTP()
-	while true do
-		if autoTPEvent and selectedEvent then
-			local eventModel = findEventModel(selectedEvent)
+    while task.wait(3) do -- Cek setiap 3 detik
+        -- Periksa kondisi utama untuk menjalankan logika TP
+        if autoTPEvent and selectedEvent then
+            local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
 
-			if eventModel and not alreadyTeleported then
-				saveOriginalPosition()
+            if char then
+                local eventPart = findEventPart(selectedEvent)
 
-				local targetPos
-				if eventModel:IsA("BasePart") then
-					targetPos = eventModel.Position
-				elseif eventModel:IsA("Model") then
-					targetPos = eventModel:GetPivot().Position
-				end
+                if eventPart and not alreadyTeleported then
+                    -- === [ EVENT TERDETEKSI & BELUM TELEPORT ] ===
+                    saveOriginalPosition()
+                    wasAutoFishing = FuncAutoFish.autofish5x 
 
-				if targetPos then
-					teleportTo(targetPos)
-					if typeof(ToggleBlockOnce) == "function" then
-						ToggleBlockOnce(true)
-					end
-					alreadyTeleported = true
-					teleportTime = tick()
-					NotifySuccess("Event Farm", "Teleported to: " .. selectedEvent)
-				end
+                    if wasAutoFishing then
+                        _G.StopAutoFish5X() 
+                        task.wait(0.5)
+                    end
 
-			elseif alreadyTeleported then
-				-- timeout 15 menit
-				if teleportTime and (tick() - teleportTime >= 900) then
-					returnToOriginalPosition()
-					if typeof(ToggleBlockOnce) == "function" then
-						ToggleBlockOnce(false)
-					end
-					alreadyTeleported = false
-					teleportTime = nil
-					NotifyInfo("Event Timeout", "Returned after 15 minutes.")
-				-- event hilang
-				elseif not eventModel then
-					returnToOriginalPosition()
-					if typeof(ToggleBlockOnce) == "function" then
-						ToggleBlockOnce(false)
-					end
-					alreadyTeleported = false
-					teleportTime = nil
-					NotifyInfo("Event Ended", "Returned to start position.")
-				end
-			end
+                    teleportTo(eventPart.Position)
+                    alreadyTeleported = true
+                    teleportTime = tick()
 
-		else
-			-- autoTP mati
-			if alreadyTeleported then
-				returnToOriginalPosition()
-				if typeof(ToggleBlockOnce) == "function" then
-					ToggleBlockOnce(false)
-				end
-				alreadyTeleported = false
-				teleportTime = nil
-			end
-		end
-		task.wait(1)
-	end
+                    -- Mulai AutoFish setelah TP
+                    if wasAutoFishing then
+                        _G.StartAutoFish5X()
+                    end
+
+                    NotifySuccess("Event Farm", ("Teleported to %s. Farming started."):format(selectedEvent))
+                elseif alreadyTeleported then
+                    -- === [ SUDAH DI LOKASI EVENT ] ===
+
+                    -- Cek Event Hilang atau Timeout 15 menit
+                    local isTimeout = teleportTime and (tick() - teleportTime >= 900)
+
+                    if isTimeout or not eventPart then
+                        -- Hentikan AutoFish
+                        if wasAutoFishing then _G.StopAutoFish5X() end
+
+                        returnToOriginalPosition()
+
+                        NotifyInfo("Event Ended", ("Returned to start position. Reason: %s"):format(
+                            isTimeout and "Timeout 15m" or "Event Ended"
+                        ))
+
+                        -- Reset State
+                        alreadyTeleported = false
+                        teleportTime = nil
+
+                        -- Lanjutkan AutoFish jika sebelumnya aktif
+                        if wasAutoFishing then
+                            task.wait(1)
+                            _G.StartAutoFish5X()
+                        end
+                    end
+                end
+            end
+        else
+            -- === [ AUTO TP OFF ] ===
+            if alreadyTeleported then
+                if wasAutoFishing then _G.StopAutoFish5X() end
+                returnToOriginalPosition()
+                alreadyTeleported = false
+                teleportTime = nil
+                NotifyWarning("Auto TP Event", "Fitur dimatikan. Kembali ke posisi awal.")
+            end
+        end
+    end
 end
 
-task.spawn(monitorAutoTP)
+if _G.monitorTPThread then task.cancel(_G.monitorTPThread) end
+_G.monitorTPThread = task.spawn(monitorAutoTP)
 
 local selectedIsland = "09"
 local isAutoFarmRunning = false
