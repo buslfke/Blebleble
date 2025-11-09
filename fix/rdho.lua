@@ -474,22 +474,9 @@ _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
 end)
 
 function StartCast5X()
-    local getPowerFunction = Constants.GetPower
-    local perfectThreshold = 0.99
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
-    local calculationLoopStart = tick()
-    local timeoutDuration = 3
-    local lastPower = 0
-    while (tick() - calculationLoopStart < timeoutDuration) do
-        local currentPower = getPowerFunction(Constants, chargeStartTime)
-        if currentPower < lastPower and lastPower >= perfectThreshold then
-            break
-        end
-
-        lastPower = currentPower
-        task.wait(0.001)
-    end
+    task.wait()
     miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
 end
 
