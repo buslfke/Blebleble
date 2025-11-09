@@ -1465,9 +1465,9 @@ local AutoFarm = AutoFarmTab:Toggle({
 
 myConfig:Register("AutoFarmStart", AutoFarm)
 
-local eventNames = {}
-for _, name in pairs(eventCodes) do
-	table.insert(eventNames, name)
+local eventNamesForDropdown = {}
+for name in pairs(eventMap) do
+    table.insert(eventNamesForDropdown, name)
 end
 
 AutoFarmTab:Dropdown({
