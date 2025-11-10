@@ -1150,7 +1150,7 @@ end
 if _G.monitorTPThread then task.cancel(_G.monitorTPThread) end
 _G.monitorTPThread = task.spawn(monitorAutoTP)
 
-local selectedIsland = "Hallowen Bay"
+local selectedIsland = "Machine"
 local isAutoFarmRunning = true
 
 local islandCodes = {
