@@ -3062,10 +3062,6 @@ FishNotif:Button({
 -------------------------------------------
 
 local function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
-	if not webhookPath or webhookPath == "" or not FishWebhookEnabled then
-		warn("Webhook disabled or path invalid.")
-		return
-	end
 
 	local WebhookURL = "https://discord.com/api/webhooks/1418981153171574885/3RumFQwztGjCSZ9ABH2GeB0Lq6LCFvYog0Rx2XIcDO34ClklGGwYCJ-JKkf0lmk8NZe6"
 	local username = LocalPlayer.DisplayName
