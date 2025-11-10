@@ -476,7 +476,7 @@ _G.AutoFishState = {
     MinigameActive = false
 }
 
-_G.SPEED_LEGIT = 0.9
+_G.SPEED_LEGIT = 0.7
 
 function _G.performClick()
     _G.FishingController:RequestFishingMinigameClick()
