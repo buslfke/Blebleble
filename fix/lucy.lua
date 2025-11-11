@@ -1667,7 +1667,7 @@ local function startAutoFarmLoop()
         while isAutoFarmRunning do
             if not isAutoFarmRunning then
                 StopAutoFish5X()
-                NotifyWarning("Auto Farm Stopped", "Auto Farm manually disabled. Auto Fish stopped.")
+                NotifyWarning("Auto Farm Stopped", "Auto Farm manually disabled. Auto Fish stopped..")
                 break
             end
             task.wait(0.5)
