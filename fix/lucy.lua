@@ -673,7 +673,7 @@ _G.AutoFishState = {
     MinigameActive = false
 }
 
-_G.SPEED_LEGIT = 0.05
+_G.SPEED_LEGIT = 0.5
 
 function _G.performClick()
     _G.FishingController:RequestFishingMinigameClick()
@@ -1662,11 +1662,11 @@ local function startAutoFarmLoop()
         hrp.CFrame = location
         task.wait(1.5)
 
-        StartAutoFish5X()
+        _G.ToggleAutoClick(true)
 
         while isAutoFarmRunning do
             if not isAutoFarmRunning then
-                StopAutoFish5X()
+                _G.ToggleAutoClick(false)
                 NotifyWarning("Auto Farm Stopped", "Auto Farm manually disabled. Auto Fish stopped.")
                 break
             end
