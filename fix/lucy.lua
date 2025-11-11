@@ -1826,7 +1826,7 @@ _G.StartArtifactFarm = function()
     Player.Character:PivotTo(_G.ArtifactSpots["Spot " .. tostring(_G.CurrentSpot)])
     task.wait(1)
 
-    StartAutoFish5X()
+    _G.ToggleAutoClick(true)
     _G.AutoFishStarted = true
 
     _G.ArtifactConnection = REFishCaught.OnClientEvent:Connect(function(fishName, data)
@@ -1857,7 +1857,7 @@ _G.StartArtifactFarm = function()
                 end
             else
                 updateParagraph("Auto Farm Artifact", "All Artifacts collected! Unlocking Temple...")
-                StopAutoFish5X()
+                _G.ToggleAutoClick(false)
                 task.wait(1.5)
                 if typeof(_G.UnlockTemple) == "function" then
                     _G.UnlockTemple()
@@ -1870,7 +1870,7 @@ _G.StartArtifactFarm = function()
 end
 
 _G.StopArtifactFarm = function()
-    StopAutoFish()
+    StopCast()
     _G.ArtifactFarmEnabled = false
     _G.AutoFishStarted = false
     if _G.ArtifactConnection then
