@@ -2788,6 +2788,7 @@ _G.RedeemCodes = {
     "FISHMAS2025",
     "GOLDENSHARK",
     "THANKYOU",
+    "PURPLEMOON"
 }
 
 _G.RedeemAllCodes = function()
@@ -2802,6 +2803,8 @@ end
 Utils:Button({
     Title = "Redeem All Codes",
     Locked = false,
+    Justify = "Center",
+    Icon = "",
     Callback = function()
         _G.RedeemAllCodes()
     end
