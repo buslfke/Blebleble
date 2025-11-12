@@ -2,7 +2,7 @@
 ----- =======[ Load WindUI ]
 -------------------------------------------
 
-local Version = "1.6.4"
+local Version = "1.6.53"
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/download/" .. Version .. "/main.lua"))()
 
 -------------------------------------------
@@ -17,21 +17,6 @@ local net = ReplicatedStorage:WaitForChild("Packages")
 	:WaitForChild("sleitnick_net@0.2.0")
 	:WaitForChild("net")
 	
-local Notifs = {
-	WBN = true,
-	UniVBlockNotif = true,
-	AcceptBN = true,
-	TradeblockNotif = true,
-	AutoTBlockNotif = true,
-	floatBlockNotif = true,
-	FavBlockNotif = true,
-	FishBlockNotif = true,
-	DelayBlockNotif = true,
-	AFKBN = true,
-	APIBN = true,
-	ACBlock = true,
-	ABug = true,
-}
 
 local rodRemote = net:WaitForChild("RF/ChargeFishingRod")
 local miniGameRemote = net:WaitForChild("RF/RequestFishingMinigameStarted")
@@ -1019,10 +1004,6 @@ AutoFav:Toggle({
 	Title = "Enable Auto Favorite",
 	Value = false,
 	Callback = function(state)
-		if Notifs.FavBlockNotif then
-			Notifs.FavBlockNotif = false
-			return
-		end
 		GlobalFav.AutoFavoriteEnabled = state
 		if state then
 			NotifySuccess("Auto Favorite", "Auto Favorite feature enabled")
@@ -1112,10 +1093,6 @@ end)
 local floatPlatform = nil
 
 local function floatingPlat(enabled)
-	if Notifs.floatBlockNotif then
-		Notifs.floatBlockNotif = false
-		return
-	end
 	if enabled then
 			local charFolder = workspace:WaitForChild("Characters", 5)
 			local char = charFolder:FindFirstChild(LocalPlayer.Name)
@@ -1828,10 +1805,6 @@ Trade:Toggle({
     Desc = "Click inventory item to add for Mass Trade",
     Value = false,
     Callback = function(state)
-        if Notifs.TradeblockNotif then
-        	Notifs.TradeblockNotif = false
-					return
-				end
         TradeFunction.saveTempMode = state
         if state then
             TradeFunction.TempTradeList = {}
@@ -1954,10 +1927,6 @@ Trade:Toggle({
     Desc = "Trade all saved items automatically",
     Value = false,
     Callback = function(state)
-				if Notifs.AutoTBlockNotif then
-					Notifs.AutoTBlockNotif = false
-					return
-				end
         TradeFunction.AutoTrade = state
         if TradeFunction.AutoTrade then
             if #TradeFunction.TempTradeList == 0 then
@@ -2015,10 +1984,6 @@ Trade:Toggle({
 	Title = "Auto Accept Trade",
 	Value = false,
 	Callback = function(state)
-		if Notifs.ACBlock then
-			Notifs.ACBlock = false
-			return
-		end
 		autoAcceptTrade = state
 		if state then
 			NotifySuccess("Trade", "Auto Accept Trade Enabled")
@@ -2270,10 +2235,6 @@ local WeatherDropdown = Utils:Dropdown({
     Multi = true,
     AllowNone = true,
     Callback = function(selected)
-    	  if Notifs.WBN then
-    	  	Notifs.WBN = false
-    	  	return
-    	  end
         for weatherType, active in pairs(weatherActive) do
             if active and not table.find(selected, weatherType) then
                 weatherActive[weatherType] = false
