@@ -1498,10 +1498,32 @@ end
 
 table.sort(nameList)
 
-local CodeIsland = AutoFarmTab:Dropdown({
+_G.FarmSec = AutoFarmTab:Section({
+    Title = "Farming Island Menu",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
+_G.ArtSec = AutoFarmTab:Section({
+    Title = "Farming Artifact Menu",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
+_G.RuinSec = AutoFarmTab:Section({
+    Title = "Farming Ancient Ruin Menu",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
+local CodeIsland = _G.FarmSec:Dropdown({
     Title = "Farm Island",
     Values = nameList,
-    Value = nil,
+    Value = nameList[9],
+    SearchBarEnabled = true,
     Callback = function(selectedName)
         local code = islandNamesToCode[selectedName]
         local islandName = islandCodes[code]
@@ -1516,35 +1538,37 @@ local CodeIsland = AutoFarmTab:Dropdown({
 
 myConfig:Register("IslCode", CodeIsland)
 
-local AutoFarm = AutoFarmTab:Toggle({
-	Title = "Start Auto Farm",
-	Callback = function(state)
-		isAutoFarmRunning = state
-		if state then
-			startAutoFarmLoop()
-		else
-			StopAutoFish()
-		end
-	end
+local AutoFarm = _G.FarmSec:Toggle({
+    Title = "Start Auto Farm",
+    Callback = function(state)
+        isAutoFarmRunning = state
+        if state then
+            startAutoFarmLoop()
+        else
+            StopAutoFish()
+        end
+    end
 })
 
 myConfig:Register("AutoFarmStart", AutoFarm)
+
 
 local eventNamesForDropdown = {}
 for name in pairs(eventMap) do
     table.insert(eventNamesForDropdown, name)
 end
 
-AutoFarmTab:Dropdown({
-	Title = "Auto Teleport Event",
-	Desc = "Select event to auto teleport",
-	Values = eventNames,
-	Callback = function(selected)
-		selectedEvent = selected
-		autoTPEvent = true
-		NotifyInfo("Event Selected", "Now monitoring event: " .. selectedEvent)
-	end
+_G.FarmSec:Dropdown({
+    Title = "Auto Teleport Event",
+    Values = eventNamesForDropdown,
+    SearchBarEnabled = true,
+    Callback = function(selected)
+        selectedEvent = selected
+        autoTPEvent = true
+        NotifyInfo("Event Selected", "Now monitoring event: " .. selectedEvent)
+    end
 })
+
 
 -------------------------------------------
 ----- =======[ ARTIFACT TAB ]
@@ -1573,10 +1597,14 @@ end
 
 
 _G.ArtifactSpots = {
-    ["Spot 1"] = CFrame.new(1404.16931, 6.38866091, 118.118126, -0.964853525, 8.69606822e-08, 0.262788326, 9.85441346e-08, 1, 3.08992689e-08, -0.262788326, 5.5709517e-08, -0.964853525),
-    ["Spot 2"] = CFrame.new(883.969788, 6.62499952, -338.560059, -0.325799465, 2.72482961e-08, 0.945438921, 3.40634649e-08, 1, -1.70824759e-08, -0.945438921, 2.6639464e-08, -0.325799465),
-    ["Spot 3"] = CFrame.new(1834.76819, 6.62499952, -296.731476, 0.413336992, -7.92166972e-08, -0.910578132, 3.06007166e-08, 1, -7.31055181e-08, 0.910578132, 2.35287234e-09, 0.413336992),
-    ["Spot 4"] = CFrame.new(1483.25586, 6.62499952, -848.38031, -0.986296117, 2.72397838e-08, 0.164984599, 3.60663037e-08, 1, 5.05033348e-08, -0.164984599, 5.57616318e-08, -0.986296117)
+    ["Spot 1"] = CFrame.new(1404.16931, 6.38866091, 118.118126, -0.964853525, 8.69606822e-08, 0.262788326, 9.85441346e-08,
+        1, 3.08992689e-08, -0.262788326, 5.5709517e-08, -0.964853525),
+    ["Spot 2"] = CFrame.new(883.969788, 6.62499952, -338.560059, -0.325799465, 2.72482961e-08, 0.945438921,
+        3.40634649e-08, 1, -1.70824759e-08, -0.945438921, 2.6639464e-08, -0.325799465),
+    ["Spot 3"] = CFrame.new(1834.76819, 6.62499952, -296.731476, 0.413336992, -7.92166972e-08, -0.910578132,
+        3.06007166e-08, 1, -7.31055181e-08, 0.910578132, 2.35287234e-09, 0.413336992),
+    ["Spot 4"] = CFrame.new(1483.25586, 6.62499952, -848.38031, -0.986296117, 2.72397838e-08, 0.164984599, 3.60663037e-08,
+        1, 5.05033348e-08, -0.164984599, 5.57616318e-08, -0.986296117)
 }
 
 local REFishCaught = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishCaught"]
@@ -1651,8 +1679,7 @@ _G.StartArtifactFarm = function()
                 end
             else
                 updateParagraph("Auto Farm Artifact", "All Artifacts collected! Unlocking Temple...")
-                _G.ToggleAutoClick(true)
-             
+                _G.ToggleAutoClick(false)
                 task.wait(1.5)
                 if typeof(_G.UnlockTemple) == "function" then
                     _G.UnlockTemple()
@@ -1665,7 +1692,7 @@ _G.StartArtifactFarm = function()
 end
 
 _G.StopArtifactFarm = function()
-    StopAutoFish()
+    StopCast()
     _G.ArtifactFarmEnabled = false
     _G.AutoFishStarted = false
     if _G.ArtifactConnection then
@@ -1682,13 +1709,15 @@ function updateParagraph(title, desc)
     end
 end
 
-_G.ArtifactParagraph = AutoFarmArt:Paragraph({
+_G.ArtifactParagraph = _G.ArtSec:Paragraph({
     Title = "Auto Farm Artifact",
     Desc = "Waiting for activation...",
     Color = "Green",
 })
 
-AutoFarmArt:Toggle({
+_G.ArtSec:Space()
+
+_G.ArtSec:Toggle({
     Title = "Auto Farm Artifact",
     Desc = "Automatically collects 4 Artifacts and unlocks The Temple.",
     Default = false,
@@ -1706,7 +1735,7 @@ for name in pairs(_G.ArtifactSpots) do
     table.insert(spotNames, name)
 end
 
-AutoFarmArt:Dropdown({
+_G.ArtSec:Dropdown({
     Title = "Teleport to Lever Temple",
     Values = spotNames,
     Value = spotNames[1],
@@ -1729,12 +1758,181 @@ AutoFarmArt:Dropdown({
     end
 })
 
-AutoFarmArt:Button({
+_G.ArtSec:Button({
     Title = "Unlock The Temple",
     Desc = "Still need Artifacts!",
     Justify = "Center",
+    Icon = "",
     Callback = function()
         _G.UnlockTemple()
+    end
+})
+
+-------------------------------------------
+----- =======[ ANCIENT RUIN FARMING ]
+-------------------------------------------
+
+
+_G.REPlaceItems = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/PlacePressureItem"]
+
+
+_G.UnlockRuin = function()
+    task.spawn(function()
+        local Ruins = {
+            "Crocodile",
+            "Goliath Tiger",
+            "Freshwater Piranha",
+            "Sacred Guardian Squid",
+        }
+
+        for _, ruins in ipairs(Ruins) do
+            _G.REPlaceItems:FireServer(ruins)
+            NotifyInfo("Ancient Ruin", "Placing: " .. ruins)
+            task.wait(2.1)
+        end
+
+        NotifySuccess("Ancient Ruin", "All Fish placed successfully!")
+    end)
+end
+
+_G.TempleSpot = {
+    ["Spot 1"] = CFrame.new(1466.27673, -22.1250019, -658.204651, -0.0791874304, 1.48164281e-08, 0.996859729, -8.54522781e-08, 1, -2.16511644e-08, -0.996859729, -8.68984387e-08, -0.0791874304),
+    ["Spot 2"] = CFrame.new(1502.93958, -22.1250019, -627.15155, -0.994363189, 2.65133604e-08, -0.106027618, 2.21884164e-08, 1, 4.19703348e-08, 0.106027618, 3.93811703e-08, -0.994363189),
+    ["Spot 3"] = CFrame.new(1466.27673, -22.1250019, -658.204651, -0.0791874304, 1.48164281e-08, 0.996859729, -8.54522781e-08, 1, -2.16511644e-08, -0.996859729, -8.68984387e-08, -0.0791874304),
+    ["Spot 4"] = CFrame.new(1502.93958, -22.1250019, -627.15155, -0.994363189, 2.65133604e-08, -0.106027618, 2.21884164e-08, 1, 4.19703348e-08, 0.106027618, 3.93811703e-08, -0.994363189),
+}
+
+_G.REFishCaught = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishCaught"]
+
+_G.saveFile = "RuinsProgress.json"
+
+if isfile(_G.saveFile) then
+    local success, data = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(readfile(_G.saveFile))
+    end)
+    if success and type(data) == "table" then
+        _G.FishCollected = data.FishCollected or 0
+        _G.CurrentSpot = data.CurrentSpot or 1
+    else
+        _G.FishCollected = 0
+        _G.CurrentSpot = 1
+    end
+else
+    _G.FishCollected = 0
+    _G.CurrentSpot = 1
+end
+
+_G.RuinFarmEnabled = false
+
+local function saveProgress()
+    local data = {
+        FishCollected = _G.FishCollected,
+        CurrentSpot = _G.CurrentSpot
+    }
+    writefile(_G.saveFile, game:GetService("HttpService"):JSONEncode(data))
+end
+
+_G.StartRuinFarm = function()
+    if _G.RuinFarmEnabled then return end
+    _G.RuinFarmEnabled = true
+
+    updateParagraph("Auto Farm Ancient Ruin", ("Resuming from Spot %d..."):format(_G.CurrentSpot))
+
+    local Player = game.Players.LocalPlayer
+    task.wait(1)
+    Player.Character:PivotTo(_G.TempleSpot["Spot " .. tostring(_G.CurrentSpot)])
+    task.wait(1)
+
+    _G.ToggleAutoClick(true)
+    _G.AutoFishStarted = true
+
+    _G.RuinConnection = REFishCaught.OnClientEvent:Connect(function(fishName, data)
+        if string.find(fishName, "Artifact") then
+            _G.FishCollected += 1
+            saveProgress()
+
+            updateParagraph(
+                "Auto Farm Ancient Ruin",
+                ("Fish Found : %s\nTotal: %d/4"):format(fishName, _G.FishCollected)
+            )
+
+            if _G.FishCollected < 4 then
+                _G.CurrentSpot += 1
+                saveProgress()
+                local spotName = "Spot " .. tostring(_G.CurrentSpot)
+                if _G.TempleSpot[spotName] then
+                    task.wait(2)
+                    Player.Character:PivotTo(_G.TempleSpot[spotName])
+                    updateParagraph("Auto Farm Ancient Ruin",
+                        ("Fish Found : %s\nTotal : %d/4\n\nTeleporting to %s..."):format(
+                            fishName,
+                            _G.FishCollected,
+                            spotName
+                        )
+                    )
+                    task.wait(1)
+                end
+            else
+                updateParagraph("Auto Farm Ancient Ruin", "All Fish collected! Unlocking Ancient Ruin...")
+                _G.ToggleAutoClick(false)
+                task.wait(1.5)
+                if typeof(_G.UnlockRuin) == "function" then
+                    _G.UnlockRuin()
+                end
+                _G.StopRuinFarm()
+                delfile(_G.saveFile)
+            end
+        end
+    end)
+end
+
+_G.StopRuinFarm = function()
+    StopCast()
+    _G.RuinFarmEnabled = false
+    _G.AutoFishStarted = false
+    if _G.RuinConnection then
+        _G.RuinConnection:Disconnect()
+        _G.RuinConnection = nil
+    end
+    saveProgress()
+    updateParagraph("Auto Farm Ancient Ruin", "Auto Farm stopped. Progress saved.")
+end
+
+function updateParagraph(title, desc)
+    if _G.RuinParagraph then
+        _G.RuinParagraph:SetDesc(desc)
+    end
+end
+
+_G.RuinParagraph = _G.RuinSec:Paragraph({
+    Title = "Auto Farm Ancient Ruin",
+    Desc = "Waiting for activation...",
+    Color = "Green",
+})
+
+_G.RuinSec:Space()
+
+_G.RuinSec:Toggle({
+    Title = "Auto Farm Ancient Ruin",
+    Desc = "Automatically collects 4 Fish and unlocks Ancient Ruin.",
+    Default = false,
+    Callback = function(state)
+        if state then
+            _G.StartRuinFarm()
+        else
+            _G.StopRuinFarm()
+        end
+    end
+})
+
+
+_G.RuinSec:Button({
+    Title = "Unlock Ancient Ruin",
+    Desc = "Still need 4 Fish!",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        _G.UnlockRuin()
     end
 })
 
