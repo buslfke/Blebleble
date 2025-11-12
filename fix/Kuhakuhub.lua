@@ -2139,6 +2139,7 @@ _G.RedeemCodes = {
     "FISHMAS2025",
     "GOLDENSHARK",
     "THANKYOU",
+    "PURPLEMOON"
 }
 
 _G.RedeemAllCodes = function()
