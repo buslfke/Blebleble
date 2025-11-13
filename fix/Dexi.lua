@@ -84,6 +84,32 @@ local RodIdle = animator:LoadAnimation(RodIdle)
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
+local Shared = ReplicatedStorage:WaitForChild("Shared", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+if Shared then
+    if not _G.ItemUtility then
+        local success, utility = pcall(require, Shared:WaitForChild("ItemUtility", 5))
+        if success and utility then
+            _G.ItemUtility = utility
+        else
+            warn("ItemUtility module not found or failed to load.")
+        end
+    end
+    if not _G.ItemStringUtility and Modules then
+        local success, stringUtility = pcall(require, Modules:WaitForChild("ItemStringUtility", 5))
+        if success and stringUtility then
+            _G.ItemStringUtility = stringUtility
+        else
+            warn("ItemStringUtility module not found or failed to load.")
+        end
+    end
+    -- Memuat Replion, Promise, PromptController untuk Auto Accept Trade
+    if not _G.Replion then pcall(function() _G.Replion = require(ReplicatedStorage.Packages.Replion) end) end
+    if not _G.Promise then pcall(function() _G.Promise = require(ReplicatedStorage.Packages.Promise) end) end
+    if not _G.PromptController then pcall(function() _G.PromptController = require(ReplicatedStorage.Controllers.PromptController) end) end
+end
+
 
 -------------------------------------------
 ----- =======[ NOTIFY FUNCTION ]
