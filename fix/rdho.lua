@@ -1348,6 +1348,7 @@ end
 table.sort(nameList)
 
 _G.selectedIslands = {}
+
 -------------------------------------------
 ----- =======[ FISH COUNTING & TELEPORT LOGIC ]
 -------------------------------------------
@@ -3514,3 +3515,4 @@ SettingsTab:Button({
 SettingsTab:Space()
 
 myConfig:Load()
+_G.loadPosition()
