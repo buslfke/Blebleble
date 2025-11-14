@@ -2345,18 +2345,28 @@ FishNotif:Toggle({
 })
 
 local FishCategories = {
-	["Secret"] = {
-		"Blob Shark","Great Christmas Whale","Frostborn Shark","Great Whale","Worm Fish","Robot Kraken",
-		"Giant Squid","Ghost Worm Fish","Ghost Shark","Queen Crab","Orca","Crystal Crab","Monster Shark","Eerie Shark", "Scare", "Thin Armor Shark", "Orca", "Lochness Monster", "Megalodon", "Phanter Eel", "Mosasaur Shark", "King Jelly", "Bone Whale", "Elshark Gran Maja", "Ancient Whale", "Zombie Megalodon", "Zombie Shark", "Dead Zombie Shark", 
-	},
-	["Mythic"] = {
-		"Gingerbread Shark","Loving Shark","King Crab","Blob Fish","Luminous Fish",
-		"Plasma Shark","Abyss Seahorse","Blueflame Ray","Hammerhead Shark","Hawks Turtle",
-		"Manta Ray","Loggerhead Turtle","Prismy Seahorse","Gingerbread Turtle", "Armor Catfish", "Armor Thin Shark", "Strippled Seahorse","Thresher Shark","Dotted Stingray", "Sharp One", "Hybodius Shark", "Crocodile", "Ancient Relic Crocodile", "Mammoth Appafish", "Crystal Salamender", "Frankenstein Longsnapper", "Dark Pumpkin Appafish", "Pumpkin Ray", "Mythic Reaver Scythe",
-	},
-	["Legendary"] = {
-		"Yellowfin Tuna","Lake Sturgeon","Lined Cardinal Fish","Saw Fish","Slurpfish Chromis","Chrome Tuna","Lobster", "Bumblebee Grouper","Lavafin Tuna","Blue Lobster","Greenbee Grouper","Starjam Tang","Magic Tang", "Enchanted Angelfish","Axolotl","Deep Sea Crab", "Temple Spokes Tuna", "Manoai Statue Fish", "Pumpkin Carved Shark", "Pumpkin StoneTrutle", "Wizard Stingray", "Pumpkin Jellyfish",
-	},
+    ["Secret"] = {
+        "Blob Shark", "Great Christmas Whale", "Frostborn Shark", "Great Whale", "Worm Fish", "Robot Kraken",
+        "Giant Squid", "Ghost Worm Fish", "Ghost Shark", "Queen Crab", "Orca", "Crystal Crab", "Monster Shark",
+        "Eerie Shark", "Scare", "Thin Armor Shark", "Orca", "Lochness Monster", "Megalodon", "Phanter Eel",
+        "Mosasaur Shark", "King Jelly", "Bone Whale", "Elshark Gran Maja", "Ancient Whale", "Zombie Megalodon",
+        "Zombie Shark", "Dead Zombie Shark", "Gladiator Shark","Narwhal Skeleton"
+    },
+    ["Mythic"] = {
+        "Gingerbread Shark", "Loving Shark", "King Crab", "Blob Fish", "Luminous Fish",
+        "Plasma Shark", "Abyss Seahorse", "Blueflame Ray", "Hammerhead Shark", "Hawks Turtle",
+        "Manta Ray", "Loggerhead Turtle", "Prismy Seahorse", "Gingerbread Turtle", "Armor Catfish", "Armor Thin Shark",
+        "Strippled Seahorse", "Thresher Shark", "Dotted Stingray", "Sharp One", "Hybodius Shark", "Crocodile",
+        "Ancient Relic Crocodile", "Mammoth Appafish", "Frankenstein Longsnapper",
+        "Dark Pumpkin Appafish", "Pumpkin Ray", "Mythic Reaver Scythe", "Hermit Crab"
+    },
+    ["Legendary"] = {
+        "Yellowfin Tuna", "Lake Sturgeon", "Lined Cardinal Fish", "Saw Fish", "Slurpfish Chromis", "Chrome Tuna",
+        "Lobster", "Bumblebee Grouper", "Lavafin Tuna", "Blue Lobster", "Greenbee Grouper", "Starjam Tang", "Magic Tang",
+        "Enchanted Angelfish", "Axolotl", "Deep Sea Crab", "Temple Spokes Tuna", "Manoai Statue Fish",
+        "Pumpkin Carved Shark", "Pumpkin StoneTrutle", "Wizard Stingray", "Pumpkin Jellyfish", "Primal Lobster", 
+        "Ancient Pufferfish", "Flying Manta", "Sacred Guardian Squid", "Synodontis", "Pink Dolphin", "Crystal Salamender", "Primal Axolotl", "Runic Axolotl", "Runic Lobster"
+    },
 }
 
 
