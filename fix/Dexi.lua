@@ -2350,7 +2350,7 @@ local FishCategories = {
         "Giant Squid", "Ghost Worm Fish", "Ghost Shark", "Queen Crab", "Orca", "Crystal Crab", "Monster Shark",
         "Eerie Shark", "Scare", "Thin Armor Shark", "Orca", "Lochness Monster", "Megalodon", "Phanter Eel",
         "Mosasaur Shark", "King Jelly", "Bone Whale", "Elshark Gran Maja", "Ancient Whale", "Zombie Megalodon",
-        "Zombie Shark", "Dead Zombie Shark", "Gladiator Shark","Narwhal Skeleton"
+        "Zombie Shark", "Dead Zombie Shark", "Gladiator Shark","Skeleton Narwhal"
     },
     ["Mythic"] = {
         "Gingerbread Shark", "Loving Shark", "King Crab", "Blob Fish", "Luminous Fish",
