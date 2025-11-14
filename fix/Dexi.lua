@@ -884,6 +884,18 @@ _G.FishSec:Button({
 _G.FishSec:Space()
 
 _G.FishSec:Button({
+    Title = "Leave",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        game:Shutdown()  
+        pcall(function()
+            game.Players.LocalPlayer:Kick("Left Game")
+        end)
+    end
+})
+
+_G.FishSec:Button({
     Title = "Respawn Player",
     Justify = "Center",
     Callback = function()
@@ -2558,33 +2570,6 @@ startFishDetection()
 -------------------------------------------
 ----- =======[ SETTINGS TAB ]
 -------------------------------------------
-
-SettingsTab:Button({
-    Title = "Respawm",
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        local Players = game:GetService("Players")
-        local LocalPlayer = Players.LocalPlayer
-        if LocalPlayer.Character then
-            LocalPlayer.Character:BreakJoints()
-        end
-    end
-})
-
-SettingsTab:Space()
-
-SettingsTab:Button({
-    Title = "Leave",
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        game:Shutdown()  
-        pcall(function()
-            game.Players.LocalPlayer:Kick("Left Game")
-        end)
-    end
-})
 
 
 local RunService = game:GetService("RunService")
