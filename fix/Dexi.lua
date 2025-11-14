@@ -2559,6 +2559,33 @@ startFishDetection()
 ----- =======[ SETTINGS TAB ]
 -------------------------------------------
 
+SettingsTab:Button({
+    Title = "Respawm",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        local Players = game:GetService("Players")
+        local LocalPlayer = Players.LocalPlayer
+        if LocalPlayer.Character then
+            LocalPlayer.Character:BreakJoints()
+        end
+    end
+})
+
+SettingsTab:Space()
+
+SettingsTab:Button({
+    Title = "Leave",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        game:Shutdown()  
+        pcall(function()
+            game.Players.LocalPlayer:Kick("Left Game")
+        end)
+    end
+})
+
 
 local RunService = game:GetService("RunService")
 
