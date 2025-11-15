@@ -253,25 +253,6 @@ local SettingsTab = AllMenu:Tab({
 })
 
 -------------------------------------------
------ =======[ HOME TAB ]
--------------------------------------------
-
-if getgenv().AutoRejoinConnection then
-    getgenv().AutoRejoinConnection:Disconnect()
-    getgenv().AutoRejoinConnection = nil
-end
-
-getgenv().AutoRejoinConnection = game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
-    task.wait()
-    if child.Name == "ErrorPrompt" and child:FindFirstChild("MessageArea") and child.MessageArea:FindFirstChild("ErrorFrame") then
-        local TeleportService = game:GetService("TeleportService")
-        local Player = game.Players.LocalPlayer
-        task.wait(2) 
-        TeleportService:Teleport(game.PlaceId, Player)
-    end
-end)
-
--------------------------------------------
 ----- =======[ AUTO FISH TAB ]
 -------------------------------------------
 
@@ -315,10 +296,11 @@ _G.isRecasting5x = false
 _G.STUCK_TIMEOUT = 10
 _G.AntiStuckEnabled = false
 _G.lastFishTime = tick()
-_G.FINISH_DELAY = 1
+_G.FINISH_DELAY = 2
 _G.obtainedFishUUIDs = {}
 _G.obtainedLimit = 30
 _G.sellActive = false
+_G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
@@ -351,15 +333,18 @@ function _G.RecastSpam()
     if _G.rSpamming then return end
     _G.rSpamming = true
     _G.rspamThread = task.spawn(function()
-    while _G.rSpamming do
-        StartCast5X()
-        task.wait(0.01)
+        while _G.rSpamming do
+            local ok, err = pcall(StartCast5X)
+            if not ok then
+                warn("StartCast5X error:", err)
+                break
+            end
         end
     end)
 end
-    
-function _G.RecastSpamStop()
-   _G.rSpamming = false
+
+function _G.StopRecastSpam()
+    _G.rSpamming = false
 end
     
 
@@ -380,45 +365,107 @@ end
 
 _G.REPlayFishingEffect.OnClientEvent:Connect(function(player, head, data)
     if player == Players.LocalPlayer and FuncAutoFish.autofish5x then
-        _G.RecastSpamStop()
+        _G.StopRecastSpam()
+    end
+end)
+
+local LowQualityColors = {
+    ["0 0.764706 1 0.333333 0 1 0.764706 1 0.333333 0"] = true,  -- UNCOMMON
+    ["0 0.333333 0.635294 1 0 1 0.333333 0.635294 1 0"] = true,  -- RARE
+    ["0 1 0.980392 0.964706 0 1 1 0.980392 0.964706 0"] = true,  -- COMMON
+}
+
+local lastEventTime = tick()
+
+task.spawn(function()
+    while task.wait(1) do
+        if _G.AutoFishHighQuality and FuncAutoFish.autofish5x and FuncAutoFish.REReplicateTextEffect then
+            if tick() - lastEventTime > 10 then
+                StopCast()
+                task.wait(0.5)
+                StartCast5X()
+                lastEventTime = tick()
+            end
+        end
+    end
+end)
+
+FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
+
+    if not FuncAutoFish.autofish5x then return end
+
+    local myHead = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Head")
+    if not (data and data.TextData and data.TextData.TextColor and data.TextData.EffectType == "Exclaim" and myHead and data.Container == myHead) then
+        return
+    end
+    
+    lastEventTime = tick()
+
+    if _G.AutoFishHighQuality then
+        
+        local colorValue = data.TextData.TextColor
+        local r, g, b
+
+        if typeof(colorValue) == "Color3" then
+            r, g, b = colorValue.R, colorValue.G, colorValue.B
+        elseif typeof(colorValue) == "ColorSequence" and #colorValue.Keypoints > 0 then
+            local c = colorValue.Keypoints[1].Value
+            r, g, b = c.R, c.G, c.B
+        end
+
+        local isBadFish = false
+
+        if r and g and b then
+            if r > 0.9 and g > 0.9 and b > 0.9 then
+                -- COMMON
+                isBadFish = true
+            elseif b > 0.9 and r < 0.4 then
+                -- RARE
+                isBadFish = true
+            elseif g > 0.9 and b < 0.4 then
+                -- UNCOMMON
+                isBadFish = true
+            end
+        else
+            warn("Skip Error, Please Rejoin")
+        end
+
+        if isBadFish then
+            StopCast()
+            task.wait(0.3)
+            StartCast5X()
+        else
+            _G.startSpam()
+            task.wait()
+            _G.RecastSpam()
+        end
+    else
+        _G.startSpam()
+        task.wait()
+        _G.RecastSpam()
     end
 end)
 
 
-_G.REObtainedNewFishNotification.OnClientEvent:Connect(function(...)
-	_G.lastFishTime = tick()
+_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
+    if FuncAutoFish.autofish5x then
+        _G.lastFishTime = tick()
+        _G.stopSpam()
+        _G.StopFishing()
+    end
 end)
 
 task.spawn(function()
 	while task.wait(1) do
-		if _G.AntiStuckEnabled then
+		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
 			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
 				StopAutoFish5X()
-				task.wait(1)
+				task.wait(0.5)
 				StartAutoFish5X()
 				_G.lastFishTime = tick()
 			end
 		end
 	end
-end)
-
-FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
-    if FuncAutoFish.autofish5x 
-    and data and data.TextData 
-    and data.TextData.EffectType == "Exclaim" then
-    	local myHead = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Head")
-    	if myHead and data.Container == myHead then
-    		_G.startSpam()
-    	end
-    end
-end)
-
-_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
-    if FuncAutoFish.autofish5x then
-        _G.stopSpam()
-        StopCast()
-        _G.RecastSpam()
-    end
 end)
 
 function StartCast5X()
@@ -427,7 +474,7 @@ function StartCast5X()
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
     local calculationLoopStart = tick()
-    local timeoutDuration = 3
+    local timeoutDuration = 1
     local lastPower = 0
     while (tick() - calculationLoopStart < timeoutDuration) do
         local currentPower = getPowerFunction(Constants, chargeStartTime)
@@ -436,7 +483,7 @@ function StartCast5X()
         end
 
         lastPower = currentPower
-        task.wait(0.001)
+        task.wait(0)
     end
     miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
 end
@@ -445,9 +492,12 @@ function StopCast()
     _G.StopFishing()
 end
 
+
 function StartAutoFish5X()
     FuncAutoFish.autofish5x = true
-    FuncAutoFish.CatchLast5x = tick()
+    _G.AntiStuckEnabled = true
+    lastEventTime = tick()
+    _G.lastFishTime = tick()
     _G.equipRemote:FireServer(1)
     task.wait(0.05)
     StartCast5X()
@@ -455,12 +505,14 @@ end
 
 function StopAutoFish5X()
     FuncAutoFish.autofish5x = false
+    _G.AntiStuckEnabled = false
     FuncAutoFish.delayInitialized = false
     _G.StopFishing()
     _G.isRecasting5x = false
     _G.stopSpam()
-    _G.RecastSpamStop()
+    _G.StopRecastSpam()
 end
+
 
 --[[
 
@@ -483,7 +535,7 @@ _G.AutoFishState = {
     MinigameActive = false
 }
 
-_G.SPEED_LEGIT = 0.05
+_G.SPEED_LEGIT = 0.5
 
 function _G.performClick()
     _G.FishingController:RequestFishingMinigameClick()
@@ -525,7 +577,6 @@ _G.originalRodStarted = _G.FishingController.FishingRodStarted
 _G.originalFishingStopped = _G.FishingController.FishingStopped
 _G.clickThread = nil
 
--- Hook FishingRodStarted (Minigame Aktif)
 _G.FishingController.FishingRodStarted = function(self, arg1, arg2)
     _G.originalRodStarted(self, arg1, arg2)
 
@@ -568,62 +619,80 @@ function _G.ToggleAutoClick(shouldActivate)
     end
 end
 
+_G.FishAdvenc = AutoFish:Section({
+    Title = "Adcenced Settings",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
 _G.FishSec = AutoFish:Section({
-    Title = "Auto Fishing",
+    Title = "Auto Fishing Menu",
     TextSize = 22,
     TextXAlignment = "Center",
     Opened = true
 })
 
-_G.FishSec:Slider({
+_G.FishAdvenc:Input({
     Title = "Delay Finish",
-    Step = 0.01,
-    Value = {
-        Min = 0.01,
-        Max = 5,
-        Default = _G.FINISH_DELAY,
-    },
-    Callback = function(value)
-        _G.FINISH_DELAY = value
+    Desc = [[
+High Rod = 1
+Medium Rod = 1.5 - 1.7
+Low Rod = 2 - 3
+]],
+    Value = _G.FINISH_DELAY,
+    Type = "Input",
+    Placeholder = "Input Delay Finish..",
+    Callback = function(input)
+        fDelays = tonumber(input)
+        if not fDelays then
+            NotifyWarning("Please Input Valid Number")
+        end
+        _G.FINISH_DELAY = fDelays
     end
 })
 
-_G.RecastCD = _G.FishSec:Slider({
+_G.FishAdvenc:Input({
     Title = "Speed Legit",
-    Step = 0.01,
-    Value = {
-        Min = 0.01,
-        Max = 5,
-        Default = _G.SPEED_LEGIT,
-    },
-    Callback = function(value)
-        _G.SPEED_LEGIT = value
+    Desc = "Speed Click for Auto Fish Legit",
+    Value = _G.SPEED_LEGIT,
+    Type = "Input",
+    Placeholder = "Input Speed..",
+    Callback = function(input)
+        DelayLegit = tonumber(input)
+        if not DelayLegit then
+            NotifyWarning("Please Input Valid Number")
+        end
+        _G.SPEED_LEGIT = DelayLegit
     end
 })
 
-_G.FishSec:Slider({
-    Title = "Sell Threshold",
-    Step = 1,
-    Value = {
-        Min = 1,
-        Max = 6000,
-        Default = 30,
-    },
-    Callback = function(value)
-        _G.obtainedLimit = value
+_G.FishAdvenc:Input({
+    Title = "Sell Threesold",
+    Value = _G.obtainedLimit,
+    Type = "Input",
+    Placeholder = "Input Delay Finish..",
+    Callback = function(input)
+        thresold = tonumber(input)
+        if not thresold then
+            NotifyWarning("Please Input Valid Number")
+        end
+        _G.obtainedLimit = thresold
     end
 })
 
-_G.FishSec:Slider({
+_G.FishAdvenc:Input({
     Title = "Anti Stuck Delay",
-    Step = 1,
-    Value = {
-        Min = 1,
-        Max = 6000,
-        Default = _G.STUCK_TIMEOUT,
-    },
-    Callback = function(value)
-        _G.STUCK_TIMEOUT = value
+    Desc = "Cooldown for anti stuck Auto Fish",
+    Value = _G.STUCK_TIMEOUT,
+    Type = "Input",
+    Placeholder = "Input Delay Finish..",
+    Callback = function(input)
+        stuck = tonumber(input)
+        if not stuck then
+            NotifyWarning("Please Input Valid Number")
+        end
+        _G.STUCK_TIMEOUT = stuck
     end
 })
 
@@ -652,6 +721,15 @@ _G.AutoFishes = _G.FishSec:Toggle({
 })
 
 _G.FishSec:Toggle({
+    Title = "Fish High Quality",
+    Desc = "Skip Common, Uncommon, & Rare",
+    Value = _G.AutoFishHighQuality,
+    Callback = function(state)
+        _G.AutoFishHighQuality = state
+    end
+})
+
+_G.FishSec:Toggle({
     Title = "Auto Fish Legit",
     Value = false,
     Callback = function(state)
@@ -672,14 +750,6 @@ _G.FishSec:Toggle({
     end
 })
 
-_G.FishSec:Toggle({
-	Title = "Anti Stuck",
-	Value = false,
-	Callback = function(state)
-		_G.AntiStuckEnabled = state
-	end
-})
-
 
 _G.FishSec:Space()
 
@@ -694,34 +764,47 @@ _G.FishSec:Button({
         RodIdle:Stop()
         RodIdle:Stop()
         _G.stopSpam()
-        _G.RecastSpamStop()
+        _G.StopRecastSpam()
     end
 })
 
 _G.FishSec:Space()
 
 
-_G.REReplicateCutscene = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ReplicateCutscene"]
-_G.BlockCutsceneEnabled = false
+_G.BlockCutsceneEnabled = false 
 
+_G.CutsceneController = nil
+_G.success, _G.result = pcall(require, game:GetService("ReplicatedStorage").Controllers.CutsceneController)
 
-_G.FishSec:Toggle({
+if not _G.success then
+    warn("Block Cutscene: Gagal memuat CutsceneController! Path mungkin salah.")
+    return
+else
+    _G.CutsceneController = _G.result
+end
+
+_G.old_Play = _G.CutsceneController.Play
+
+_G.CutsceneController.Play = function(self, ...)
+    if _G.BlockCutsceneEnabled then
+        return 
+    end
+   
+    return _G.old_Play(self, ...)
+end
+
+_G.FishAdvenc:Toggle({
     Title = "Block Cutscene",
-    Value = false,
-    Callback = function(state)
-        _G.BlockCutsceneEnabled = state
+    Value = _G.BlockCutsceneEnabled,
+    Callback = function(state) 
+        _G.BlockCutsceneEnabled = state 
         print("Block Cutscene: " .. tostring(state))
     end
 })
 
-_G.REReplicateCutscene.OnClientEvent:Connect(function(rarity, player, position, fishName, data)
-    if _G.BlockCutsceneEnabled then
-        print("[QuietX] Cutscene diblokir:", fishName, "(Rarity:", rarity .. ")")
-        return nil -- blokir event agar tidak muncul cutscene
-    end
-end)
 
-_G.FishSec:Input({
+
+_G.FishAdvenc:Input({
     Title = "Max Inventory Size",
     Value = tostring(Constants.MaxInventorySize or 0),
     Placeholder = "Input Number...",
