@@ -1441,7 +1441,122 @@ local function startAutoFarmLoop()
             task.wait(0.5)
         end
     end
-end      
+end
+
+_G.AutoLochNess = false
+_G.LochStatus = "Idle"
+_G.OriginalCFrame = nil
+_G.EventEndTime = nil
+_G.countdownPath = workspace["!!! MENU RINGS"]["Event Tracker"].Main.Gui.Content.Items.Countdown.Label
+
+
+_G.Lochness = AutoFarmTab:Paragraph({
+    Title = "Ancient Lochness Monster",
+    Desc = string.format([[
+Status : Idle
+Countdown : %s
+]], _G.countdownPath.text),
+    Locked = false,
+    Buttons = {}
+})
+
+function _G.updateStatus(text)
+    _G.LochStatus = text
+    _G.Lochness:SetDesc(string.format([[
+Status : %s
+Countdown : %s
+]], text, _G.countdownPath.Text))
+end
+
+AutoFarmTab:Toggle({
+    Title = "Auto Teleport Monster",
+    Value = false,
+    Callback = function(state)
+        _G.AutoLochNess = state
+        
+        if state then
+            _G.updateStatus("Monitoring…")
+        else
+            _G.updateStatus("Idle")
+        end
+    end
+})
+
+task.spawn(function()
+    while task.wait(1) do
+        if not _G.AutoLochNess then
+            return
+        end
+        
+        if not _G.countdownPath or not _G.countdownPath.Text then
+            _G.updateStatus("Countdown not found")
+            return
+        end
+
+        local text = _G.countdownPath.Text
+        local h, m, s = text:match("(%d+)H%s+(%d+)M%s+(%d+)S")
+
+        if not h then 
+            _G.updateStatus("Invalid countdown format")
+            return
+        end
+
+        h, m, s = tonumber(h), tonumber(m), tonumber(s)
+
+        -- -----------------------------
+        -- 1️⃣ Simpan posisi awal
+        -- -----------------------------
+        if not _G.OriginalCFrame and game.Players.LocalPlayer.Character then
+            local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                _G.OriginalCFrame = root.CFrame
+            end
+        end
+
+
+        if h == 0 and m == 0 and s == 10 then
+            _G.updateStatus("Teleporting to LochNess…")
+
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = CFrame.new(
+                    6003.8374, -585.924683, 4661.7334,
+                    0.0215646587, -8.31839486e-08, -0.999767482,
+                    -5.35441309e-08, 1, -8.43582271e-08,
+                    0.999767482, 5.5350835e-08, 0.0215646587
+                )
+            end
+            _G.EventEndTime = tick() + (10 * 60)  
+            _G.updateStatus("Waiting for event to end…")
+        end
+
+
+        if _G.EventEndTime and tick() >= _G.EventEndTime then
+            _G.updateStatus("Returning to original position…")
+
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and _G.OriginalCFrame then
+                char.HumanoidRootPart.CFrame = _G.OriginalCFrame
+            end
+
+            _G.EventEndTime = nil
+            _G.updateStatus("Done — Monitoring…")
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        if not _G.Lochness then continue end
+        if not _G.countdownPath then continue end
+        if not _G.countdownPath.Text then continue end
+        _G.Lochness:SetDesc(string.format([[
+Status : %s
+Countdown : %s
+]], _G.LochStatus, _G.countdownPath.Text))
+    end
+end)
+
 
 local nameList = {}
 local islandNamesToCode = {}
