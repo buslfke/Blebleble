@@ -245,6 +245,11 @@ _G.DelayFish = AllMenu:Tab({
     Icon = "fish"
 })
 
+_G.Cuki = AllMenu:Tab({
+    Title = "Alat Mancing",
+    icon = "tally-3"
+})
+
 local AutoFarmTab = AllMenu:Tab({
 	Title = "Auto Farm",
 	Icon = "leaf"
@@ -708,7 +713,7 @@ _G.FishSec:Toggle({
 _G.FishSec:Space()
 
 
-_G.FishSec:Button({
+_G.Cuki:Button({
     Title = "Stop Fishing",
     Locked = false,
     Justify = "Center",
@@ -722,14 +727,14 @@ _G.FishSec:Button({
     end
 })
 
-_G.FishSec:Space()
+_G.Cuki:Space()
 
 
 _G.REReplicateCutscene = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ReplicateCutscene"]
 _G.BlockCutsceneEnabled = false
 
 
-_G.FishSec:Toggle({
+_G.Cuki:Toggle({
     Title = "Block Cutscene",
     Value = false,
     Callback = function(state)
@@ -745,7 +750,7 @@ _G.REReplicateCutscene.OnClientEvent:Connect(function(rarity, player, position, 
     end
 end)
 
-_G.FishSec:Input({
+_G.Cuki:Input({
     Title = "Max Inventory Size",
     Value = tostring(Constants.MaxInventorySize or 0),
     Placeholder = "Input Number...",
@@ -796,7 +801,7 @@ oldFireServer = hookmetamethod(game, "__namecall", function(self, ...)
 	return oldFireServer(self, ...)
 end)
 
-_G.FishSec:Toggle({
+_G.Cuki:Toggle({
 	Title = "Auto Sell Mythic",
 	Desc = "Automatically sells clicked fish",
 	Default = false,
@@ -829,7 +834,7 @@ end
 
 _G.FishSec:Space()
 
-_G.FishSec:Button({
+_G.Cuki:Button({
     Title = "Sell All Fishes",
     Locked = false,
     Justify = "Center",
@@ -841,7 +846,7 @@ _G.FishSec:Button({
 
 _G.FishSec:Space()
 
-_G.FishSec:Button({
+_G.Cuki:Button({
     Title = "Auto Enchant Rod",
     Justify = "Center",
     Icon = "",
@@ -888,7 +893,7 @@ _G.FishSec:Button({
 
 _G.FishSec:Space()
 
-_G.FishSec:Button({
+_G.Cuki:Button({
     Title = "Leave",
     Justify = "Center",
     Icon = "",
@@ -900,7 +905,7 @@ _G.FishSec:Button({
     end
 })
 
-_G.FishSec:Button({
+_G.Cuki:Button({
     Title = "Respawn Player",
     Justify = "Center",
     Callback = function()
@@ -2961,7 +2966,7 @@ myConfig:Register("Keybind", _G.Keybind)
 
 SettingsTab:Space()
 
-SettingsTab:Button({
+_G.Cuki:Button({
 	Title = "Rejoin Server",
 	Justify = "Center",
   Icon = "",
@@ -2972,7 +2977,7 @@ SettingsTab:Button({
 
 SettingsTab:Space()
 
-SettingsTab:Button({
+_G.Cuki:Button({
 	Title = "Server Hop (New Server)",
 	Justify = "Center",
   Icon = "",
