@@ -240,6 +240,11 @@ local AutoFish = AllMenu:Tab({
 	Icon = "fish"
 })
 
+_G.DelayFish = AllMenu:Tab({
+    Title = "All Delay",
+    Icon = "fish"
+})
+
 local AutoFarmTab = AllMenu:Tab({
 	Title = "Auto Farm",
 	Icon = "leaf"
@@ -594,7 +599,7 @@ _G.FishSec = AutoFish:Section({
     Opened = true
 })
 
-_G.FishSec:Slider({
+_G.DelayFish:Slider({
     Title = "Delay Finish",
     Step = 0.01,
     Value = {
@@ -607,7 +612,7 @@ _G.FishSec:Slider({
     end
 })
 
-_G.RecastCD = _G.FishSec:Slider({
+_G.RecastCD = _G.DelayFish:Slider({
     Title = "Speed Legit",
     Step = 0.01,
     Value = {
@@ -620,7 +625,7 @@ _G.RecastCD = _G.FishSec:Slider({
     end
 })
 
-_G.FishSec:Slider({
+_G.DelayFish:Slider({
     Title = "Sell Threshold",
     Step = 1,
     Value = {
@@ -633,7 +638,7 @@ _G.FishSec:Slider({
     end
 })
 
-_G.FishSec:Slider({
+_G.DelayFish:Slider({
     Title = "Anti Stuck Delay",
     Step = 1,
     Value = {
