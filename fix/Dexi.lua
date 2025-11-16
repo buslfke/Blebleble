@@ -1605,6 +1605,21 @@ AutoFarmArt:Button({
 ----- =======[ MASS TRADE TAB ]
 -------------------------------------------
 
+local GlobalFav = {
+    REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ObtainedNewFishNotification"],
+    REFavoriteItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FavoriteItem"],
+
+    FishIdToName = {},
+    FishNameToId = {},
+    FishNames = {},
+    FishRarity = {},
+    Variants = {},
+    SelectedFishIds = {},
+    SelectedVariants = {},
+    SelectedRarities = {},
+    AutoFavoriteEnabled = false
+}
+
 -- [Trade State Baru]
 local tradeState = { 
     mode = "V1",
