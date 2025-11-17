@@ -1334,11 +1334,11 @@ local function startAutoFarmLoop()
         hrp.CFrame = location  
         task.wait(1.5)  
 
-        _G.ToggleAutoClick(true)
+        StartAutoFish5X()
         
         while isAutoFarmRunning do
             if not isAutoFarmRunning then  
-                _G.ToggleAutoClick(false)  
+                StopAutoFish5X()
                 break  
             end  
             task.wait(0.5)
@@ -1487,7 +1487,7 @@ _G.StartArtifactFarm = function()
     Player.Character:PivotTo(_G.ArtifactSpots["Spot " .. tostring(_G.CurrentSpot)])
     task.wait(1)
 
-    _G.ToggleAutoClick(true)
+    StartAutoFish5X()
     _G.AutoFishStarted = true
 
     _G.ArtifactConnection = REFishCaught.OnClientEvent:Connect(function(fishName, data)
@@ -1518,7 +1518,7 @@ _G.StartArtifactFarm = function()
                 end
             else
                 updateParagraph("Auto Farm Artifact", "All Artifacts collected! Unlocking Temple...")
-                _G.ToggleAutoClick(false)
+                StopAutoFish5X()
                 task.wait(1.5)
                 if typeof(_G.UnlockTemple) == "function" then
                     _G.UnlockTemple()
@@ -1894,10 +1894,10 @@ end
 -- 7. UI TOGGLES & FUNGSI INISIALISASI (FIXED LISTENERS)
 -- ===================================================================
 
-_G.AutoQuestTab:Toggle({
+_G.Ghosfinn = _G.AutoQuestTab:Toggle({
     Title = "Auto Quest - Ghosfinn Rod",
     Desc = "Automatically farm the Ghostfinn Rod quest.",
-    Value = false,
+    Value = true,
     Callback = function(state)
         if state then
             if _G.AutoQuestState.IsRunning then
@@ -1913,6 +1913,8 @@ _G.AutoQuestTab:Toggle({
         end
     end
 })
+
+_G.Ghosfinn:Set(true)
 
 _G.AutoQuestTab:Toggle({
     Title = "Auto Quest - Element Rod",
