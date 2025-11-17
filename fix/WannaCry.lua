@@ -1964,6 +1964,12 @@ local function getPlayerListV2()
     return list
 end
 
+local function refreshDropdownV2()
+    if _G.PlayerDropdownTrade then
+        _G.PlayerDropdownTrade:Refresh(getPlayerListV2())
+    end
+end
+
 -- =======================================================
 -- LOGIKA PEMBARUAN INVENTARIS 
 -- =======================================================
@@ -2157,6 +2163,16 @@ local playerDropdown = Trade:Dropdown({
     end
 })
 _G.PlayerDropdownTrade = playerDropdown -- Simpan referensi untuk refresh
+
+Players.PlayerAdded:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+refreshDropdown()
 
 Trade:Section({Title = "Auto Accept Trade"})
 

@@ -2069,21 +2069,6 @@ end)
 ----- =======[ MASS TRADE TAB ]
 -------------------------------------------
 
-local GlobalFav = {
-    REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ObtainedNewFishNotification"],
-    REFavoriteItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FavoriteItem"],
-
-    FishIdToName = {},
-    FishNameToId = {},
-    FishNames = {},
-    FishRarity = {},
-    Variants = {},
-    SelectedFishIds = {},
-    SelectedVariants = {},
-    SelectedRarities = {},
-    AutoFavoriteEnabled = false
-}
-
 -- [Trade State Baru]
 local tradeState = { 
     mode = "V1",
@@ -2118,6 +2103,12 @@ local function getPlayerListV2()
     end; 
     table.sort(list); 
     return list
+end
+
+local function refreshDropdownV2()
+    if _G.PlayerDropdownTrade then
+        _G.PlayerDropdownTrade:Refresh(getPlayerListV2())
+    end
 end
 
 -- =======================================================
@@ -2313,6 +2304,16 @@ local playerDropdown = Trade:Dropdown({
     end
 })
 _G.PlayerDropdownTrade = playerDropdown -- Simpan referensi untuk refresh
+
+Players.PlayerAdded:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+refreshDropdown()
 
 Trade:Section({Title = "Auto Accept Trade"})
 

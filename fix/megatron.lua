@@ -1977,6 +1977,12 @@ local function getPlayerListV2()
     return list
 end
 
+local function refreshDropdownV2()
+    if _G.PlayerDropdownTrade then
+        _G.PlayerDropdownTrade:Refresh(getPlayerListV2())
+    end
+end
+
 -- =======================================================
 -- LOGIKA PEMBARUAN INVENTARIS 
 -- =======================================================
@@ -2118,20 +2124,35 @@ Trade:Section({Title = "Trade Mode Selection"})
 
 local modeDropdown = Trade:Dropdown({
     Title = "Select Trade Mode",
-    Values = {"V1", "V2"},
+    Values = {"V1", "V2", "V3"},
     Value = "V1",
     Callback = function(v)
         tradeState.mode = v
         NotifySuccess("Mode Changed", "Trade mode set to: " .. v, 3)
-        local isQuiet = v == "Quiet"
-        if _G.TradeV2Elements then
-            for _, element in ipairs(_G.TradeV2Elements) do
-                if element.Element then element.Element.Visible = not isQuiet end
-            end
-        end
+
+        -- Logika Baru untuk Menampilkan/Menyembunyikan UI
+        local isV1 = (v == "V1")
+        local isV2 = (v == "V2")
+        local isV3 = (v == "V3")
+
+        -- Sembunyikan/Tampilkan Elemen V1
         if _G.TradeQuietElements then
             for _, element in ipairs(_G.TradeQuietElements) do
-                if element.Element then element.Element.Visible = isQuiet end
+                if element.Element then element.Element.Visible = isV1 end
+            end
+        end
+        
+        -- Sembunyikan/Tampilkan Elemen V2
+        if _G.TradeV2Elements then
+            for _, element in ipairs(_G.TradeV2Elements) do
+                if element.Element then element.Element.Visible = isV2 end
+            end
+        end
+
+        -- Sembunyikan/Tampilkan Elemen V3
+        if _G.TradeV3Elements then
+            for _, element in ipairs(_G.TradeV3Elements) do
+                if element.Element then element.Element.Visible = isV3 end
             end
         end
     end
@@ -2155,6 +2176,16 @@ local playerDropdown = Trade:Dropdown({
     end
 })
 _G.PlayerDropdownTrade = playerDropdown -- Simpan referensi untuk refresh
+
+Players.PlayerAdded:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+refreshDropdown()
 
 Trade:Section({Title = "Auto Accept Trade"})
 
@@ -2234,8 +2265,7 @@ local function TradeAllQuiet()
             NotifyInfo("Mass Trade", "Trade item "..i.." of "..#tradeState.TempTradeList)          
             InitiateTrade:InvokeServer(tradeState.selectedPlayerId, uuid, category)          
         
-            -- Trade response logic (asli, tidak sempurna)
-            task.wait(6.5) -- Delay antar trade         
+            task.wait(6.5)       
         end          
     
         NotifySuccess("Mass Trade", "Finished V1 trading!")        
@@ -2380,6 +2410,221 @@ end
 -- Pastikan elemen Quiet terlihat
 for _, element in ipairs(_G.TradeQuietElements) do
     if element.Element then element.Element.Visible = true end
+end
+
+-------------------------------------------
+----- ======= V3 - MASS TRADE BY CATEGORY
+-------------------------------------------
+
+
+if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion and _G.ItemUtility and _G.ItemStringUtility and InitiateTrade then
+    
+    _G.TradeV3Elements = {}
+
+    local V3_Section = Trade:Section({Title = "V3 - Mass Trade by Category"})
+    table.insert(_G.TradeV3Elements, {Element = V3_Section}) -- Daftarkan UI
+
+    -- Data yang diperlukan untuk Tiers
+    local tierMap = {
+        ["Common"] = 1, ["Uncommon"] = 2, ["Rare"] = 3, ["Epic"] = 4,
+        ["Legendary"] = 5, ["Mythic"] = 6, ["SECRET"] = 7
+    }
+    local tierNames = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "SECRET" }
+
+    -- Data yang diperlukan untuk Variants (Mutasi)
+    local variantNames = {}
+    for vName, _ in pairs(GlobalFav.Variants) do
+        table.insert(variantNames, vName)
+    end
+    if not table.find(variantNames, "Shiny") then
+        table.insert(variantNames, "Shiny")
+    end
+    table.sort(variantNames)
+    
+    -- State untuk V3
+    -- State untuk V3
+    local categoryTradeState = {
+        selectedTiers = {}, selectedVariants = {},
+        filterUnfavorited = false, autoTrade = false,
+        tradeAmount = 0 -- TAMBAHKAN BARIS INI
+    }
+    -- UI V3
+    local V3_TierDropdown = Trade:Dropdown({
+        Title = "Select Tiers (Rarity) to Trade",
+        Values = tierNames, Multi = true, AllowNone = true,
+        Callback = function(selectedNames)
+            categoryTradeState.selectedTiers = {}
+            for _, name in ipairs(selectedNames or {}) do
+                if tierMap[name] then table.insert(categoryTradeState.selectedTiers, tierMap[name]) end
+            end
+            NotifyInfo("Trade V3", "Tiers to trade: " .. table.concat(selectedNames, ", "))
+        end
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_TierDropdown}) -- Daftarkan UI
+
+    local V3_VariantDropdown = Trade:Dropdown({
+        Title = "Select Mutations (Variants) to Trade",
+        Values = variantNames, Multi = true, AllowNone = true,
+        Callback = function(selectedNames)
+            categoryTradeState.selectedVariants = selectedNames or {}
+            NotifyInfo("Trade V3", "Mutations to trade: " .. table.concat(selectedNames, ", "))
+        end
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_VariantDropdown}) -- Daftarkan UI
+
+    local V3_FilterToggle = Trade:Toggle({
+        Title = "Filter Unfavorited Items Only",
+        Desc = "Hanya mengirim item yang tidak di-lock (favorite).", Value = false,
+        Callback = function(val)
+            categoryTradeState.filterUnfavorited = val
+            NotifyInfo("Trade V3", "Filter Unfavorited: " .. tostring(val))
+        end
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_FilterToggle}) -- Daftarkan UI
+    
+    -- ===================================
+    -- == [BARU] INPUT AMOUNT UNTUK V3
+    -- ===================================
+    local V3_AmountInput = Trade:Input({
+        Title = "Amount to Trade",
+        Placeholder = "Enter amount...",
+        Type = "Input",
+        Callback = function(val)
+            categoryTradeState.tradeAmount = tonumber(val) or 0
+        end
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_AmountInput})
+
+    local V3_StatusParagraph = Trade:Paragraph({
+        Title = "Status V3", Desc = "Waiting to start..."
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_StatusParagraph}) -- Daftarkan UI
+
+    local V3_StartToggle = Trade:Toggle({
+        Title = "Start Mass Category Trade", Value = false,
+        Callback = function(value)
+            categoryTradeState.autoTrade = value
+            if not value then V3_StatusParagraph:SetDesc("Stopping..."); return end
+
+            task.spawn(function()
+                -- 1. Validasi
+                if not tradeState.selectedPlayerId then
+                    V3_StatusParagraph:SetDesc("Error: Please select a player from the 'Select Trade Target' dropdown above.")
+                    pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
+                end
+                if #categoryTradeState.selectedTiers == 0 and #categoryTradeState.selectedVariants == 0 then
+                    V3_StatusParagraph:SetDesc("Error: Select at least one Tier or Mutation to trade.")
+                    pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
+                end
+                
+                -- ===================================
+                -- == [BARU] VALIDASI AMOUNT V3
+                -- ===================================
+                if categoryTradeState.tradeAmount <= 0 then
+                    V3_StatusParagraph:SetDesc("Error: Please enter a valid amount in the 'Amount to Trade (V3)' input.")
+                    pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
+                end
+                -- ===================================
+
+                local DataReplion = _G.Replion.Client:WaitReplion("Data")
+                if not DataReplion then
+                    V3_StatusParagraph:SetDesc("Error: Could not get player data (Replion).")
+                    pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
+                end
+
+                -- 2. Scan inventaris
+                V3_StatusParagraph:SetDesc("Scanning inventory for matching items..."); task.wait(0.5)
+                local uuidsToSend, itemNamesSummary = {}, {}
+                local inventoryItems = DataReplion:Get({ "Inventory", "Items" })
+                if not inventoryItems then
+                    V3_StatusParagraph:SetDesc("Error: Inventory is empty.")
+                    pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
+                end
+
+                -- 3. Filter item (Logika ini tetap sama)
+                for _, itemData in ipairs(inventoryItems) do
+                    if not categoryTradeState.autoTrade then break end
+                    if not (categoryTradeState.filterUnfavorited and itemData.Favorited) then
+                        local baseItemData = _G.ItemUtility:GetItemData(itemData.Id)
+                        if baseItemData and baseItemData.Data and baseItemData.Data.Type == "Fish" then
+                            local match = false
+                            if #categoryTradeState.selectedTiers > 0 then
+                                if baseItemData.Data.Tier and table.find(categoryTradeState.selectedTiers, baseItemData.Data.Tier) then match = true end
+                            end
+                            if not match and #categoryTradeState.selectedVariants > 0 then
+                                if itemData.Metadata and type(itemData.Metadata) == "table" then
+                                    local itemMutations = {}
+                                    if itemData.Metadata.VariantId then table.insert(itemMutations, itemData.Metadata.VariantId) end
+                                    if itemData.Metadata.Shiny == true then table.insert(itemMutations, "Shiny") end
+                                    for _, itemMutationName in ipairs(itemMutations) do
+                                        if table.find(categoryTradeState.selectedVariants, itemMutationName) then match = true; break end
+                                    end
+                                end
+                            end
+                            if match then
+                                table.insert(uuidsToSend, itemData.UUID)
+                                local simpleName = _G.ItemStringUtility.GetItemName(itemData, baseItemData)
+                                itemNamesSummary[simpleName] = (itemNamesSummary[simpleName] or 0) + 1
+                            end
+                        end
+                    end
+                end
+
+                if not categoryTradeState.autoTrade then V3_StatusParagraph:SetDesc("Trade stopped during scan."); return end
+                if #uuidsToSend == 0 then
+                    V3_StatusParagraph:SetDesc("Complete: No matching items found to trade.")
+                    pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
+                end
+
+                -- ===================================
+                -- == [DIUBAH] LOGIKA PENGIRIMAN ITEM DENGAN AMOUNT
+                -- ===================================
+                
+                -- 4. Kirim item
+                local totalFound = #uuidsToSend
+                -- Gunakan math.min untuk mengambil jumlah yang lebih kecil antara yang ditemukan dan yang diminta
+                local amountToSend = math.min(totalFound, categoryTradeState.tradeAmount) 
+                local successCount, failCount = 0, 0
+                local targetName = tradeState.selectedPlayerName
+
+                -- Ubah loop dari 'ipairs' menjadi loop numerik sampai 'amountToSend'
+                for i = 1, amountToSend do
+                    if not categoryTradeState.autoTrade then V3_StatusParagraph:SetDesc("Trade stopped by user."); break end
+                    
+                    local uuid = uuidsToSend[i] -- Ambil UUID berdasarkan index
+                    
+                    -- Update status untuk menunjukkan progress, amount, dan total yang ditemukan
+                    V3_StatusParagraph:SetDesc(string.format(
+                        "Progress: %d/%d (Found: %d)\nSending to: %s\nSuccess: %d | Failed: %d", 
+                        i, amountToSend, totalFound, targetName, successCount, failCount
+                    ))
+                    
+                    local success, result = pcall(InitiateTrade.InvokeServer, InitiateTrade, tradeState.selectedPlayerId, uuid)
+                    if success and result then successCount = successCount + 1 else failCount = failCount + 1 end
+                    task.wait(5)
+                end
+
+                -- 5. Laporan akhir
+                local finalSummary = string.format(
+                    "Process Complete.\nTotal Attempted: %d of %d found.\nSuccessful: %d | Failed: %d", 
+                    amountToSend, totalFound, successCount, failCount
+                )
+                -- ===================================
+
+                V3_StatusParagraph:SetDesc(finalSummary)
+                NotifySuccess("Mass Category Trade", finalSummary, 7)
+                pcall(V3_StartToggle.SetValue, V3_StartToggle, false)
+            end)
+        end
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_StartToggle}) -- Daftarkan UI
+
+
+else
+    task.spawn(function()
+        task.wait(2)
+        NotifyError("Trade V3 Load Error", "Gagal memuat fitur Trade V3. Dependensi penting (seperti Trade atau GlobalFav) tidak ditemukan. Anda mungkin salah menempelkan kode atau skrip QuietXHub Anda tidak lengkap.", 10)
+    end)
 end
 
 -------------------------------------------
