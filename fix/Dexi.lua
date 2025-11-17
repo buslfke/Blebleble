@@ -2428,7 +2428,7 @@ for _, rod in ipairs(Items:GetChildren()) do
 	end
 end
 
-Utils:Dropdown({
+_G.Cuki:Dropdown({
 	Title = "Rod Shop",
 	Desc = "Select Rod to Buy",
 	Values = rodOptions,
@@ -2465,7 +2465,7 @@ for _, bait in ipairs(Baits:GetChildren()) do
 	end
 end
 
-Utils:Dropdown({
+_G.Cuki:Dropdown({
 	Title = "Baits Shop",
 	Desc = "Select Baits to Buy",
 	Values = baitOptions,
