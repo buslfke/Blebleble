@@ -1555,11 +1555,6 @@ end
 
 if _G.countdownPath then
     _G.countdownPath:GetPropertyChangedSignal("Text"):Connect(_G.OnCountdownChanged)
-    
-    NotifySuccess("LochNess Monitor", "Real-time countdown monitor is active.")
-else
-    _G.updateStatus("ERROR: Path not found!")
-    NotifyError("LochNess Monitor", "Countdown path not found. Auto-teleport will not work.")
 end
 
 
