@@ -736,25 +736,36 @@ _G.Cuki:Button({
 _G.Cuki:Space()
 
 
-_G.REReplicateCutscene = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ReplicateCutscene"]
-_G.BlockCutsceneEnabled = false
+_G.BlockCutsceneEnabled = true
 
+_G.CutsceneController = nil
+_G.success, _G.result = pcall(require, game:GetService("ReplicatedStorage").Controllers.CutsceneController)
+
+if not _G.success then
+    warn("Block Cutscene: Gagal memuat CutsceneController! Path mungkin salah.")
+    return
+else
+    _G.CutsceneController = _G.result
+end
+
+_G.old_Play = _G.CutsceneController.Play
+
+_G.CutsceneController.Play = function(self, ...)
+    if _G.BlockCutsceneEnabled then
+        return 
+    end
+   
+    return _G.old_Play(self, ...)
+end
 
 _G.Cuki:Toggle({
     Title = "Block Cutscene",
-    Value = false,
-    Callback = function(state)
-        _G.BlockCutsceneEnabled = state
+    Value = _G.BlockCutsceneEnabled,
+    Callback = function(state) 
+        _G.BlockCutsceneEnabled = state 
         print("Block Cutscene: " .. tostring(state))
     end
 })
-
-_G.REReplicateCutscene.OnClientEvent:Connect(function(rarity, player, position, fishName, data)
-    if _G.BlockCutsceneEnabled then
-        print("[QuietX] Cutscene diblokir:", fishName, "(Rarity:", rarity .. ")")
-        return nil -- blokir event agar tidak muncul cutscene
-    end
-end)
 
 _G.Cuki:Input({
     Title = "Max Inventory Size",
