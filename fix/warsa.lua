@@ -2578,7 +2578,7 @@ Players.PlayerRemoving:Connect(function()
     task.delay(0.1, refreshDropdownV2)
 end)
 
-refreshDropdown()
+refreshDropdownV2()
 
 Trade:Section({Title = "Auto Accept Trade"})
 
