@@ -1472,29 +1472,39 @@ AutoFarmTab:Section({
 	TextXAlignment = "Center",
 })
 
+-- =======================================================
+-- == AUTO LOCHNESS (FIXED WITH REAL-TIME .Changed EVENT)
+-- =======================================================
+
 _G.AutoLochNess = false
 _G.LochStatus = "Idle"
 _G.OriginalCFrame = nil
 _G.EventEndTime = nil
 _G.countdownPath = workspace["!!! MENU RINGS"]["Event Tracker"].Main.Gui.Content.Items.Countdown.Label
 
+local LOCHNESS_CFRAME = CFrame.new(
+    6003.8374, -585.924683, 4661.7334,
+    0.0215646587, -8.31839486e-08, -0.999767482,
+    -5.35441309e-08, 1, -8.43582271e-08,
+    0.999767482, 5.5350835e-08, 0.0215646587
+)
 
 _G.Lochness = AutoFarmTab:Paragraph({
     Title = "Ancient Lochness Monster",
     Desc = string.format([[
 Status : Idle
 Countdown : %s
-]], _G.countdownPath.text),
+]], _G.countdownPath and _G.countdownPath.Text or "Loading..."),
     Locked = false,
     Buttons = {}
 })
 
-function _G.updateStatus(text)
+function _G.updateStatus(text, currentCountdown)
     _G.LochStatus = text
     _G.Lochness:SetDesc(string.format([[
 Status : %s
 Countdown : %s
-]], text, _G.countdownPath.Text))
+]], text, currentCountdown or _G.countdownPath.Text))
 end
 
 AutoFarmTab:Toggle({
@@ -1504,6 +1514,13 @@ AutoFarmTab:Toggle({
         _G.AutoLochNess = state
         
         if state then
+            -- Simpan CFrame asli saat toggle diaktifkan
+            if not _G.OriginalCFrame and game.Players.LocalPlayer.Character then
+                local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    _G.OriginalCFrame = root.CFrame
+                end
+            end
             _G.updateStatus("Monitoring…")
         else
             _G.updateStatus("Idle")
@@ -1511,87 +1528,73 @@ AutoFarmTab:Toggle({
     end
 })
 
-task.spawn(function()
-    while task.wait(0.7) do
-        if not _G.AutoLochNess then
-            return
-        end
-        
-        if not _G.countdownPath or not _G.countdownPath.Text then
-            _G.updateStatus("Countdown not found")
-            return
-        end
 
-        local text = _G.countdownPath.Text
-        local h, m, s = text:match("(%d+)H%s+(%d+)M%s+(%d+)S")
+function _G.OnCountdownChanged()
+    
+    local newText = _G.countdownPath.Text
 
-        if not h then 
-            _G.updateStatus("Invalid countdown format")
-            return
-        end
-
-        h, m, s = tonumber(h), tonumber(m), tonumber(s)
-
-        if not _G.OriginalCFrame and game.Players.LocalPlayer.Character then
-            local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                _G.OriginalCFrame = root.CFrame
-            end
-        end
+    if not _G.AutoLochNess then
+        return
+    end
 
 
-        if text == "0H 0M 10S" then
-            _G.updateStatus("Teleporting to LochNess…")
-        
-            local char = game.Players.LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = CFrame.new(
-                    6003.8374, -585.924683, 4661.7334,
-                    0.0215646587, -8.31839486e-08, -0.999767482,
-                    -5.35441309e-08, 1, -8.43582271e-08,
-                    0.999767482, 5.5350835e-08, 0.0215646587
-                )
-            end
-        
-            _G.EventEndTime = tick() + (10 * 60)
-            _G.updateStatus("Waiting for event to end…")
-        end
-        
-        -- ️🔥 Backup trigger (jika countdown terlambat/skip frame)
-        if h == 0 and m == 0 and s <= 10 and s >= 0 then
-            _G.updateStatus("Teleporting to LochNess…")
-        
-            local char = game.Players.LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = CFrame.new(
-                    6003.8374, -585.924683, 4661.7334,
-                    0.0215646587, -8.31839486e-08, -0.999767482,
-                    -5.35441309e-08, 1, -8.43582271e-08,
-                    0.999767482, 5.5350835e-08, 0.0215646587
-                )
-            end
-        
-            _G.EventEndTime = tick() + (10 * 60)
-            _G.updateStatus("Waiting for event to end…")
-        end
-
-
-        if _G.EventEndTime and tick() >= _G.EventEndTime then
-            _G.updateStatus("Returning to original position…")
-
+    _G.Lochness:SetDesc(string.format([[
+Status : %s
+Countdown : %s
+]], _G.LochStatus, newText))
+    
+    if _G.EventEndTime then
+        if tick() >= _G.EventEndTime then
+            _G.updateStatus("Returning to original position…", newText)
             local char = game.Players.LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") and _G.OriginalCFrame then
                 char.HumanoidRootPart.CFrame = _G.OriginalCFrame
             end
-
             _G.EventEndTime = nil
-            _G.updateStatus("Done — Monitoring…")
+            _G.updateStatus("Done — Monitoring…", newText)
         end
+        return
     end
-end)
+
+    local h = tonumber(newText:match("(%d+)H")) or 0
+    local m = tonumber(newText:match("(%d+)M")) or 0
+    local s = tonumber(newText:match("(%d+)S")) or 0
+
+    local shouldTeleport = false
+    
+    if newText == "0H 0M 10S" then
+        shouldTeleport = true
+    
+    elseif h == 0 and m == 0 and s <= 10 and s >= 1 then
+        shouldTeleport = true
+    end
+
+
+    if shouldTeleport then
+        _G.updateStatus("Teleporting to LochNess…", newText)
+    
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = LOCHNESS_CFRAME
+        end
+    
+        _G.EventEndTime = tick() + (10 * 60) -- Set 10 menit timer
+        _G.updateStatus("Waiting for event to end…", newText)
+    end
+end
+
+if _G.countdownPath then
+    _G.countdownPath:GetPropertyChangedSignal("Text"):Connect(_G.OnCountdownChanged)
+    
+    NotifySuccess("LochNess Monitor", "Real-time countdown monitor is active.")
+else
+    _G.updateStatus("ERROR: Path not found!")
+    NotifyError("LochNess Monitor", "Countdown path not found. Auto-teleport will not work.")
+end
+
 
 task.spawn(function()
-    while task.wait(0.7) do
+    while task.wait(1) do
         if not _G.Lochness then continue end
         if not _G.countdownPath then continue end
         if not _G.countdownPath.Text then continue end
