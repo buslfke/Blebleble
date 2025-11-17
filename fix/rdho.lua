@@ -2834,6 +2834,220 @@ Utils:Button({
 
 Utils:Space()
 
+
+_G.ItemUtilityModule = require(ReplicatedStorage.Shared.ItemUtility)
+_G.ClientReplionModule = require(ReplicatedStorage.Packages._Index["ytrev_replion@2.0.0-rc.3"].replion.Client.ClientReplion)
+
+-- Menyimpan Remote Event
+_G.RESpawnTotem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/SpawnTotem"]
+
+-- Variabel Global untuk data & status
+ -- Akan diisi saat inisialisasi
+_G.TotemInventoryCache = {} -- Cache untuk menyimpan UUID {["Luck Totem"] = {UUIDs = {"uuid1", ...}}}
+_G.TotemsList = {}
+_G.AutoTotemState = {
+    IsRunning = false,
+    DelayMinutes = 10,
+    SelectedTotemName = {},
+    LoopThread = nil,
+}
+
+
+function _G.RefreshTotemInventory()
+    if not _G.DataReplion then return end
+
+    -- Reset Cache dengan benar
+    _G.TotemInventoryCache = {}
+    _G.TotemsList = {}
+
+    -- Ambil item dari Replion
+    local items = _G.DataReplion:Get({ "Inventory", "Totems" })
+
+    if not items then
+        if _G.TotemDropdown then _G.TotemDropdown:Refresh({}) end
+        if _G.TotemStatusParagraph then
+            _G.TotemStatusParagraph:SetDesc("Inventory refreshed. Found 0 types of totems.")
+        end
+        return
+    end
+
+    -- Loop isi cache
+    for _, item in ipairs(items) do
+        local totemData = _G.ItemUtilityModule:GetTotemsData(item.Id)
+
+        if totemData and totemData.Data then
+            local name = totemData.Data.Name
+
+            -- Jika belum ada, buat array
+            if not _G.TotemInventoryCache[name] then
+                _G.TotemInventoryCache[name] = {}
+            end
+
+            -- Masukkan UUID
+            table.insert(_G.TotemInventoryCache[name], item.UUID)
+        end
+    end
+
+    -- Bangun dropdown list
+    for name, list in pairs(_G.TotemInventoryCache) do
+        local count = #list  -- FIX: tidak lagi memakai list.UUIDs
+        table.insert(_G.TotemsList, string.format("%s (x%d)", name, count))
+    end
+
+    table.sort(_G.TotemsList)
+
+    -- Update dropdown
+    if _G.TotemDropdown then
+        _G.TotemDropdown:Refresh(_G.TotemsList)
+    end
+
+    -- Update status
+    if _G.TotemStatusParagraph then
+        _G.TotemStatusParagraph:SetDesc(
+            string.format("Inventory refreshed. Found %d types of totems.", #_G.TotemsList)
+        )
+    end
+end
+
+
+
+-- Fungsi untuk menghentikan loop
+function _G.StopAutoTotem()
+    _G.AutoTotemState.IsRunning = false
+    if _G.AutoTotemState.LoopThread then
+        task.cancel(_G.AutoTotemState.LoopThread)
+        _G.AutoTotemState.LoopThread = nil
+    end
+    if _G.TotemStatusParagraph then
+        _G.TotemStatusParagraph:SetDesc("Auto Totem Stopped.")
+    end
+    NotifyWarning("Auto Totem", "Stopped.")
+end
+
+function _G.StartAutoTotem()
+    _G.AutoTotemState.IsRunning = true
+
+    _G.AutoTotemState.LoopThread = task.spawn(function()
+        while _G.AutoTotemState.IsRunning do
+
+            -- ============================
+            -- 1. Validasi pilihan totem
+            -- ============================
+            local rawName = _G.AutoTotemState.SelectedTotemName
+            if not rawName or rawName == "" then
+                NotifyError("Auto Totem", "No totem selected from dropdown.")
+                return _G.StopAutoTotem()
+            end
+
+            -- Clean name dari "(x5)" → "Luck Totem"
+            local cleanName = rawName:match("^(.-) %(")
+            cleanName = cleanName or rawName -- fallback seluruh name
+
+            -- ============================
+            -- 2. Ambil data totem
+            -- ============================
+            local totemList = _G.TotemInventoryCache[cleanName]
+
+            if not totemList or #totemList == 0 then
+                NotifyError("Auto Totem", "No more '" .. cleanName .. "' left in inventory.")
+                _G.RefreshTotemInventory()
+                return _G.StopAutoTotem()
+            end
+
+            -- ============================
+            -- 3. Ambil UUID & FireServer
+            -- ============================
+            local uuid = table.remove(totemList, 1)
+            if uuid then
+                _G.RESpawnTotem:FireServer(uuid)
+                NotifySuccess("Auto Totem", "Spawned 1x " .. cleanName)
+            end
+
+            -- ============================
+            -- 4. Refresh UI
+            -- ============================
+            _G.RefreshTotemInventory()
+
+            -- ============================
+            -- 5. Delay
+            -- ============================
+            local delaySeconds = _G.AutoTotemState.DelayMinutes * 60
+            _G.TotemStatusParagraph:SetDesc(
+                string.format("Spawned %s. Waiting %d minutes...", cleanName, _G.AutoTotemState.DelayMinutes)
+            )
+
+            task.wait(delaySeconds)
+        end
+    end)
+end
+
+-- =======================================================
+-- 3. UI (DROPDOWN, INPUT, TOGGLE)
+-- =======================================================
+
+_G.TotemStatusParagraph = Utils:Paragraph({
+    Title = "Auto Totem Status",
+    Desc = "Waiting for data..."
+})
+
+_G.TotemDropdown = Utils:Dropdown({
+    Title = "Select Totem",
+    Values = {"Loading inventory..."},
+    AllowNone = true,
+    SearchBarEnabled = true,
+    Callback = function(val)
+        if not val then
+            _G.AutoTotemState.SelectedTotemName = nil
+            return
+        end
+
+        local clean = val:match("^(.-) %(") or val
+        _G.AutoTotemState.SelectedTotemName = clean
+    end
+})
+
+_G.TotemDelayInput = Utils:Input({
+    Title = "Delay (Minutes)",
+    Placeholder = "Enter minutes...",
+    Default = 10,
+    Type = "Input",
+    Callback = function(val)
+        _G.AutoTotemState.DelayMinutes = tonumber(val) or 10
+    end
+})
+
+Utils:Button({ Title = "Refresh Totems", Icon = "refresh-cw", Callback = _G.RefreshTotemInventory })
+
+Utils:Toggle({
+    Title = "Enable Auto Totem",
+    Value = false,
+    Callback = function(state)
+        if state then
+            _G.StartAutoTotem()
+        else
+            _G.StopAutoTotem()
+        end
+    end
+})
+
+task.spawn(function()
+    while not _G.Replion do 
+        _G.TotemStatusParagraph:SetDesc("Waiting for _G.Replion...")
+        task.wait(2) 
+    end
+    
+    _G.DataReplion = _G.Replion.Client:WaitReplion("Data")
+    if not _G.DataReplion then
+        _G.TotemStatusParagraph:SetDesc("Error: Failed to connect to Server Data.")
+        return
+    end
+
+    -- Panggil fungsi (yang sudah diperbaiki) untuk pertama kali
+    _G.RefreshTotemInventory()
+    
+end)
+
+
 local weatherActive = {}
 local weatherData = {
     ["Storm"] = { duration = 900 },
