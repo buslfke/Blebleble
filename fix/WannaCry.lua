@@ -1483,7 +1483,7 @@ AutoFarmTab:Toggle({
 })
 
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(0.7) do
         if not _G.AutoLochNess then
             return
         end
@@ -1503,9 +1503,6 @@ task.spawn(function()
 
         h, m, s = tonumber(h), tonumber(m), tonumber(s)
 
-        -- -----------------------------
-        -- 1️⃣ Simpan posisi awal
-        -- -----------------------------
         if not _G.OriginalCFrame and game.Players.LocalPlayer.Character then
             local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if root then
@@ -1514,9 +1511,9 @@ task.spawn(function()
         end
 
 
-        if h == 0 and m == 0 and s == 10 then
+        if text == "0H 0M 10S" then
             _G.updateStatus("Teleporting to LochNess…")
-
+        
             local char = game.Players.LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 char.HumanoidRootPart.CFrame = CFrame.new(
@@ -1526,7 +1523,26 @@ task.spawn(function()
                     0.999767482, 5.5350835e-08, 0.0215646587
                 )
             end
-            _G.EventEndTime = tick() + (10 * 60)  
+        
+            _G.EventEndTime = tick() + (10 * 60)
+            _G.updateStatus("Waiting for event to end…")
+        end
+        
+        -- ️🔥 Backup trigger (jika countdown terlambat/skip frame)
+        if h == 0 and m == 0 and s <= 10 and s >= 0 then
+            _G.updateStatus("Teleporting to LochNess…")
+        
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = CFrame.new(
+                    6003.8374, -585.924683, 4661.7334,
+                    0.0215646587, -8.31839486e-08, -0.999767482,
+                    -5.35441309e-08, 1, -8.43582271e-08,
+                    0.999767482, 5.5350835e-08, 0.0215646587
+                )
+            end
+        
+            _G.EventEndTime = tick() + (10 * 60)
             _G.updateStatus("Waiting for event to end…")
         end
 
@@ -1546,7 +1562,7 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(0.7) do
         if not _G.Lochness then continue end
         if not _G.countdownPath then continue end
         if not _G.countdownPath.Text then continue end
