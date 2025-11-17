@@ -322,7 +322,7 @@ end
 
 local FuncAutoFish = {
     REReplicateTextEffect = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ReplicateTextEffect"],
-    autofish5x = false,
+    autofish5x = true,
     perfectCast5x = true,
     fishingActive = false,
     delayInitialized = false,
@@ -348,7 +348,7 @@ _G.lastRecastTime = 0
 _G.DELAY_ANTISTUCK = 10
 _G.isRecasting5x = false
 _G.STUCK_TIMEOUT = 10
-_G.AntiStuckEnabled = false
+_G.AntiStuckEnabled = true
 _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1.5
 _G.obtainedFishUUIDs = {}
@@ -685,6 +685,8 @@ _G.AutoFishes = _G.FishSec:Toggle({
         end
     end
 })
+
+_G.AutoFishes:Set(true)
 
 _G.FishSec:Toggle({
     Title = "Auto Fish Legit",
