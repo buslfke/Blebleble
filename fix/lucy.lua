@@ -3144,7 +3144,7 @@ Price : 50K IDR
 FishNotif:Space()
 
 
-ocal FishCategories = {
+local FishCategories = {
     ["Secret"] = {
         "Ancient Lochness Monster", "Ancient Whale", "Blob Shark", "Bloodmoon Whale", "Bone Whale",
         "Cryoshade Glider", "Crystal Crab", "Dead Zombie Shark", "Eerie Shark", "Elshark Gran Maja",
