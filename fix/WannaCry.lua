@@ -3183,13 +3183,25 @@ function _G.StartAutoTotem()
             _G.RefreshTotemInventory()
 
             -- ============================
-            -- 5. Delay
+            -- 5. Delay (with countdown)
             -- ============================
             local delaySeconds = _G.AutoTotemState.DelayMinutes * 60
-            _G.TotemStatusParagraph:SetDesc(
-                string.format("Spawned %s. Waiting %d minutes...", cleanName, _G.AutoTotemState.DelayMinutes)
-            )
-
+            local waited = 0
+            
+            while waited < delaySeconds and _G.AutoTotemState.IsRunning do
+                local remaining = delaySeconds - waited
+                
+                local minutes = math.floor(remaining / 60)
+                local seconds = remaining % 60
+            
+                _G.TotemStatusParagraph:SetDesc(
+                    string.format("Spawned %s. Waiting %02d:%02d...", cleanName, minutes, seconds)
+                )
+                
+                local step = math.min(5, remaining)
+                task.wait(step)
+                waited += step
+            end
             task.wait(delaySeconds)
         end
     end)
