@@ -3202,7 +3202,7 @@ function _G.StartAutoTotem()
                 task.wait(step)
                 waited += step
             end
-            task.wait(delaySeconds)
+            
         end
     end)
 end
