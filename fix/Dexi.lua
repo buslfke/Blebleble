@@ -353,7 +353,7 @@ _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1.5
 _G.obtainedFishUUIDs = {}
 _G.obtainedLimit = 30
-_G.sellActive = false
+_G.sellActive = true
 _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
