@@ -532,19 +532,6 @@ _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
     end
 end)
 
-task.spawn(function()
-	while task.wait(1) do
-		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
-			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
-				StopAutoFish5X()
-				task.wait(0.5)
-				StartAutoFish5X()
-				_G.lastFishTime = tick()
-			end
-		end
-	end
-end)
-
 
 function StartAutoFish5X()
     FuncAutoFish.autofish5x = true
@@ -565,6 +552,19 @@ function StopAutoFish5X()
     _G.stopSpam()
     _G.StopRecastSpam()
 end
+
+task.spawn(function()
+	while task.wait(1) do
+		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x then
+			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
+				StopAutoFish5X()
+				task.wait(1)
+				StartAutoFish5X()
+				_G.lastFishTime = tick()
+			end
+		end
+	end
+end)
 
 --[[
 
