@@ -347,8 +347,8 @@ _G.STUCK_TIMEOUT = 9
 _G.AntiStuckEnabled = false
 _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1.5
-_G.obtainedFishUUIDs = {}
-_G.obtainedLimit = 1000
+_G.fishCounter = 0
+_G.sellThreshold = 1000
 _G.sellActive = false
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
@@ -356,27 +356,25 @@ _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
 _G.RemoteSell = _G.RemotePackage["RF/SellAllItems"]
 
 _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
-    if _G.sellActive and data and data.InventoryItem and data.InventoryItem.UUID then
-        table.insert(_G.obtainedFishUUIDs, data.InventoryItem.UUID)
-    end
-end)
-
-local function sellItems()
-    if #_G.obtainedFishUUIDs > 0 then
-        _G.RemoteSell:InvokeServer()
-        print("[Auto Sell] Selling all fishes (" .. tostring(#_G.obtainedFishUUIDs) .. ")")
-    end
-    _G.obtainedFishUUIDs = {}
-end
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if _G.sellActive and #_G.obtainedFishUUIDs >= tonumber(_G.obtainedLimit) then
-            sellItems()
-            task.wait(0.5)
+    if _G.sellActive and data then
+        _G.fishCounter += 1
+        if _G.fishCounter >= _G.sellThreshold then
+            _G.TrySellNow()
+            _G.fishCounter = 0
         end
     end
 end)
+
+_G.LastSellTick = 0
+
+function _G.TrySellNow()
+    local now = tick()
+    if now - _G.LastSellTick < 1 then 
+        return 
+    end
+    _G.LastSellTick = now
+    _G.RemoteSell:InvokeServer()
+end
 
 function _G.RecastSpam()
     if _G.rSpamming then return end
@@ -630,7 +628,7 @@ _G.FishSec:Slider({
         Default = 30,
     },
     Callback = function(value)
-        _G.obtainedLimit = value
+        _G.sellThreshold = value
     end
 })
 
@@ -653,7 +651,7 @@ _G.FishSec:Toggle({
     Callback = function(state)
         _G.sellActive = state
         if state then
-            NotifySuccess("Auto Sell", "Limit: " .. _G.obtainedLimit)
+            NotifySuccess("Auto Sell", "Limit: " .. _G.sellThreshold)
         else
             NotifySuccess("Auto Sell", "Disabled")
         end
