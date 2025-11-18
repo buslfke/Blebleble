@@ -461,7 +461,7 @@ task.spawn(function()
     while task.wait(1) do
         if _G.AutoFishHighQuality and FuncAutoFish.autofish5x and FuncAutoFish.REReplicateTextEffect then
             if tick() - lastEventTime > 10 then
-                InitialCast5X()
+                _G.RecastSpam()
                 lastEventTime = tick()
             end
         end
