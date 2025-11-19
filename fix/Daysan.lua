@@ -315,6 +315,7 @@ _G.REUpdateChargeState = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"
 _G.StopFishing = function()
     _G.RFCancelFishingInputs:InvokeServer()
     firesignal(_G.REFishingStopped.OnClientEvent)
+    RodIdle:Stop()
 end
 
 local FuncAutoFish = {
@@ -384,6 +385,7 @@ function InitialCast5X()
     local perfectThreshold = 0.99
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
+    RodIdle:Play()
     local calculationLoopStart = tick()
     local timeoutDuration = 1 -- Loop 1 detik ini TETAP DI SINI
     local lastPower = 0
@@ -396,7 +398,6 @@ function InitialCast5X()
         lastPower = currentPower
         task.wait(0) -- task.wait(0) diganti dari task.wait() agar lebih cepat
     end
-    RodIdle:Play()
     miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
 end
 
