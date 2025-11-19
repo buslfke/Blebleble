@@ -163,70 +163,6 @@ local function NotifyWarning(title, message, duration)
     })
 end
 
-
-------------------------------------------
------ =======[ CHECK DATA ]
------------------------------------------
-
-local CheckData = {
-    pasteURL = "https://raw.githubusercontent.com/quietxhub99/raul/refs/heads/main/upd.txt",
-    interval = 30,
-    kicked = false,
-    notified = false
-}
-
-local function checkStatus()
-    local success, result = pcall(function()
-        return game:HttpGet(CheckData.pasteURL)
-    end)
-
-    if not success or typeof(result) ~= "string" then
-        return
-    end
-
-    local response = result:upper():gsub("%s+", "")
-
-    if response == "UPDATE" then
-        if not CheckData.kicked then
-            CheckData.kicked = true
-            LocalPlayer:Kick("QuietXHub Premium Update Available!.")
-        end
-    elseif response == "LATEST" then
-        if not CheckData.notified then
-            CheckData.notified = true
-            warn("[QuietXHub] Status: Latest version")
-        end
-    else
-        warn("[QuietXHub] Status unknown:", response)
-    end
-end
-
-checkStatus()
-
-task.spawn(function()
-    while not CheckData.kicked do
-        task.wait(CheckData.interval)
-        checkStatus()
-    end
-end)
-
-
-local confirmed = false
-WindUI:Popup({
-    Title = "QuietXHub",
-    Icon = "crown",
-    Content = [[
-Thank you for using Premium script!.
-]],
-    Buttons = {
-        { Title = "Close", Variant = "Secondary", Callback = function() end },
-        { Title = "Next",  Variant = "Primary",   Callback = function() confirmed = true end },
-    }
-})
-
-repeat task.wait() until confirmed
-
-
 -------------------------------------------
 ----- =======[ LOAD WINDOW ]
 -------------------------------------------
@@ -292,8 +228,6 @@ Window:Tag({
 
 local ConfigManager = Window.ConfigManager
 local myConfig = ConfigManager:CreateConfig("QuietXConfig")
-
-WindUI:SetNotificationLower(true)
 
 WindUI:Notify({
     Title = "QuietXHub",
@@ -456,63 +390,6 @@ getgenv().AutoRejoinConnection = game:GetService("CoreGui").RobloxPromptGui.prom
         TeleportService:Teleport(game.PlaceId, Player)
     end
 end)
-
--------------------------------------------
------ =======[ SERVER PAGE TAB ]
--------------------------------------------
-
-_G.ServerList = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" ..
-game.PlaceId .. "/servers/Private?sortOrder=Asc&limit=100"))
-
-_G.ButtonList = {}
-
-_G.ServerListAll = _G.ServerPage:Section({
-    Title = "All Server List",
-    TextSize = 22,
-    TextXAlignment = "Center"
-})
-
-_G.ShowServersButton = _G.ServerListAll:Button({
-    Title = "Show Server List",
-    Desc = "Klik untuk menampilkan daftar server yang tersedia.",
-    Locked = false,
-    Icon = "",
-    Callback = function()
-        if _G.ServersShown then return end
-        _G.ServersShown = true
-
-        for _, server in ipairs(_G.ServerList.data) do
-            _G.playerCount = string.format("%d/%d", server.playing, server.maxPlayers)
-            _G.ping = server.ping
-            _G.id = server.id
-
-            local buttonServer = _G.ServerListAll:Button({
-                Title = "Server",
-                Desc = "Player: " .. tostring(_G.playerCount) .. "\nPing: " .. tostring(_G.ping),
-                Locked = false,
-                Icon = "",
-                Callback = function()
-                    game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, _G.id,
-                        game.Players.LocalPlayer)
-                end
-            })
-
-            buttonServer:SetTitle("Server")
-            buttonServer:SetDesc("Player: " .. tostring(_G.playerCount) .. "\nPing: " .. tostring(_G.ping))
-
-            table.insert(_G.ButtonList, buttonServer)
-        end
-
-        if #_G.ButtonList == 0 then
-            _G.ServerListAll:Button({
-                Title = "No Servers Found",
-                Desc = "Tidak ada server yang ditemukan.",
-                Locked = true,
-                Callback = function() end
-            })
-        end
-    end
-})
 
 -------------------------------------------
 ----- =======[ AUTO FISH TAB ]
