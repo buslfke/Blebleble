@@ -239,6 +239,11 @@ local AutoFarmTab = AllMenu:Tab({
 	Icon = "leaf"
 })
 
+_G.AutoQuestTab = AllMenu:Tab({
+    Title = "Auto Quest",
+    Icon = "notebook"
+})
+
 local AutoFarmArt = AllMenu:Tab({
 	Title = "Auto Farm Artifact",
 	Icon = "flask-round"
@@ -964,54 +969,352 @@ AutoFish:Button({
     end
 })
 
-AutoFish:Button({
-    Title = "Auto Enchant Rod",
-    Callback = function()
-        local ENCHANT_POSITION = Vector3.new(3231, -1303, 1402)
-		local char = workspace:WaitForChild("Characters"):FindFirstChild(LocalPlayer.Name)
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+-- =======================================================
+-- AUTO ENCHANT (GLOBAL VARIABLE VERSION)
+-- =======================================================
 
-		if not hrp then
-			NotifyError("Auto Enchant Rod", "Failed to get character HRP.")
-			return
-		end
-
-		NotifyInfo("Preparing Enchant...", "Please manually place Enchant Stone into slot 5 before we begin...", 5)
-
-		task.wait(3)
-
-		local Player = game:GetService("Players").LocalPlayer
-		local slot5 = Player.PlayerGui.Backpack.Display:GetChildren()[10]
-
-		local itemName = slot5 and slot5:FindFirstChild("Inner") and slot5.Inner:FindFirstChild("Tags") and slot5.Inner.Tags:FindFirstChild("ItemName")
-
-		if not itemName or not itemName.Text:lower():find("enchant") then
-			NotifyError("Auto Enchant Rod", "Slot 5 does not contain an Enchant Stone.")
-			return
-		end
-
-		NotifyInfo("Enchanting...", "It is in the process of Enchanting, please wait until the Enchantment is complete", 7)
-
-		local originalPosition = hrp.Position
-		task.wait(1)
-		hrp.CFrame = CFrame.new(ENCHANT_POSITION + Vector3.new(0, 5, 0))
-		task.wait(1.2)
-
-		local equipRod = net:WaitForChild("RE/EquipToolFromHotbar")
-		local activateEnchant = net:WaitForChild("RE/ActivateEnchantingAltar")
-
-		pcall(function()
-			equipRod:FireServer(5)
-			task.wait(0.5)
-			activateEnchant:FireServer()
-			task.wait(7)
-			NotifySuccess("Enchant", "Successfully Enchanted!", 3)
-		end)
-
-		task.wait(0.9)
-		hrp.CFrame = CFrame.new(originalPosition + Vector3.new(0, 3, 0))
-    end
+_G.EnchantSec = AutoFish:Section({
+    Title = "Auto Enchant",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
 })
+do
+    -- Definisi State Global
+    _G.autoEnchantState = { 
+        enabled = false, 
+        targetEnchant = nil, 
+        stoneLimit = math.huge, 
+        stonesUsed = 0, 
+        selectedRodUUID = nil,
+        selectedRodName = "",
+        enchantLoopThread = nil 
+    }
+    
+    -- Variabel UI Global (Disiapkan dulu agar tidak nil)
+    _G.enchantStatusParagraph = nil
+    _G.enchantStoneCountParagraph = nil
+    _G.rodDropdown = nil
+    _G.autoEnchantToggle = nil
+    _G.targetEnchantDropdown = nil
+    _G.stoneLimitInput = nil
+    
+    _G.altarPosition = Vector3.new(3234, -1300, 1401)
+    
+    -- Helper: Cari Data Rod berdasarkan UUID (Fresh Data)
+    _G.getRodByUUID = function(uuid)
+        if not (_G.Replion and _G.ItemUtility) then return nil end
+        local DataReplion = _G.Replion.Client:GetReplion("Data")
+        if not DataReplion then return nil end
+    
+        local rods = DataReplion:Get({ "Inventory", "Fishing Rods" })
+        if rods then
+            for _, rod in ipairs(rods) do
+                if rod.UUID == uuid then return rod end
+            end
+        end
+        return nil
+    end
+    
+    -- Populate Dropdown Rod
+    _G.populateRodDropdown = function()
+        task.spawn(function()
+            if not (_G.ItemUtility and _G.Replion) then return end
+            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Loading rod list...") end
+            
+            local DataReplion = _G.Replion.Client:WaitReplion("Data")
+            if not DataReplion then return end
+    
+            local rodList, uuidMap = { "Select a rod..." }, {}
+            local rod_inventory = DataReplion:Get({ "Inventory", "Fishing Rods" })
+            
+            if rod_inventory then
+                for i, rodItem in ipairs(rod_inventory) do
+                    local itemData = _G.ItemUtility:GetItemData(rodItem.Id)
+                    if itemData and itemData.Data then
+                        local rodName = itemData.Data.Name or rodItem.Id
+                        local enchantName = ""
+                        
+                        -- Cek metadata enchant saat ini
+                        if rodItem.Metadata and rodItem.Metadata.EnchantId then
+                            local enchantData = _G.ItemUtility:GetEnchantData(rodItem.Metadata.EnchantId)
+                            if enchantData and enchantData.Data.Name then
+                                enchantName = " [" .. enchantData.Data.Name .. "]"
+                            end
+                        end
+    
+                        local displayName = rodName .. enchantName
+                        
+                        -- Handle nama duplikat agar dropdown unik
+                        local count = 2
+                        local originalName = displayName
+                        while uuidMap[displayName] do
+                            displayName = originalName .. " #" .. count
+                            count = count + 1
+                        end
+                        
+                        table.insert(rodList, displayName)
+                        uuidMap[displayName] = rodItem.UUID
+                    end
+                end
+            end
+            
+            -- Simpan mapping di dropdown
+            if _G.rodDropdown then
+                _G.rodDropdown.UUIDMap = uuidMap
+                pcall(_G.rodDropdown.Refresh, _G.rodDropdown, rodList)
+            end
+            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Rods loaded.") end
+        end)
+    end
+    
+    -- Get List Enchantment dari ReplicatedStorage
+    _G.getEnchantmentList = function()
+        local enchants = {}
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local success, enchantsModule = pcall(require, ReplicatedStorage:WaitForChild("Enchants"))
+        if success then
+            for name, data in pairs(enchantsModule) do
+                if type(data) == "table" and data.Data and data.Data.Name then
+                    table.insert(enchants, data.Data.Name)
+                end
+            end
+        end
+        table.sort(enchants)
+        return enchants
+    end
+    
+    -- === UI ELEMENTS ===
+    
+    _G.targetEnchantDropdown = _G.EnchantSec:Dropdown({
+        Title = "Select Target Enchantment",
+        Values = _G.getEnchantmentList(),
+        AllowNone = true,
+        SearchBarEnabled = true,
+        Callback = function(v) _G.autoEnchantState.targetEnchant = v end
+    })
+    -- myConfig:Register("TargetEnchantQuite", _G.targetEnchantDropdown)
+    
+    _G.rodDropdown = _G.EnchantSec:Dropdown({
+        Title = "Select Rod to Enchant",
+        Values = { "Click Refresh or wait..." },
+        AllowNone = true,
+        Callback = function(v)
+            if _G.rodDropdown.UUIDMap and _G.rodDropdown.UUIDMap[v] then
+                _G.autoEnchantState.selectedRodUUID = _G.rodDropdown.UUIDMap[v]
+                _G.autoEnchantState.selectedRodName = v
+                if _G.enchantStatusParagraph then
+                    _G.enchantStatusParagraph:SetDesc("Selected: " .. v)
+                end
+            end
+        end
+    })
+    -- myConfig:Register("SelectedRodToEnchantQuite", _G.rodDropdown)
+    
+    _G.EnchantSec:Button({ Title = "Refresh Rod List", Icon = "refresh-cw", Callback = _G.populateRodDropdown })
+    
+    _G.stoneLimitInput = _G.EnchantSec:Input({
+        Title = "Max Enchant Stones to Use",
+        Placeholder = "Empty for no limit",
+        Type = "Input",
+        Callback = function(v) _G.autoEnchantState.stoneLimit = tonumber(v) or math.huge end
+    })
+    -- myConfig:Register("StoneLimitQuite", _G.stoneLimitInput)
+    
+    _G.enchantStoneCountParagraph = _G.EnchantSec:Paragraph({ Title = "Stones Owned", Desc = "Loading..." })
+    _G.enchantStatusParagraph = _G.EnchantSec:Paragraph({ Title = "Status", Desc = "Idle." })
+    
+    -- Thread Update Stone Count
+    task.spawn(function()
+        while task.wait(2) do
+            -- Pastikan Window aktif (jika variabel Window ada di _G atau scope lain)
+            pcall(function()
+                if not _G.Replion then return end
+                local DataReplion = _G.Replion.Client:GetReplion("Data")
+                if not DataReplion then return end
+                local items = DataReplion:Get({ "Inventory", "Items" })
+                local count = 0
+                if items then
+                    for _, item in ipairs(items) do
+                        local base = _G.ItemUtility:GetItemData(item.Id)
+                        if base and base.Data and base.Data.Type == "Enchant Stones" then
+                            count = count + (item.Quantity or 1)
+                        end
+                    end
+                end
+                if _G.enchantStoneCountParagraph then
+                    _G.enchantStoneCountParagraph:SetDesc("You have: " .. count .. " stones")
+                end
+            end)
+        end
+    end)
+    
+    _G.autoEnchantToggle = _G.EnchantSec:Toggle({
+        Title = "Enable Auto Enchant",
+        Value = false,
+        Callback = function(value)
+            _G.autoEnchantState.enabled = value
+            
+            -- Matikan thread lama jika ada
+            if _G.autoEnchantState.enchantLoopThread then
+                task.cancel(_G.autoEnchantState.enchantLoopThread)
+                _G.autoEnchantState.enchantLoopThread = nil
+            end
+    
+            if value then
+                _G.autoEnchantState.enchantLoopThread = task.spawn(function()
+                    if not _G.autoEnchantState.targetEnchant or not _G.autoEnchantState.selectedRodUUID then
+                        if _G.enchantStatusParagraph then 
+                            _G.enchantStatusParagraph:SetDesc("Error: Select Rod AND Target Enchant!") 
+                        end
+                        pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                        return
+                    end
+    
+                    -- 1. Teleport ke Altar
+                    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and (hrp.Position - _G.altarPosition).Magnitude > 10 then
+                        if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Teleporting to Altar...") end
+                        hrp.CFrame = CFrame.new(_G.altarPosition) * CFrame.new(0, 5, 0)
+                        task.wait(1.5)
+                    end
+    
+                    _G.autoEnchantState.stonesUsed = 0
+                    local DataReplion = _G.Replion.Client:WaitReplion("Data")
+                    local EquipItemEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
+                    local EquipToolEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipToolFromHotbar"]
+                    local UnequipItemEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/UnequipItem"]
+                    local ActivateAltarEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/ActivateEnchantingAltar"]
+                    local RollEnchantEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/RollEnchant"]
+    
+                    while _G.autoEnchantState.enabled do
+                        -- 2. Ambil Data Terbaru Rod
+                        local currentRod = _G.getRodByUUID(_G.autoEnchantState.selectedRodUUID)
+                        if not currentRod then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Error: Rod not found in inventory!") end
+                            break
+                        end
+    
+                        -- 3. Cari Stone
+                        local stoneItem = nil
+                        local items = DataReplion:Get({ "Inventory", "Items" })
+                        for _, item in ipairs(items or {}) do
+                            local base = _G.ItemUtility:GetItemData(item.Id)
+                            if base and base.Data and base.Data.Type == "Enchant Stones" then
+                                stoneItem = item
+                                break
+                            end
+                        end
+    
+                        if not stoneItem then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Stopped: Out of Enchant Stones.") end
+                            break
+                        end
+    
+                        if _G.autoEnchantState.stonesUsed >= _G.autoEnchantState.stoneLimit then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Stopped: Limit reached.") end
+                            break
+                        end
+    
+                        _G.autoEnchantState.stonesUsed = _G.autoEnchantState.stonesUsed + 1
+                        if _G.enchantStatusParagraph then 
+                            _G.enchantStatusParagraph:SetDesc(string.format("Rolling... (Stone #%d)", _G.autoEnchantState.stonesUsed)) 
+                        end
+    
+                        -- 4. Proses Equip & Roll
+                        local success, resultEnchantName = pcall(function()
+                            -- Equip Rod
+                            EquipItemEvent:FireServer(currentRod.UUID, "Fishing Rods")
+                            task.wait(0.6)
+    
+                            -- Equip Stone
+                            EquipItemEvent:FireServer(stoneItem.UUID, "Enchant Stones")
+                            task.wait(0.6)
+    
+                            -- Equip Tool
+                            EquipToolEvent:FireServer(6) 
+                            task.wait(0.8)
+    
+                            -- Snapshot ID Enchant Lama
+                            local oldEnchantId = currentRod.Metadata and currentRod.Metadata.EnchantId or nil
+                            local gotResult = false
+                            local resultName = "None"
+    
+                            -- Setup Listener Replion untuk deteksi perubahan
+                            local connection
+                            connection = DataReplion:OnChange({"Inventory", "Fishing Rods"}, function(newRods)
+                                for _, rod in ipairs(newRods) do
+                                    if rod.UUID == currentRod.UUID then
+                                        local newEnchantId = rod.Metadata and rod.Metadata.EnchantId
+                                        -- Jika ID berubah, berarti roll sukses
+                                        if newEnchantId ~= oldEnchantId then
+                                            if newEnchantId then
+                                                local eData = _G.ItemUtility:GetEnchantData(newEnchantId)
+                                                resultName = eData and eData.Data.Name or "Unknown"
+                                            else
+                                                resultName = "None"
+                                            end
+                                            gotResult = true
+                                        end
+                                        break
+                                    end
+                                end
+                            end)
+    
+                            -- Trigger Roll
+                            ActivateAltarEvent:FireServer(currentRod.UUID) -- Init
+                            task.wait(0.5)
+                            RollEnchantEvent:FireServer(currentRod.UUID) -- Confirm Roll
+    
+                            -- Tunggu hasil (Max 6 detik)
+                            local timer = 0
+                            while not gotResult and timer < 7 do
+                                task.wait(0.7)
+                                timer = timer + 0.7
+                                if not _G.autoEnchantState.enabled then break end
+                            end
+    
+                            if connection then connection:Disconnect() end
+    
+                            if not gotResult then
+                                error("Timeout waiting for enchant result")
+                            end
+    
+                            return resultName
+                        end)
+    
+                        -- Unequip Tool Safety
+                        pcall(function() UnequipItemEvent:FireServer(6) end)
+    
+                        if success then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Rolled: " .. resultEnchantName) end
+                            
+                            -- Cek apakah sesuai target
+                            if string.lower(resultEnchantName) == string.lower(_G.autoEnchantState.targetEnchant) then
+                                if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("SUCCESS! Got " .. resultEnchantName) end
+                                NotifySuccess("Auto Enchant", "Successfully got " .. resultEnchantName, 5)
+                                _G.autoEnchantState.enabled = false
+                                pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                                _G.populateRodDropdown() -- Refresh nama rod
+                                break
+                            end
+                        else
+                            warn("Enchant fail/retry: " .. tostring(resultEnchantName))
+                            _G.autoEnchantState.stonesUsed = _G.autoEnchantState.stonesUsed - 1 
+                            task.wait(0.5)
+                        end
+    
+                        task.wait(0.5) -- Delay aman antar roll agar tidak crash
+                    end
+    
+                    pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                    _G.autoEnchantState.enchantLoopThread = nil
+                end)
+            end
+        end
+    })
+    task.delay(1, _G.populateRodDropdown)
+end
 
 -------------------------------------------
 ----- =======[ AUTO FAV TAB ]
@@ -1738,6 +2041,450 @@ AutoFarmTab:Dropdown({
 		NotifyInfo("Event Selected", "Now monitoring event: " .. selectedEvent)
 	end
 })
+
+
+-- ===================================================================
+-- 
+-- AUTO QUEST ( GHOSFINN & ELEMENT ROD)
+--
+-- ===================================================================
+
+
+_G.ReplicatedStorage = game:GetService("ReplicatedStorage")
+_G.Players = game:GetService("Players")
+_G.LocalPlayer = _G.Players.LocalPlayer
+
+_G.QuestList = require(_G.ReplicatedStorage.Shared.Quests.QuestList)
+
+_G.Locations = {
+    TreasureRoom = CFrame.new(-3625.0708, -279.074219, -1594.57605, 0.918176472, -3.97606392e-09, -0.396171629, -1.12946204e-08, 1,
+            -3.62128851e-08, 0.396171629, 3.77244298e-08, 0.918176472),
+    Sisyphus = CFrame.new(-3697.77124, -135.074417, -886.946411, 0.979794085, -9.24526766e-09, 0.200008959, 1.35701708e-08, 1,
+            -2.02526174e-08, -0.200008959, 2.25575487e-08, 0.979794085),
+    AncientJungle = CFrame.new(1515.67676, 25.5616989, -306.595856, 0.763029754, -8.87780942e-08, 0.646363378, 5.24343307e-08, 1,
+            7.5451581e-08, -0.646363378, -2.36801707e-08, 0.763029754),
+    SacredTemple = CFrame.new(1470.30334, -12.2246475, -587.052612, -0.101084575, -9.68974163e-08, 0.994877815, -1.47451953e-08, 1,
+            9.5898109e-08, -0.994877815, -4.97584818e-09, -0.101084575)
+}
+
+_G.AutoQuestConfig = {
+    ["DeepSea"] = { 
+        name = "DeepSea", 
+        locationMap = { 
+            ["Sisyphus Statue"] = _G.Locations.Sisyphus, 
+            ["Treasure Room"] = _G.Locations.TreasureRoom 
+        } 
+    },
+    ["ElementJungle"] = { 
+        name = "ElementJungle", 
+        locationMap = { 
+            ["Sacred Temple"] = _G.Locations.SacredTemple, 
+            ["Ancient Jungle"] = _G.Locations.AncientJungle 
+        } 
+    }
+}
+
+function _G.Teleport(targetCFrame)
+    local char = _G.LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if root then
+        NotifyInfo("Teleport", "Teleporting to quest location...")
+        root.CFrame = targetCFrame
+        task.wait(1)
+    else
+        NotifyError("Teleport", "Teleport failed, HumanoidRootPart not found.")
+    end
+end
+
+_G.QuestProgressCache = {
+    DeepSea = {},
+    ElementJungle = {},
+    IsDeepSeaComplete = false
+}
+
+
+_G.AutoQuestState = {
+    IsRunning = false,
+    CurrentQuest = nil,
+    CurrentStep = "Idle"
+}
+
+
+function _G.GetUpdatedQuestProgress(questCategoryName)
+    if not _G.DataReplion then return nil, false end
+    
+    -- 1. Dapatkan info statis dari QuestList
+    local staticInfo = _G.QuestList[questCategoryName]
+    local replionPath = staticInfo.ReplionPath -- e.g., "DeepSea"
+    
+    -- ===================================================================
+    -- == [PERBAIKAN REALTIME] MENGECEK FLAG "COMPLETED" TERLEBIH DAHULU ==
+    -- ===================================================================
+    
+    -- 2. Tentukan path data di Replion berdasarkan file Anda
+    
+    -- Path ini HANYA 'true' atau 'false'.
+    local completedPath = replionPath .. ".Completed" 
+    
+    -- Path ini berisi progress {10, 0, 1, ...}
+    local availablePath = replionPath .. ".Available.Forever" 
+    
+    -- 3. Cek data "Completed" dari server menggunakan Replion:Get()
+    local successCompleted, isCategoryComplete = pcall(_G.DataReplion.Get, _G.DataReplion, completedPath)
+
+    local progressTable = {}
+    local allComplete = false
+
+    if successCompleted and isCategoryComplete == true then
+        -- 
+        -- KASUS 1: QUEST SUDAH SELESAI (FIX UNTUK AKUN ANDA)
+        -- Path "DeepSea.Completed" adalah 'true'.
+        -- Kita isi progress secara manual ke nilai maksimum.
+        --
+        allComplete = true
+        for i, questData in ipairs(staticInfo.Forever) do
+            local totalNeeded = questData.Arguments.value
+            table.insert(progressTable, {
+                Index = i, DisplayName = questData.DisplayName,
+                Current = totalNeeded, Target = totalNeeded, -- << DIPAKSA PENUH
+                IsComplete = true, Key = questData.Arguments.key,
+                Def = questData
+            })
+        end
+        
+    else
+        -- 
+        -- KASUS 2: QUEST MASIH AKTIF (ATAU 0)
+        -- Path "DeepSea.Completed" adalah 'false' atau 'nil'.
+        -- Sekarang kita aman membaca data "Available.Forever" menggunakan Replion:Get()
+        --
+        local successAvailable, dynamicData = pcall(_G.DataReplion.Get, _G.DataReplion, availablePath)
+        
+        local tempAllComplete = true
+        
+        for i, questData in ipairs(staticInfo.Forever) do
+            local totalNeeded = questData.Arguments.value
+            local currentProgress = 0 -- Default ke 0
+            
+            -- Hanya isi progress jika datanya ada (bukan 'nil' atau '{}')
+            if successAvailable and dynamicData and dynamicData.Quests and dynamicData.Quests[i] and dynamicData.Quests[i].Progress then
+                currentProgress = dynamicData.Quests[i].Progress
+            elseif successAvailable and (not dynamicData or not dynamicData.Quests or not dynamicData.Quests[i]) then
+                currentProgress = totalNeeded
+            end
+            
+            local isComplete = currentProgress >= totalNeeded
+            if not isComplete then
+                tempAllComplete = false
+            end
+            
+            table.insert(progressTable, {
+                Index = i, DisplayName = questData.DisplayName,
+                Current = currentProgress, Target = totalNeeded,
+                IsComplete = isComplete, Key = questData.Arguments.key,
+                Def = questData
+            })
+        end
+        allComplete = tempAllComplete
+    end
+    
+    -- Mengembalikan data yang sudah disinkronkan
+    return progressTable, allComplete
+end
+
+
+
+
+
+_G.DS_Paragraph = _G.AutoQuestTab:Paragraph({ Title = "Deep Sea Quest Progress", Desc = "Waiting for Server data..." })
+_G.EJ_Paragraph = _G.AutoQuestTab:Paragraph({ Title = "Element Jungle Quest Progress", Desc = "Waiting for Server data..." })
+
+
+function _G.UpdateProgressParagraphs()
+    if not _G.DataReplion then return end
+
+    -- Update DeepSea
+    local dsProgress, dsComplete = _G.GetUpdatedQuestProgress("DeepSea")
+    if dsProgress then
+        _G.QuestProgressCache.DeepSea = dsProgress
+        _G.QuestProgressCache.IsDeepSeaComplete = dsComplete
+        
+        local dsText = ""
+        for _, v in ipairs(dsProgress) do
+            dsText = dsText .. string.format("- %s (%d / %d)\n", v.DisplayName, v.Current, v.Target)
+        end
+        if dsComplete then dsText = "== ALL QUESTS COMPLETE ==\n\n" .. dsText end
+        _G.DS_Paragraph:SetDesc(dsText)
+    end
+    
+    -- Update ElementJungle
+    local ejProgress, ejComplete = _G.GetUpdatedQuestProgress("ElementJungle")
+    if ejProgress then
+        _G.QuestProgressCache.ElementJungle = ejProgress
+        
+        local ejText = ""
+        for _, v in ipairs(ejProgress) do
+            ejText = ejText .. string.format("- %s (%d / %d)\n", v.DisplayName, v.Current, v.Target)
+        end
+        if ejComplete then ejText = "== ALL QUESTS COMPLETE ==\n\n" .. ejText end
+        _G.EJ_Paragraph:SetDesc(ejText)
+    end
+end
+
+-- ===================================================================
+-- 6. LOGIKA AUTO QUEST (The "Brain")
+-- ===================================================================
+
+function _G.StopAutoQuest()
+    if _G.AutoQuestState.IsRunning then
+        NotifyWarning("Auto Quest", "Auto Quest Stopped.")
+        StopAutoFish5X()
+        _G.AutoQuestState.IsRunning = false
+        _G.AutoQuestState.CurrentQuest = nil
+        _G.AutoQuestState.CurrentStep = "Idle"
+    end
+end
+
+function _G.CheckAndRunAutoQuest()
+    if not _G.AutoQuestState.IsRunning then return end
+
+    local currentQuestName = _G.AutoQuestState.CurrentQuest
+    local currentQuestConfig = _G.AutoQuestConfig[currentQuestName]
+
+    if not currentQuestConfig then
+        NotifyError("Auto Quest", "Config not found for: " .. currentQuestName)
+        _G.StopAutoQuest()
+        return
+    end
+
+    local progressCache, isAllComplete
+    if currentQuestName == "DeepSea" then
+        progressCache = _G.QuestProgressCache.DeepSea
+        isAllComplete = _G.QuestProgressCache.IsDeepSeaComplete
+    elseif currentQuestName == "ElementJungle" then
+        if not _G.QuestProgressCache.IsDeepSeaComplete then
+            NotifyError("Auto Quest", "You must complete the Ghostfinn Rod quest first!")
+            _G.StopAutoQuest()
+            return
+        end
+        progressCache = _G.QuestProgressCache.ElementJungle
+        local allDone = true
+        for _, v in ipairs(progressCache) do if not v.IsComplete then allDone = false; break end end
+        isAllComplete = allDone
+    end
+
+    if not progressCache or #progressCache == 0 then return end
+
+    local targetObjective, targetLocationCFrame, locationName = nil, nil, nil
+
+    for _, objective in ipairs(progressCache) do
+        if not objective.IsComplete and objective.Def then
+            local areaName
+            local conditions = objective.Def.Arguments.conditions
+            if conditions then
+                areaName = conditions.AreaName
+            end
+
+            if currentQuestName == "DeepSea" and not areaName then
+                if objective.Key == "CatchRareTreasureRoom" then
+                    areaName = "Treasure Room"
+                end
+            end
+
+            if areaName and currentQuestConfig.locationMap[areaName] then
+                targetObjective = objective
+                targetLocationCFrame = currentQuestConfig.locationMap[areaName]
+                locationName = areaName
+                break
+            end
+        end
+    end
+
+    if targetObjective then
+        local statusText = string.format("Running: %s (%d/%d)", 
+            targetObjective.DisplayName, targetObjective.Current, targetObjective.Target)
+
+        if _G.AutoQuestState.CurrentStep ~= locationName then
+            NotifyInfo("Auto Quest", statusText .. " | Teleporting to: " .. locationName)
+            _G.AutoQuestState.CurrentStep = locationName
+            StopAutoFish5X()
+            _G.Teleport(targetLocationCFrame)
+            StartAutoFish5X()
+        else
+            if not _G.IsAutoFishRunning() then
+                StartAutoFish5X()
+            end
+        end
+    else
+        if isAllComplete then
+            NotifySuccess("Auto Quest", "All " .. currentQuestName .. " quests are complete!")
+            _G.StopAutoQuest()
+        else
+            NotifyError("Auto Quest", "Cannot find location for next quest. Stopping.")
+            _G.StopAutoQuest()
+        end
+    end
+end
+
+-- ===================================================================
+-- 7. UI TOGGLES & FUNGSI INISIALISASI (FIXED LISTENERS)
+-- ===================================================================
+
+_G.AutoQuestTab:Toggle({
+    Title = "Auto Quest - Ghosfinn Rod",
+    Desc = "Automatically farm the Ghostfinn Rod quest.",
+    Value = false,
+    Callback = function(state)
+        if state then
+            if _G.AutoQuestState.IsRunning then
+                NotifyWarning("Auto Quest", "One auto quest is already running.")
+                return false
+            end
+            NotifySuccess("Auto Quest", "Starting Auto Quest DeepSea...")
+            _G.AutoQuestState.IsRunning = true
+            _G.AutoQuestState.CurrentQuest = "DeepSea"
+            _G.CheckAndRunAutoQuest()
+        else
+            _G.StopAutoQuest()
+        end
+    end
+})
+
+_G.AutoQuestTab:Toggle({
+    Title = "Auto Quest - Element Rod",
+    Desc = "Automatically farm the Element Rod quest. (Requires Ghostfinn Rod).",
+    Value = false,
+    Callback = function(state)
+        if state then
+            if _G.AutoQuestState.IsRunning then
+                NotifyWarning("Auto Quest", "One auto quest is already running.")
+                return false
+            end
+            NotifySuccess("Auto Quest", "Starting Auto Quest Element Rod...")
+            _G.AutoQuestState.IsRunning = true
+            _G.AutoQuestState.CurrentQuest = "ElementJungle"
+            _G.CheckAndRunAutoQuest()
+        else
+            _G.StopAutoQuest()
+        end
+    end
+})
+
+task.spawn(function()
+    while not _G.Replion do 
+        task.wait(2) 
+    end
+    
+    _G.DataReplion = _G.Replion.Client:WaitReplion("Data")
+    if not _G.DataReplion then
+        _G.EJ_Paragraph:SetDesc("Error: Failed to connect to Server.")
+        _G.DS_Paragraph:SetDesc("Error: Failed to connect to Server.")
+        return
+    end
+
+    _G.UpdateProgressParagraphs() -- Panggil sekali saat start
+
+    -- ===================================================================
+    -- == [PERBAIKAN REALTIME]
+    -- == Kita sekarang mendengarkan SEMUA path data yang 
+    -- == digunakan oleh _G.GetUpdatedQuestProgress
+    -- ===================================================================
+
+    -- 1. Tentukan SEMUA path yang perlu dipantau
+    local ejAvailablePath = _G.QuestList.ElementJungle.ReplionPath .. ".Available.Forever.Quests"
+    local dsAvailablePath = _G.QuestList.DeepSea.ReplionPath .. ".Available.Forever.Quests"
+    local ejCompletedPath = _G.QuestList.ElementJungle.ReplionPath .. ".Completed"
+    local dsCompletedPath = _G.QuestList.DeepSea.ReplionPath .. ".Completed"
+
+    -- 2. Buat listener untuk SEMUA path
+    
+    -- Listener untuk quest aktif (logika lama Anda, sudah benar)
+    _G.DataReplion:OnChange(ejAvailablePath, function()
+        _G.UpdateProgressParagraphs()
+        _G.CheckAndRunAutoQuest()
+    end)
+    
+    _G.DataReplion:OnChange(dsAvailablePath, function()
+        _G.UpdateProgressParagraphs()
+        _G.CheckAndRunAutoQuest()
+    end)
+    
+    -- [BARU] Listener untuk status "Completed"
+    -- Ini akan memicu update paragraf saat quest selesai
+    _G.DataReplion:OnChange(ejCompletedPath, function()
+        _G.UpdateProgressParagraphs()
+        _G.CheckAndRunAutoQuest()
+    end)
+    
+    _G.DataReplion:OnChange(dsCompletedPath, function()
+        _G.UpdateProgressParagraphs()
+        _G.CheckAndRunAutoQuest()
+    end)
+end)
+
+
+task.spawn(function()
+    -- wait minimal sampai everything loaded
+    for i = 1, 40 do
+        if _G.UpdateProgressParagraphs and _G.QuestList then break end
+        task.wait(0.1)
+    end
+
+    -- Safety: ensure paragraphs exist, otherwise bail quietly
+    if not _G.DS_Paragraph or not _G.EJ_Paragraph then
+        -- try to wait a bit more
+        for i = 1, 20 do
+            if _G.DS_Paragraph and _G.EJ_Paragraph then break end
+            task.wait(0.1)
+        end
+    end
+
+    if not _G.UpdateProgressParagraphs then
+        warn("[AutoQuest Sync] _G.UpdateProgressParagraphs not found; realtime sync cancelled.")
+        return
+    end
+
+    local watchPaths = {}
+    pcall(function()
+        for key, info in pairs(_G.QuestList or {}) do
+            if info and info.ReplionPath then
+                table.insert(watchPaths, info.ReplionPath .. ".Available.Forever.Quests")
+                table.insert(watchPaths, info.ReplionPath .. ".Completed")
+            end
+        end
+    end)
+
+    pcall(function()
+        if _G.DataReplion and type(_G.DataReplion.OnChange) == "function" then
+            for _, p in ipairs(watchPaths) do
+                -- wrap in pcall to avoid duplicate errors
+                pcall(function()
+                    _G.DataReplion:OnChange(p, function()
+                        -- quick, reactive update
+                        pcall(function()
+                            _G.UpdateProgressParagraphs()
+                            _G.CheckAndRunAutoQuest()
+                        end)
+                    end)
+                end)
+            end
+        end
+    end)
+
+    while task.wait(0.5) do
+        pcall(function()
+            _G.UpdateProgressParagraphs()
+        end)
+        pcall(function()
+            if _G.AutoQuestState and _G.AutoQuestState.IsRunning then
+                _G.CheckAndRunAutoQuest()
+            end
+        end)
+    end
+end)
+
+
+
 
 -------------------------------------------
 ----- =======[ ARTIFACT TAB ]
