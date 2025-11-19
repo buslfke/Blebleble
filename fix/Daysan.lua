@@ -195,7 +195,7 @@ WindUI.TransparencyValue = 0.3
 local Window = WindUI:CreateWindow({
     Title = "Fish It",
     Icon = "crown",
-    Author = "by Prince",
+    Author = "by Dasyan",
     Folder = "QuietXHub",
     Size = UDim2.fromOffset(600, 400),
     Transparent = true,
@@ -213,7 +213,7 @@ local Window = WindUI:CreateWindow({
 })
 
 Window:EditOpenButton({
-    Title = "QuietXHub",
+    Title = "Dasyan",
     Icon = "crown",
     CornerRadius = UDim.new(0,19),
     StrokeThickness = 2,
@@ -237,7 +237,7 @@ local myConfig = ConfigManager:CreateConfig("QuietXConfig")
 WindUI:SetNotificationLower(true)
 
 WindUI:Notify({
-	Title = "QuietXHub",
+	Title = "Dasyan",
 	Content = "All Features Loaded!",
 	Duration = 5,
 	Image = "square-check-big"
