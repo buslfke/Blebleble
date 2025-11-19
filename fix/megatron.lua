@@ -439,15 +439,16 @@ _G.rSpamming = false
 _G.spamThread = nil
 _G.rspamThread = nil
 _G.lastRecastTime = 0
-_G.DELAY_ANTISTUCK = 10
+_G.DELAY_ANTISTUCK = 7
 _G.isRecasting5x = false
-_G.STUCK_TIMEOUT = 10
+_G.STUCK_TIMEOUT = 7
 _G.AntiStuckEnabled = false
 _G.lastFishTime = tick()
-_G.FINISH_DELAY = 1
+_G.FINISH_DELAY = 1.5
 _G.fishCounter = 0
 _G.sellThreshold = 5
 _G.sellActive = false
+_G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
@@ -474,20 +475,47 @@ function _G.TrySellNow()
     _G.RemoteSell:InvokeServer()
 end
 
+function InitialCast5X()
+    _G.StopFishing()
+    local getPowerFunction = Constants.GetPower
+    local perfectThreshold = 0.99
+    local chargeStartTime = workspace:GetServerTimeNow()
+    rodRemote:InvokeServer(chargeStartTime)
+    local calculationLoopStart = tick()
+    local timeoutDuration = 1 -- Loop 1 detik ini TETAP DI SINI
+    local lastPower = 0
+    while (tick() - calculationLoopStart < timeoutDuration) do
+        local currentPower = getPowerFunction(Constants, chargeStartTime)
+        if currentPower < lastPower and lastPower >= perfectThreshold then
+            break
+        end
+
+        lastPower = currentPower
+        task.wait(0) -- task.wait(0) diganti dari task.wait() agar lebih cepat
+    end
+    miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
+end
+
 function _G.RecastSpam()
     if _G.rSpamming then return end
     _G.rSpamming = true
+    
     _G.rspamThread = task.spawn(function()
-    while _G.rSpamming do
-        StartCast5X()
-        task.wait(0.01)
+        while _G.rSpamming do
+            InitialCast5X()
+            task.wait(0) 
         end
     end)
 end
-    
-function _G.RecastSpamStop()
-   _G.rSpamming = false
+
+function _G.StopRecastSpam()
+    _G.rSpamming = false
+    if _G.rspamThread then
+        task.cancel(_G.rspamThread) -- Membunuh thread
+        _G.rspamThread = nil
+    end
 end
+
     
 
 function _G.startSpam()
@@ -505,23 +533,104 @@ function _G.stopSpam()
    _G.isSpamming = false
 end
 
+
 _G.REPlayFishingEffect.OnClientEvent:Connect(function(player, head, data)
     if player == Players.LocalPlayer and FuncAutoFish.autofish5x then
-        _G.RecastSpamStop()
+        _G.StopRecastSpam() -- Menghentikan spam cast (sudah di-fix)
+        _G.stopSpam()
     end
 end)
 
 
-_G.REObtainedNewFishNotification.OnClientEvent:Connect(function(...)
-	_G.lastFishTime = tick()
+
+local lastEventTime = tick()
+
+task.spawn(function()
+    while task.wait(1) do
+        if _G.AutoFishHighQuality and FuncAutoFish.autofish5x and FuncAutoFish.REReplicateTextEffect then
+            if tick() - lastEventTime > 10 then
+                _G.StopFishing()
+                _G.RecastSpam()
+                lastEventTime = tick()
+            end
+        end
+    end
+end)
+
+local function approx(a, b, tolerance)
+    return math.abs(a - b) <= (tolerance or 0.02)
+end
+
+local function isColor(r, g, b, R, G, B)
+    return approx(r, R) and approx(g, G) and approx(b, B)
+end
+
+local BAD_COLORS = {
+    COMMON    = {1,       0.980392, 0.964706},
+    UNCOMMON  = {0.764706, 1,        0.333333},
+    RARE      = {0.333333, 0.635294, 1},
+    EPIC      = {0.678431, 0.309804, 1},
+}
+
+FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
+
+    if not FuncAutoFish.autofish5x then return end
+
+    local myHead = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Head")
+    if not (data and data.TextData and data.TextData.TextColor and data.TextData.EffectType == "Exclaim" and myHead and data.Container == myHead) then
+        return
+    end
+
+    lastEventTime = tick()
+    if _G.AutoFishHighQuality then
+        local colorValue = data.TextData.TextColor
+        local r, g, b
+    
+        if typeof(colorValue) == "Color3" then
+            r, g, b = colorValue.R, colorValue.G, colorValue.B
+        elseif typeof(colorValue) == "ColorSequence" and #colorValue.Keypoints > 0 then
+            local c = colorValue.Keypoints[1].Value
+            r, g, b = c.R, c.G, c.B
+        end
+    
+        if not (r and g and b) then return end
+    
+        local isBadFish = false
+    
+        for _, col in pairs(BAD_COLORS) do
+            if isColor(r, g, b, col[1], col[2], col[3]) then
+                isBadFish = true
+                break
+            end
+        end
+    
+        if isBadFish then
+            _G.RecastSpam()
+        else
+            _G.startSpam()
+        end
+    else
+        _G.startSpam()
+    end
+end)
+
+
+
+_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
+    if FuncAutoFish.autofish5x then
+        _G.lastFishTime = tick()
+        _G.stopSpam()
+        _G.StopFishing()
+        _G.RecastSpam()
+    end
 end)
 
 task.spawn(function()
 	while task.wait(1) do
-		if _G.AntiStuckEnabled then
+		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
 			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
 				StopAutoFish5X()
-				task.wait(1)
+				task.wait(0.5)
 				StartAutoFish5X()
 				_G.lastFishTime = tick()
 			end
@@ -529,65 +638,27 @@ task.spawn(function()
 	end
 end)
 
-FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
-    if FuncAutoFish.autofish5x 
-    and data and data.TextData 
-    and data.TextData.EffectType == "Exclaim" then
-    	local myHead = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Head")
-    	if myHead and data.Container == myHead then
-    		_G.startSpam()
-    	end
-    end
-end)
-
-_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
-    if FuncAutoFish.autofish5x then
-        _G.stopSpam()
-        StopCast()
-        _G.RecastSpam()
-    end
-end)
-
-function StartCast5X()
-    local getPowerFunction = Constants.GetPower
-    local perfectThreshold = 0.99
-    local chargeStartTime = workspace:GetServerTimeNow()
-    rodRemote:InvokeServer(chargeStartTime)
-    local calculationLoopStart = tick()
-    local timeoutDuration = 3
-    local lastPower = 0
-    while (tick() - calculationLoopStart < timeoutDuration) do
-        local currentPower = getPowerFunction(Constants, chargeStartTime)
-        if currentPower < lastPower and lastPower >= perfectThreshold then
-            break
-        end
-
-        lastPower = currentPower
-        task.wait(0.001)
-    end
-    miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
-end
-
-function StopCast()
-    _G.StopFishing()
-end
 
 function StartAutoFish5X()
     FuncAutoFish.autofish5x = true
-    FuncAutoFish.CatchLast5x = tick()
+    _G.AntiStuckEnabled = true
+    lastEventTime = tick()
+    _G.lastFishTime = tick()
     _G.equipRemote:FireServer(1)
-    task.wait(0.05)
-    StartCast5X()
+    task.wait(0.5)
+    InitialCast5X() 
 end
 
 function StopAutoFish5X()
     FuncAutoFish.autofish5x = false
+    _G.AntiStuckEnabled = false
     FuncAutoFish.delayInitialized = false
     _G.StopFishing()
     _G.isRecasting5x = false
     _G.stopSpam()
-    _G.RecastSpamStop()
+    _G.StopRecastSpam()
 end
+
 
 --[[
 
@@ -610,7 +681,7 @@ _G.AutoFishState = {
     MinigameActive = false
 }
 
-_G.SPEED_LEGIT = 0.05
+_G.SPEED_LEGIT = 0.5
 
 function _G.performClick()
     _G.FishingController:RequestFishingMinigameClick()
@@ -652,7 +723,6 @@ _G.originalRodStarted = _G.FishingController.FishingRodStarted
 _G.originalFishingStopped = _G.FishingController.FishingStopped
 _G.clickThread = nil
 
--- Hook FishingRodStarted (Minigame Aktif)
 _G.FishingController.FishingRodStarted = function(self, arg1, arg2)
     _G.originalRodStarted(self, arg1, arg2)
 
@@ -695,66 +765,92 @@ function _G.ToggleAutoClick(shouldActivate)
     end
 end
 
+_G.FishAdvenc = AutoFish:Section({
+    Title = "Adcenced Settings",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
 _G.FishSec = AutoFish:Section({
-    Title = "Auto Fishing",
+    Title = "Auto Fishing Menu",
     TextSize = 22,
     TextXAlignment = "Center",
     Opened = true
 })
 
-_G.FishSec:Slider({
+_G.DelayFinish = _G.FishAdvenc:Input({
     Title = "Delay Finish",
-    Step = 0.01,
-    Value = {
-        Min = 0.01,
-        Max = 5,
-        Default = _G.FINISH_DELAY,
-    },
-    Callback = function(value)
-        _G.FINISH_DELAY = value
+    Desc = [[
+High Rod = 1
+Medium Rod = 1.5 - 1.7
+Low Rod = 2 - 3
+]],
+    Value = _G.FINISH_DELAY,
+    Type = "Input",
+    Placeholder = "Input Delay Finish..",
+    Callback = function(input)
+        fDelays = tonumber(input)
+        if not fDelays then
+            NotifyWarning("Please Input Valid Number")
+        end
+        _G.FINISH_DELAY = fDelays
     end
 })
 
-_G.RecastCD = _G.FishSec:Slider({
+myConfig:Register("DelayFinish", _G.DelayFinish)
+
+_G.SpeedLegit = _G.FishAdvenc:Input({
     Title = "Speed Legit",
-    Step = 0.01,
-    Value = {
-        Min = 0.01,
-        Max = 5,
-        Default = _G.SPEED_LEGIT,
-    },
-    Callback = function(value)
-        _G.SPEED_LEGIT = value
+    Desc = "Speed Click for Auto Fish Legit",
+    Value = _G.SPEED_LEGIT,
+    Type = "Input",
+    Placeholder = "Input Speed..",
+    Callback = function(input)
+        DelayLegit = tonumber(input)
+        if not DelayLegit then
+            NotifyWarning("Please Input Valid Number")
+        end
+        _G.SPEED_LEGIT = DelayLegit
     end
 })
 
-_G.FishSec:Slider({
-    Title = "Sell Threshold",
-    Step = 1,
-    Value = {
-        Min = 1,
-        Max = 6000,
-        Default = 30,
-    },
-    Callback = function(value)
-        _G.sellThreshold = value
+myConfig:Register("SpeedLegit", _G.SpeedLegit)
+
+_G.SellThress = _G.FishAdvenc:Input({
+    Title = "Sell Threesold",
+    Value = _G.sellThreshold,
+    Type = "Input",
+    Placeholder = "Input Delay Finish..",
+    Callback = function(input)
+        thresold = tonumber(input)
+        if not thresold then
+            NotifyWarning("Please Input Valid Number")
+        end
+        _G.sellThreshold = thresold
     end
 })
 
-_G.FishSec:Slider({
+myConfig:Register("SellThresold", _G.SellThress)
+
+_G.StuckDelay = _G.FishAdvenc:Input({
     Title = "Anti Stuck Delay",
-    Step = 1,
-    Value = {
-        Min = 1,
-        Max = 6000,
-        Default = _G.STUCK_TIMEOUT,
-    },
-    Callback = function(value)
-        _G.STUCK_TIMEOUT = value
+    Desc = "Cooldown for anti stuck Auto Fish",
+    Value = _G.STUCK_TIMEOUT,
+    Type = "Input",
+    Placeholder = "Input Delay Finish..",
+    Callback = function(input)
+        stuck = tonumber(input)
+        if not stuck then
+            NotifyWarning("Please Input Valid Number")
+        end
+        _G.STUCK_TIMEOUT = stuck
     end
 })
 
-_G.FishSec:Toggle({
+myConfig:Register("StuckDelay", _G.StuckDelay)
+
+_G.AutoSell = _G.FishSec:Toggle({
     Title = "Auto Sell",
     Value = false,
     Callback = function(state)
@@ -767,6 +863,8 @@ _G.FishSec:Toggle({
     end
 })
 
+myConfig:Register("AutoSell", _G.AutoSell)
+
 _G.AutoFishes = _G.FishSec:Toggle({
     Title = "Auto Fish",
     Callback = function(value)
@@ -778,7 +876,20 @@ _G.AutoFishes = _G.FishSec:Toggle({
     end
 })
 
-_G.FishSec:Toggle({
+myConfig:Register("AutoFishing", _G.AutoFishes)
+
+_G.HighFish = _G.FishSec:Toggle({
+    Title = "Fish High Quality",
+    Desc = "Only Legendary, Mythic, & SECRET",
+    Value = _G.AutoFishHighQuality,
+    Callback = function(state)
+        _G.AutoFishHighQuality = state
+    end
+})
+
+myConfig:Register("FishHigh", _G.HighFish)
+
+_G.FishLegit = _G.FishSec:Toggle({
     Title = "Auto Fish Legit",
     Value = false,
     Callback = function(state)
@@ -799,13 +910,7 @@ _G.FishSec:Toggle({
     end
 })
 
-_G.FishSec:Toggle({
-	Title = "Anti Stuck",
-	Value = false,
-	Callback = function(state)
-		_G.AntiStuckEnabled = state
-	end
-})
+myConfig:Register("FishLegit", _G.FishLegit)
 
 
 _G.FishSec:Space()
@@ -821,34 +926,47 @@ _G.FishSec:Button({
         RodIdle:Stop()
         RodIdle:Stop()
         _G.stopSpam()
-        _G.RecastSpamStop()
+        _G.StopRecastSpam()
     end
 })
 
 _G.FishSec:Space()
 
 
-_G.REReplicateCutscene = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ReplicateCutscene"]
-_G.BlockCutsceneEnabled = false
+_G.BlockCutsceneEnabled = false 
 
+_G.CutsceneController = nil
+_G.success, _G.result = pcall(require, game:GetService("ReplicatedStorage").Controllers.CutsceneController)
 
-_G.FishSec:Toggle({
+if not _G.success then
+    warn("Block Cutscene: Gagal memuat CutsceneController! Path mungkin salah.")
+    return
+else
+    _G.CutsceneController = _G.result
+end
+
+_G.old_Play = _G.CutsceneController.Play
+
+_G.CutsceneController.Play = function(self, ...)
+    if _G.BlockCutsceneEnabled then
+        return 
+    end
+   
+    return _G.old_Play(self, ...)
+end
+
+_G.BlockCutscene = _G.FishAdvenc:Toggle({
     Title = "Block Cutscene",
-    Value = false,
-    Callback = function(state)
-        _G.BlockCutsceneEnabled = state
+    Value = _G.BlockCutsceneEnabled,
+    Callback = function(state) 
+        _G.BlockCutsceneEnabled = state 
         print("Block Cutscene: " .. tostring(state))
     end
 })
 
-_G.REReplicateCutscene.OnClientEvent:Connect(function(rarity, player, position, fishName, data)
-    if _G.BlockCutsceneEnabled then
-        print("[QuietX] Cutscene diblokir:", fishName, "(Rarity:", rarity .. ")")
-        return nil -- blokir event agar tidak muncul cutscene
-    end
-end)
+myConfig:Register("BlockCutscene", _G.BlockCutscene)
 
-_G.FishSec:Input({
+_G.InvenSize = _G.FishAdvenc:Input({
     Title = "Max Inventory Size",
     Value = tostring(Constants.MaxInventorySize or 0),
     Placeholder = "Input Number...",
@@ -862,92 +980,445 @@ _G.FishSec:Input({
     end
 })
 
+myConfig:Register("InventorySize", _G.InvenSize)
 
-function sellAllFishes()
-	local charFolder = workspace:FindFirstChild("Characters")
-	local char = charFolder and charFolder:FindFirstChild(LocalPlayer.Name)
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	if not hrp then
-		NotifyError("Character Not Found", "HRP tidak ditemukan.")
-		return
-	end
+local REEquipItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
+local RFSellItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/SellItem"]
 
-	local originalPos = hrp.CFrame
-	local sellRemote = net:WaitForChild("RF/SellAllItems")
-
-	task.spawn(function()
-		NotifyInfo("Selling...", "I'm going to sell all the fish, please wait...", 3)
-
-		task.wait(1)
-		local success, err = pcall(function()
-			sellRemote:InvokeServer()
-		end)
-
-		if success then
-			NotifySuccess("Sold!", "All the fish were sold successfully.", 3)
-		else
-			NotifyError("Sell Failed", tostring(err, 3))
-		end
-
-	end)
+function ToggleAutoSellMythic(state)
+    autoSellMythic = state
+    if autoSellMythic then
+        NotifySuccess("AutoSellMythic", "Status: ON")
+    else
+        NotifyWarning("AutoSellMythic", "Status: OFF")
+    end
 end
 
-AutoFish:Button({
+local oldFireServer
+oldFireServer = hookmetamethod(game, "__namecall", function(self, ...)
+    local args = { ... }
+    local method = getnamecallmethod()
+
+    if autoSellMythic
+        and method == "FireServer"
+        and self == REEquipItem
+        and typeof(args[1]) == "string"
+        and args[2] == "Fishes" then
+        local uuid = args[1]
+
+        task.delay(1, function()
+            pcall(function()
+                local result = RFSellItem:InvokeServer(uuid)
+                if result then
+                    NotifySuccess("AutoSellMythic", "Items Sold!!")
+                else
+                    NotifyError("AutoSellMythic", "Failed to sell item!!")
+                end
+            end)
+        end)
+    end
+
+    return oldFireServer(self, ...)
+end)
+
+_G.FishAdvenc:Toggle({
+    Title = "Auto Sell Mythic",
+    Desc = "Automatically sells clicked fish",
+    Default = false,
+    Callback = function(state)
+        ToggleAutoSellMythic(state)
+    end
+})
+
+
+function sellAllFishes()
+    local charFolder = workspace:FindFirstChild("Characters")
+    local char = charFolder and charFolder:FindFirstChild(LocalPlayer.Name)
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        NotifyError("Character Not Found", "HRP tidak ditemukan.")
+        return
+    end
+
+    local originalPos = hrp.CFrame
+    local sellRemote = net:WaitForChild("RF/SellAllItems")
+
+    task.spawn(function()
+        NotifyInfo("Selling...", "I'm going to sell all the fish, please wait...", 3)
+
+        task.wait(1)
+        local success, err = pcall(function()
+            sellRemote:InvokeServer()
+        end)
+
+        if success then
+            NotifySuccess("Sold!", "All the fish were sold successfully.", 3)
+        else
+            NotifyError("Sell Failed", tostring(err, 3))
+        end
+    end)
+end
+
+_G.FishSec:Space()
+
+_G.FishAdvenc:Button({
     Title = "Sell All Fishes",
     Locked = false,
+    Justify = "Center",
+    Icon = "",
     Callback = function()
         sellAllFishes()
     end
 })
 
-AutoFish:Button({
-    Title = "Auto Enchant Rod",
-    Callback = function()
-        local ENCHANT_POSITION = Vector3.new(3231, -1303, 1402)
-		local char = workspace:WaitForChild("Characters"):FindFirstChild(LocalPlayer.Name)
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+_G.FishSec:Space()
 
-		if not hrp then
-			NotifyError("Auto Enchant Rod", "Failed to get character HRP.")
-			return
-		end
+-- =======================================================
+-- AUTO ENCHANT (GLOBAL VARIABLE VERSION)
+-- =======================================================
 
-		NotifyInfo("Preparing Enchant...", "Please manually place Enchant Stone into slot 5 before we begin...", 5)
-
-		task.wait(3)
-
-		local Player = game:GetService("Players").LocalPlayer
-		local slot5 = Player.PlayerGui.Backpack.Display:GetChildren()[10]
-
-		local itemName = slot5 and slot5:FindFirstChild("Inner") and slot5.Inner:FindFirstChild("Tags") and slot5.Inner.Tags:FindFirstChild("ItemName")
-
-		if not itemName or not itemName.Text:lower():find("enchant") then
-			NotifyError("Auto Enchant Rod", "Slot 5 does not contain an Enchant Stone.")
-			return
-		end
-
-		NotifyInfo("Enchanting...", "It is in the process of Enchanting, please wait until the Enchantment is complete", 7)
-
-		local originalPosition = hrp.Position
-		task.wait(1)
-		hrp.CFrame = CFrame.new(ENCHANT_POSITION + Vector3.new(0, 5, 0))
-		task.wait(1.2)
-
-		local equipRod = net:WaitForChild("RE/EquipToolFromHotbar")
-		local activateEnchant = net:WaitForChild("RE/ActivateEnchantingAltar")
-
-		pcall(function()
-			equipRod:FireServer(5)
-			task.wait(0.5)
-			activateEnchant:FireServer()
-			task.wait(7)
-			NotifySuccess("Enchant", "Successfully Enchanted!", 3)
-		end)
-
-		task.wait(0.9)
-		hrp.CFrame = CFrame.new(originalPosition + Vector3.new(0, 3, 0))
-    end
+_G.EnchantSec = AutoFish:Section({
+    Title = "Auto Enchant",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
 })
+do
+    -- Definisi State Global
+    _G.autoEnchantState = { 
+        enabled = false, 
+        targetEnchant = nil, 
+        stoneLimit = math.huge, 
+        stonesUsed = 0, 
+        selectedRodUUID = nil,
+        selectedRodName = "",
+        enchantLoopThread = nil 
+    }
+    
+    -- Variabel UI Global (Disiapkan dulu agar tidak nil)
+    _G.enchantStatusParagraph = nil
+    _G.enchantStoneCountParagraph = nil
+    _G.rodDropdown = nil
+    _G.autoEnchantToggle = nil
+    _G.targetEnchantDropdown = nil
+    _G.stoneLimitInput = nil
+    
+    _G.altarPosition = Vector3.new(3234, -1300, 1401)
+    
+    -- Helper: Cari Data Rod berdasarkan UUID (Fresh Data)
+    _G.getRodByUUID = function(uuid)
+        if not (_G.Replion and _G.ItemUtility) then return nil end
+        local DataReplion = _G.Replion.Client:GetReplion("Data")
+        if not DataReplion then return nil end
+    
+        local rods = DataReplion:Get({ "Inventory", "Fishing Rods" })
+        if rods then
+            for _, rod in ipairs(rods) do
+                if rod.UUID == uuid then return rod end
+            end
+        end
+        return nil
+    end
+    
+    -- Populate Dropdown Rod
+    _G.populateRodDropdown = function()
+        task.spawn(function()
+            if not (_G.ItemUtility and _G.Replion) then return end
+            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Loading rod list...") end
+            
+            local DataReplion = _G.Replion.Client:WaitReplion("Data")
+            if not DataReplion then return end
+    
+            local rodList, uuidMap = { "Select a rod..." }, {}
+            local rod_inventory = DataReplion:Get({ "Inventory", "Fishing Rods" })
+            
+            if rod_inventory then
+                for i, rodItem in ipairs(rod_inventory) do
+                    local itemData = _G.ItemUtility:GetItemData(rodItem.Id)
+                    if itemData and itemData.Data then
+                        local rodName = itemData.Data.Name or rodItem.Id
+                        local enchantName = ""
+                        
+                        -- Cek metadata enchant saat ini
+                        if rodItem.Metadata and rodItem.Metadata.EnchantId then
+                            local enchantData = _G.ItemUtility:GetEnchantData(rodItem.Metadata.EnchantId)
+                            if enchantData and enchantData.Data.Name then
+                                enchantName = " [" .. enchantData.Data.Name .. "]"
+                            end
+                        end
+    
+                        local displayName = rodName .. enchantName
+                        
+                        -- Handle nama duplikat agar dropdown unik
+                        local count = 2
+                        local originalName = displayName
+                        while uuidMap[displayName] do
+                            displayName = originalName .. " #" .. count
+                            count = count + 1
+                        end
+                        
+                        table.insert(rodList, displayName)
+                        uuidMap[displayName] = rodItem.UUID
+                    end
+                end
+            end
+            
+            -- Simpan mapping di dropdown
+            if _G.rodDropdown then
+                _G.rodDropdown.UUIDMap = uuidMap
+                pcall(_G.rodDropdown.Refresh, _G.rodDropdown, rodList)
+            end
+            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Rods loaded.") end
+        end)
+    end
+    
+    -- Get List Enchantment dari ReplicatedStorage
+    _G.getEnchantmentList = function()
+        local enchants = {}
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local success, enchantsModule = pcall(require, ReplicatedStorage:WaitForChild("Enchants"))
+        if success then
+            for name, data in pairs(enchantsModule) do
+                if type(data) == "table" and data.Data and data.Data.Name then
+                    table.insert(enchants, data.Data.Name)
+                end
+            end
+        end
+        table.sort(enchants)
+        return enchants
+    end
+    
+    -- === UI ELEMENTS ===
+    
+    _G.targetEnchantDropdown = _G.EnchantSec:Dropdown({
+        Title = "Select Target Enchantment",
+        Values = _G.getEnchantmentList(),
+        AllowNone = true,
+        SearchBarEnabled = true,
+        Callback = function(v) _G.autoEnchantState.targetEnchant = v end
+    })
+    -- myConfig:Register("TargetEnchantQuite", _G.targetEnchantDropdown)
+    
+    _G.rodDropdown = _G.EnchantSec:Dropdown({
+        Title = "Select Rod to Enchant",
+        Values = { "Click Refresh or wait..." },
+        AllowNone = true,
+        Callback = function(v)
+            if _G.rodDropdown.UUIDMap and _G.rodDropdown.UUIDMap[v] then
+                _G.autoEnchantState.selectedRodUUID = _G.rodDropdown.UUIDMap[v]
+                _G.autoEnchantState.selectedRodName = v
+                if _G.enchantStatusParagraph then
+                    _G.enchantStatusParagraph:SetDesc("Selected: " .. v)
+                end
+            end
+        end
+    })
+    -- myConfig:Register("SelectedRodToEnchantQuite", _G.rodDropdown)
+    
+    _G.EnchantSec:Button({ Title = "Refresh Rod List", Icon = "refresh-cw", Callback = _G.populateRodDropdown })
+    
+    _G.stoneLimitInput = _G.EnchantSec:Input({
+        Title = "Max Enchant Stones to Use",
+        Placeholder = "Empty for no limit",
+        Type = "Input",
+        Callback = function(v) _G.autoEnchantState.stoneLimit = tonumber(v) or math.huge end
+    })
+    -- myConfig:Register("StoneLimitQuite", _G.stoneLimitInput)
+    
+    _G.enchantStoneCountParagraph = _G.EnchantSec:Paragraph({ Title = "Stones Owned", Desc = "Loading..." })
+    _G.enchantStatusParagraph = _G.EnchantSec:Paragraph({ Title = "Status", Desc = "Idle." })
+    
+    -- Thread Update Stone Count
+    task.spawn(function()
+        while task.wait(2) do
+            -- Pastikan Window aktif (jika variabel Window ada di _G atau scope lain)
+            pcall(function()
+                if not _G.Replion then return end
+                local DataReplion = _G.Replion.Client:GetReplion("Data")
+                if not DataReplion then return end
+                local items = DataReplion:Get({ "Inventory", "Items" })
+                local count = 0
+                if items then
+                    for _, item in ipairs(items) do
+                        local base = _G.ItemUtility:GetItemData(item.Id)
+                        if base and base.Data and base.Data.Type == "Enchant Stones" then
+                            count = count + (item.Quantity or 1)
+                        end
+                    end
+                end
+                if _G.enchantStoneCountParagraph then
+                    _G.enchantStoneCountParagraph:SetDesc("You have: " .. count .. " stones")
+                end
+            end)
+        end
+    end)
+    
+    _G.autoEnchantToggle = _G.EnchantSec:Toggle({
+        Title = "Enable Auto Enchant",
+        Value = false,
+        Callback = function(value)
+            _G.autoEnchantState.enabled = value
+            
+            -- Matikan thread lama jika ada
+            if _G.autoEnchantState.enchantLoopThread then
+                task.cancel(_G.autoEnchantState.enchantLoopThread)
+                _G.autoEnchantState.enchantLoopThread = nil
+            end
+    
+            if value then
+                _G.autoEnchantState.enchantLoopThread = task.spawn(function()
+                    if not _G.autoEnchantState.targetEnchant or not _G.autoEnchantState.selectedRodUUID then
+                        if _G.enchantStatusParagraph then 
+                            _G.enchantStatusParagraph:SetDesc("Error: Select Rod AND Target Enchant!") 
+                        end
+                        pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                        return
+                    end
+    
+                    -- 1. Teleport ke Altar
+                    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and (hrp.Position - _G.altarPosition).Magnitude > 10 then
+                        if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Teleporting to Altar...") end
+                        hrp.CFrame = CFrame.new(_G.altarPosition) * CFrame.new(0, 5, 0)
+                        task.wait(1.5)
+                    end
+    
+                    _G.autoEnchantState.stonesUsed = 0
+                    local DataReplion = _G.Replion.Client:WaitReplion("Data")
+                    local EquipItemEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
+                    local EquipToolEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipToolFromHotbar"]
+                    local UnequipItemEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/UnequipItem"]
+                    local ActivateAltarEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/ActivateEnchantingAltar"]
+                    local RollEnchantEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/RollEnchant"]
+    
+                    while _G.autoEnchantState.enabled do
+                        -- 2. Ambil Data Terbaru Rod
+                        local currentRod = _G.getRodByUUID(_G.autoEnchantState.selectedRodUUID)
+                        if not currentRod then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Error: Rod not found in inventory!") end
+                            break
+                        end
+    
+                        -- 3. Cari Stone
+                        local stoneItem = nil
+                        local items = DataReplion:Get({ "Inventory", "Items" })
+                        for _, item in ipairs(items or {}) do
+                            local base = _G.ItemUtility:GetItemData(item.Id)
+                            if base and base.Data and base.Data.Type == "Enchant Stones" then
+                                stoneItem = item
+                                break
+                            end
+                        end
+    
+                        if not stoneItem then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Stopped: Out of Enchant Stones.") end
+                            break
+                        end
+    
+                        if _G.autoEnchantState.stonesUsed >= _G.autoEnchantState.stoneLimit then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Stopped: Limit reached.") end
+                            break
+                        end
+    
+                        _G.autoEnchantState.stonesUsed = _G.autoEnchantState.stonesUsed + 1
+                        if _G.enchantStatusParagraph then 
+                            _G.enchantStatusParagraph:SetDesc(string.format("Rolling... (Stone #%d)", _G.autoEnchantState.stonesUsed)) 
+                        end
+    
+                        -- 4. Proses Equip & Roll
+                        local success, resultEnchantName = pcall(function()
+                            -- Equip Rod
+                            EquipItemEvent:FireServer(currentRod.UUID, "Fishing Rods")
+                            task.wait(0.6)
+    
+                            -- Equip Stone
+                            EquipItemEvent:FireServer(stoneItem.UUID, "Enchant Stones")
+                            task.wait(0.6)
+    
+                            -- Equip Tool
+                            EquipToolEvent:FireServer(6) 
+                            task.wait(0.8)
+    
+                            -- Snapshot ID Enchant Lama
+                            local oldEnchantId = currentRod.Metadata and currentRod.Metadata.EnchantId or nil
+                            local gotResult = false
+                            local resultName = "None"
+    
+                            -- Setup Listener Replion untuk deteksi perubahan
+                            local connection
+                            connection = DataReplion:OnChange({"Inventory", "Fishing Rods"}, function(newRods)
+                                for _, rod in ipairs(newRods) do
+                                    if rod.UUID == currentRod.UUID then
+                                        local newEnchantId = rod.Metadata and rod.Metadata.EnchantId
+                                        -- Jika ID berubah, berarti roll sukses
+                                        if newEnchantId ~= oldEnchantId then
+                                            if newEnchantId then
+                                                local eData = _G.ItemUtility:GetEnchantData(newEnchantId)
+                                                resultName = eData and eData.Data.Name or "Unknown"
+                                            else
+                                                resultName = "None"
+                                            end
+                                            gotResult = true
+                                        end
+                                        break
+                                    end
+                                end
+                            end)
+    
+                            -- Trigger Roll
+                            ActivateAltarEvent:FireServer(currentRod.UUID) -- Init
+                            task.wait(0.5)
+                            RollEnchantEvent:FireServer(currentRod.UUID) -- Confirm Roll
+    
+                            -- Tunggu hasil (Max 6 detik)
+                            local timer = 0
+                            while not gotResult and timer < 7 do
+                                task.wait(0.7)
+                                timer = timer + 0.7
+                                if not _G.autoEnchantState.enabled then break end
+                            end
+    
+                            if connection then connection:Disconnect() end
+    
+                            if not gotResult then
+                                error("Timeout waiting for enchant result")
+                            end
+    
+                            return resultName
+                        end)
+    
+                        -- Unequip Tool Safety
+                        pcall(function() UnequipItemEvent:FireServer(6) end)
+    
+                        if success then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Rolled: " .. resultEnchantName) end
+                            
+                            -- Cek apakah sesuai target
+                            if string.lower(resultEnchantName) == string.lower(_G.autoEnchantState.targetEnchant) then
+                                if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("SUCCESS! Got " .. resultEnchantName) end
+                                NotifySuccess("Auto Enchant", "Successfully got " .. resultEnchantName, 5)
+                                _G.autoEnchantState.enabled = false
+                                pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                                _G.populateRodDropdown() -- Refresh nama rod
+                                break
+                            end
+                        else
+                            warn("Enchant fail/retry: " .. tostring(resultEnchantName))
+                            _G.autoEnchantState.stonesUsed = _G.autoEnchantState.stonesUsed - 1 
+                            task.wait(0.5)
+                        end
+    
+                        task.wait(0.5) -- Delay aman antar roll agar tidak crash
+                    end
+    
+                    pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                    _G.autoEnchantState.enchantLoopThread = nil
+                end)
+            end
+        end
+    })
+    task.delay(1, _G.populateRodDropdown)
+end
 
 -------------------------------------------
 ----- =======[ AUTO FAV TAB ]
