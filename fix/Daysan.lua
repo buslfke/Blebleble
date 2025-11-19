@@ -396,6 +396,7 @@ function InitialCast5X()
         lastPower = currentPower
         task.wait(0) -- task.wait(0) diganti dari task.wait() agar lebih cepat
     end
+    RodIdle:Play()
     miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
 end
 
