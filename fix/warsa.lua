@@ -905,7 +905,7 @@ _G.FishAdvenc:Input({
 
 _G.FishSec:Toggle({
     Title = "Auto Sell",
-    Value = false,
+    Value = true,
     Callback = function(state)
         _G.sellActive = state
         if state then
