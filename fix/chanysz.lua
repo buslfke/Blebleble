@@ -4314,6 +4314,53 @@ _G.AccConfig:Toggle({
 
 _G.AccConfig:Space()
 
+
+_G.HidePlayers = false
+
+function _G.SetHidePlayers(state)
+    _G.HidePlayers = state
+
+    for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+        if plr ~= game.Players.LocalPlayer then
+            local char = plr.Character
+            if char then
+                for _, obj in ipairs(char:GetDescendants()) do
+                    if obj:IsA("BasePart") or obj:IsA("Decal") then
+                        obj.LocalTransparencyModifier = state and 1 or 0
+                    elseif obj:IsA("Accessory") and obj:FindFirstChild("Handle") then
+                        obj.Handle.LocalTransparencyModifier = state and 1 or 0
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Auto apply ke player baru yg join
+game:GetService("Players").PlayerAdded:Connect(function(plr)
+    if _G.HidePlayers then
+        plr.CharacterAdded:Connect(function(char)
+            task.wait(0.5)
+            for _, obj in ipairs(char:GetDescendants()) do
+                if obj:IsA("BasePart") or obj:IsA("Decal") then
+                    obj.LocalTransparencyModifier = 1
+                elseif obj:IsA("Accessory") and obj:FindFirstChild("Handle") then
+                    obj.Handle.LocalTransparencyModifier = 1
+                end
+            end
+        end)
+    end
+end)
+
+SettingsTab:Toggle({
+    Title = "Hide All Players",
+    Default = false,
+    Callback = function(value)
+        _G.SetHidePlayers(value)
+    end,
+})
+
+
 function _G.Disable3DRendering(enabled)
 	if enabled then
 		RunService:Set3dRenderingEnabled(false)
