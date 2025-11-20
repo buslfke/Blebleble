@@ -4349,12 +4349,4 @@ SettingsTab:Button({
 
 SettingsTab:Space()
 
-SettingsTab:Button({
-    Title = "Load",
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        myConfig:Load()
-        NotifySuccess("Config Loaded", "Config has beed loaded!")
-    end
-})
+myConfig:Load()
