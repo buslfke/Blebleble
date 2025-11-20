@@ -1293,7 +1293,7 @@ end
 if _G.monitorTPThread then task.cancel(_G.monitorTPThread) end
 _G.monitorTPThread = task.spawn(monitorAutoTP)
 
-local selectedIsland = "Machine"
+local selectedIsland = "Ancient Ruin"
 local isAutoFarmRunning = true
 
 local islandCodes = {
