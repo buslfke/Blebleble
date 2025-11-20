@@ -451,6 +451,92 @@ _G.AutoFishHighQuality = false
 
 -- [[ KONFIGURASI DELAY ]] --
 
+local RodDelays = {
+	["Ares Rod"]       = 1.7,
+	["Angler Rod"]     = 1.7,
+	["Ghostfinn Rod"]  = 1.5,
+	["Element Rod"]    = 1,
+
+	["Astral Rod"]     = 2,
+	["Chrome Rod"]     = 2.2,
+	["Steampunk Rod"]  = 2.4,
+
+	["Lucky Rod"]      = 4,
+	["Midnight Rod"]   = 2.5,
+	["Demascus Rod"]   = 3.9,
+	["Grass Rod"]      = 3.8,
+	["Luck Rod"]       = 4.2,
+	["Carbon Rod"]     = 4.0,
+	["Lava Rod"]       = 4.2,
+	["Starter Rod"]    = 1,
+}
+
+
+local function getValidRodName()
+	local player = Players.LocalPlayer
+	local display = player.PlayerGui:WaitForChild("Backpack"):WaitForChild("Display")
+
+	for _, tile in ipairs(display:GetChildren()) do
+		local success, itemNamePath = pcall(function()
+			return tile.Inner.Tags.ItemName
+		end)
+		if success and itemNamePath and itemNamePath:IsA("TextLabel") then
+			local name = itemNamePath.Text
+			if RodDelays[name] then
+				return name
+			end
+		end
+	end
+	return nil
+end
+
+local function updateDelayBasedOnRod(showNotify)
+	if FuncAutoFish.delayInitialized then return end
+	
+	local rodName = getValidRodName()
+
+	if rodName and RodDelays[rodName] then
+		_G.FINISH_DELAY = RodDelays[rodName]  -- hanya satu delay
+		FuncAutoFish.delayInitialized = true
+
+		if FuncAutoFish.autofish5x then
+			NotifySuccess("Rod Detected", string.format(
+				"Rod: %s | FINISH_DELAY: %.2fs",
+				rodName, _G.FINISH_DELAY
+			))
+		end
+	else
+		_G.FINISH_DELAY = 2.0 -- default aman
+		FuncAutoFish.delayInitialized = true
+
+		if FuncAutoFish.autofish5x then
+			NotifyWarning("Rod Detection Failed", "No valid rod found. Default FINISH_DELAY applied.")
+		end
+	end
+end
+
+-- Simpan rod terakhir agar bisa mendeteksi perubahan
+local lastDetectedRod = nil
+
+-- Monitor perubahan rod setiap 1 detik
+task.spawn(function()
+	while task.wait(1) do
+		local currentRod = getValidRodName()
+
+		-- Jika tidak ada rod, skip
+		if not currentRod then 
+			continue 
+		end
+
+		if currentRod ~= lastDetectedRod then
+			FuncAutoFish.delayInitialized = false  -- reset state
+			updateDelayBasedOnRod(false) -- update tanpa notifikasi spam
+			lastDetectedRod = currentRod
+		end
+	end
+end)
+
+
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
@@ -644,7 +730,7 @@ end)
 function StartAutoFish5X()
     FuncAutoFish.autofish5x = true
     _G.AntiStuckEnabled = true
-    pcall(_G.UpdateDelayFromReplion)
+    updateDelayBasedOnRod(true)
     lastEventTime = tick()
     _G.lastFishTime = tick()
     _G.equipRemote:FireServer(1)
@@ -656,7 +742,7 @@ end
 function StopAutoFish5X()
     FuncAutoFish.autofish5x = false
     _G.AntiStuckEnabled = false
-    FuncAutoFish.delayInitialized = false
+    updateDelayBasedOnRod(true)
     _G.StopFishing()
     _G.isRecasting5x = false
     _G.stopSpam()
