@@ -32,6 +32,29 @@ _G.XPLevel = _G.XPBar:WaitForChild("Frame"):WaitForChild("LevelCount")
 _G.Title = _G.Overhead:WaitForChild("TitleContainer"):WaitForChild("Label")
 _G.TitleEnabled = _G.Overhead:WaitForChild("TitleContainer")
 
+local player = game:GetService("Players").LocalPlayer
+local gui = player:WaitForChild("PlayerGui")
+
+-- fungsi untuk menghapus jika muncul
+local function removeDailyLogin()
+    local daily = gui:FindFirstChild("!!! Daily Login")
+    if daily then
+        daily:Destroy()
+        print("[HideGUI] Removed: !!! Daily Login")
+    end
+end
+
+-- hapus jika sudah ada
+removeDailyLogin()
+
+-- amati PlayerGui, jika GUI muncul lagi → langsung hapus
+gui.ChildAdded:Connect(function(child)
+    if child.Name == "!!! Daily Login" then
+        task.wait() -- beri 1 frame agar elemen ter-create penuh
+        removeDailyLogin()
+    end
+end)
+
 if Player and VirtualUser then
     Player.Idled:Connect(function()
         pcall(function()
