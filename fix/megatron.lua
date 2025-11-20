@@ -4358,7 +4358,7 @@ function _G.HideIdentity(enabled)
     end
 end
 
-_G.AccConfig:Toggle({
+SettingsTab:Toggle({
     Title = "Hide Identity",
     Value = false,
     Callback = function(state)
