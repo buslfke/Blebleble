@@ -1373,6 +1373,7 @@ AutoFav:Toggle({
 AutoFav:Dropdown({
 	Title = "Auto Favorite Fishes",
 	Values = GlobalFav.FishNames,
+	SearchBarEnabled = true,
 	Multi = true,
 	AllowNone = true,
 	Callback = function(selectedNames)
@@ -1391,6 +1392,7 @@ AutoFav:Dropdown({
 AutoFav:Dropdown({
 	Title = "Auto Favorite Variants",
 	Values = GlobalFav.Variants,
+	SearchBarEnabled = true,
 	Multi = true,
 	AllowNone = true,
 	Callback = function(selectedVariants)
