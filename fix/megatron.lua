@@ -199,7 +199,7 @@ local Window = WindUI:CreateWindow({
     HideSearchBar = true,
     User = {
         Enabled = true,
-        Anonymous = false,
+        Anonymous = true,
         Callback = function()
         end,
     }
