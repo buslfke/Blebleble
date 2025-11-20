@@ -1498,6 +1498,206 @@ AutoFarmTab:Dropdown({
 })
 
 
+AutoFarmTab:Section({
+	Title = "Auto Ancient Menu",
+	TextSize = 22,
+	TextXAlignment = "Center",
+})
+
+-------------------------------------------
+----- =======[ ANCIENT RUIN FARMING ]
+-------------------------------------------
+
+
+_G.REPlaceItems = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/PlacePressureItem"]
+
+
+_G.UnlockRuin = function()
+    task.spawn(function()
+        local Ruins = {
+            "Crocodile",
+            "Goliath Tiger",
+            "Freshwater Piranha",
+            "Sacred Guardian Squid",
+        }
+
+        for _, ruins in ipairs(Ruins) do
+            _G.REPlaceItems:FireServer(ruins)
+            NotifyInfo("Ancient Ruin", "Placing: " .. ruins)
+            task.wait(2.1)
+        end
+
+        NotifySuccess("Ancient Ruin", "All Fish placed successfully!")
+    end)
+end
+
+_G.TempleSpot = {
+    ["Spot 1"] = CFrame.new(1466.27673, -22.1250019, -658.204651, -0.0791874304, 1.48164281e-08, 0.996859729, -8.54522781e-08, 1, -2.16511644e-08, -0.996859729, -8.68984387e-08, -0.0791874304),
+    ["Spot 2"] = CFrame.new(1502.93958, -22.1250019, -627.15155, -0.994363189, 2.65133604e-08, -0.106027618, 2.21884164e-08, 1, 4.19703348e-08, 0.106027618, 3.93811703e-08, -0.994363189),
+    ["Spot 3"] = CFrame.new(1466.27673, -22.1250019, -658.204651, -0.0791874304, 1.48164281e-08, 0.996859729, -8.54522781e-08, 1, -2.16511644e-08, -0.996859729, -8.68984387e-08, -0.0791874304),
+    ["Spot 4"] = CFrame.new(1502.93958, -22.1250019, -627.15155, -0.994363189, 2.65133604e-08, -0.106027618, 2.21884164e-08, 1, 4.19703348e-08, 0.106027618, 3.93811703e-08, -0.994363189),
+}
+
+_G.REFishCaught = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishCaught"]
+
+_G.saveFile = "RuinsProgress.json"
+
+if isfile(_G.saveFile) then
+    local success, data = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(readfile(_G.saveFile))
+    end)
+    if success and type(data) == "table" then
+        _G.FishCollected = data.FishCollected or 0
+        _G.CurrentSpot = data.CurrentSpot or 1
+    else
+        _G.FishCollected = 0
+        _G.CurrentSpot = 1
+    end
+else
+    _G.FishCollected = 0
+    _G.CurrentSpot = 1
+end
+
+_G.RuinFarmEnabled = false
+
+local function saveProgress()
+    local data = {
+        FishCollected = _G.FishCollected,
+        CurrentSpot = _G.CurrentSpot
+    }
+    writefile(_G.saveFile, game:GetService("HttpService"):JSONEncode(data))
+end
+
+_G.StartRuinFarm = function()
+    if _G.RuinFarmEnabled then return end
+    _G.RuinFarmEnabled = true
+
+    updateParagraph("Auto Farm Ancient Ruin", ("Resuming from Spot %d..."):format(_G.CurrentSpot))
+
+    local Player = game.Players.LocalPlayer
+    task.wait(1)
+    Player.Character:PivotTo(_G.TempleSpot["Spot " .. tostring(_G.CurrentSpot)])
+    task.wait(1)
+
+    _G.ConfirmFishType = false
+    _G.DialogFish = Window:Dialog({
+            Icon = "crown",
+            Title = "Important!",
+            Content = "Please select Auto Fish type!",
+            Buttons = {
+                {
+                    Title = "Auto Fish",
+                    Callback = function()
+                        StartAutoFish5X()
+                        _G.ConfirmFishType = true
+                    end,
+                },
+                {
+                    Title = "Auto Fish Legit",
+                    Callback = function()
+                        _G.ToggleAutoClick(true)
+                        _G.ConfirmFishType = true
+                    end,
+                },
+            },
+        })
+    
+    repeat task.wait() until _G.ConfirmFishType
+    _G.AutoFishStarted = true
+
+    _G.RuinConnection = REFishCaught.OnClientEvent:Connect(function(fishName, data)
+        if string.find(fishName, "Artifact") then
+            _G.FishCollected += 1
+            saveProgress()
+
+            updateParagraph(
+                "Auto Farm Ancient Ruin",
+                ("Fish Found : %s\nTotal: %d/4"):format(fishName, _G.FishCollected)
+            )
+
+            if _G.FishCollected < 4 then
+                _G.CurrentSpot += 1
+                saveProgress()
+                local spotName = "Spot " .. tostring(_G.CurrentSpot)
+                if _G.TempleSpot[spotName] then
+                    task.wait(2)
+                    Player.Character:PivotTo(_G.TempleSpot[spotName])
+                    updateParagraph("Auto Farm Ancient Ruin",
+                        ("Fish Found : %s\nTotal : %d/4\n\nTeleporting to %s..."):format(
+                            fishName,
+                            _G.FishCollected,
+                            spotName
+                        )
+                    )
+                    task.wait(1)
+                end
+            else
+                updateParagraph("Auto Farm Ancient Ruin", "All Fish collected! Unlocking Ancient Ruin...")
+                StopAutoFish5X()
+                _G.ToggleAutoClick(false)
+                StopCast()
+                task.wait(1.5)
+                if typeof(_G.UnlockRuin) == "function" then
+                    _G.UnlockRuin()
+                end
+                _G.StopRuinFarm()
+                delfile(_G.saveFile)
+            end
+        end
+    end)
+end
+
+_G.StopRuinFarm = function()
+    StopAutoFish()
+    _G.RuinFarmEnabled = false
+    _G.AutoFishStarted = false
+    if _G.RuinConnection then
+        _G.RuinConnection:Disconnect()
+        _G.RuinConnection = nil
+    end
+    saveProgress()
+    updateParagraph("Auto Farm Ancient Ruin", "Auto Farm stopped. Progress saved.")
+end
+
+function updateParagraph(title, desc)
+    if _G.RuinParagraph then
+        _G.RuinParagraph:SetDesc(desc)
+    end
+end
+
+_G.RuinParagraph = AutoFarmTab:Paragraph({
+    Title = "Auto Farm Ancient Ruin",
+    Desc = "Waiting for activation...",
+    Color = "Green",
+})
+
+AutoFarmTab:Space()
+
+AutoFarmTab:Toggle({
+    Title = "Auto Farm Ancient Ruin",
+    Desc = "Automatically collects 4 Fish and unlocks Ancient Ruin.",
+    Default = false,
+    Callback = function(state)
+        if state then
+            _G.StartRuinFarm()
+        else
+            _G.StopRuinFarm()
+        end
+    end
+})
+
+
+AutoFarmTab:Button({
+    Title = "Unlock Ancient Ruin",
+    Desc = "Still need 4 Fish!",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        _G.UnlockRuin()
+    end
+})
+
+
 -------------------------------------------
 ----- =======[ ARTIFACT TAB ]
 -------------------------------------------
