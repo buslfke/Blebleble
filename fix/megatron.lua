@@ -25,6 +25,16 @@ local Constants = require(ReplicatedStorage:WaitForChild("Shared", 20):WaitForCh
 
 local Player = Players.LocalPlayer
 local XPBar = Player:WaitForChild("PlayerGui"):WaitForChild("XP")
+_G.Characters = workspace:FindFirstChild("Characters"):WaitForChild(LocalPlayer.Name)
+_G.HRP = _G.Characters:WaitForChild("HumanoidRootPart")
+_G.Overhead = _G.HRP:WaitForChild("Overhead")
+_G.Header = _G.Overhead:WaitForChild("Content"):WaitForChild("Header")
+_G.LevelLabel = _G.Overhead:WaitForChild("LevelContainer"):WaitForChild("Label")
+local Player = Players.LocalPlayer
+_G.XPBar = Player:WaitForChild("PlayerGui"):WaitForChild("XP")
+_G.XPLevel = _G.XPBar:WaitForChild("Frame"):WaitForChild("LevelCount")
+_G.Title = _G.Overhead:WaitForChild("TitleContainer"):WaitForChild("Label")
+_G.TitleEnabled = _G.Overhead:WaitForChild("TitleContainer")
 
 LocalPlayer.Idled:Connect(function()
     VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
@@ -4333,6 +4343,26 @@ SettingsTab:Toggle({
     Value = false,
     Callback = function(state)
         _G.Disable3DRendering(state)
+    end
+})
+
+function _G.HideIdentity(enabled)
+    if enabled then
+        _G.Header.Visible = false
+        _G.LevelLabel.Visible = false
+        _G.TitleEnabled.Visible = false
+    else
+        _G.Header.Visible = true
+        _G.LevelLabel.Visible = true
+        _G.TitleEnabled.Visible = true
+    end
+end
+
+_G.AccConfig:Toggle({
+    Title = "Hide Identity",
+    Value = false,
+    Callback = function(state)
+        _G.HideIdentity(state)
     end
 })
 
