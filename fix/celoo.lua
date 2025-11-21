@@ -2117,7 +2117,7 @@ Countdown : %s
             char.HumanoidRootPart.CFrame = LOCHNESS_CFRAME
         end
     
-        _G.EventEndTime = tick() + (10 * 60) -- Set 10 menit timer
+        _G.EventEndTime = tick() + (12 * 60) -- Set 10 menit timer
         _G.updateStatus("Waiting for event to end…", newText)
     end
 end
