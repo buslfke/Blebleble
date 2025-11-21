@@ -353,7 +353,7 @@ _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1.5
 _G.fishCounter = 0
 _G.sellThreshold = 5
-_G.sellActive = true
+_G.sellActive = false
 _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
@@ -1515,10 +1515,10 @@ _G.REPlaceItems = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["
 _G.UnlockRuin = function()
     task.spawn(function()
         local Ruins = {
-            "Crocodile",
             "Goliath Tiger",
             "Freshwater Piranha",
             "Sacred Guardian Squid",
+            "Crocodile",
         }
 
         for _, ruins in ipairs(Ruins) do
