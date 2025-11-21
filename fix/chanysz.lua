@@ -947,7 +947,7 @@ _G.FishSec:Button({
 _G.FishSec:Space()
 
 
-_G.BlockCutsceneEnabled = false 
+_G.BlockCutsceneEnabled = true
 
 _G.CutsceneController = nil
 _G.success, _G.result = pcall(require, game:GetService("ReplicatedStorage").Controllers.CutsceneController)
