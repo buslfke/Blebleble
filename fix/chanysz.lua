@@ -4255,6 +4255,14 @@ SettingsTab:Button({
     end
 })
 
+SettingsTab:Button({
+    Title = "Load Position",
+    Justify = "Center",
+    Callback = function()
+        _G.loadPosition()
+    end
+})
+
 SettingsTab:Space()
 
 
@@ -4588,5 +4596,3 @@ SettingsTab:Button({
         NotifySuccess("Config Loaded", "Config has beed loaded!")
     end
 })
-
-_G.loadPosition()
