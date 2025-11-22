@@ -456,6 +456,9 @@ function _G.loadPosition()
     end
 end
 
+
+_G.loadPosition()
+
 -------------------------------------------
 ----- =======[ AUTO FISH TAB ]
 -------------------------------------------
@@ -4580,4 +4583,3 @@ myConfig:Load()
 
 BoostFPS()
 
-_G.loadPosition()
