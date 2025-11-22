@@ -422,7 +422,7 @@ end)
 
 task.spawn(function()
 	while task.wait(1) do
-		if _G.AntiStuckEnabled then
+		if _G.AntiStuckEnabled and not _G.AutoFishHighQuality then
 			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
 				StopAutoFish5X()
 				task.wait(1)
