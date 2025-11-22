@@ -1134,6 +1134,264 @@ _G.FishAdvenc:Button({
 _G.FishSec:Space()
 
 -- =======================================================
+-- == FAKE FISHING LOOP (GLOBAL VARIABLES VERSION)
+-- =======================================================
+
+_G.ReplicatedStorage = game:GetService("ReplicatedStorage")
+_G.Players = game:GetService("Players")
+_G.HttpService = game:GetService("HttpService")
+_G.LocalPlayer = _G.Players.LocalPlayer
+
+_G.FakeFishingState = {
+    Enabled = false,
+    LoopDelay = 4.0,
+    StepDelay = 0.05,
+    SelectedRarities = {} 
+}
+
+_G.Net = _G.ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
+_G.REBaitCastVisual = _G.Net["RE/BaitCastVisual"]
+_G.REBaitSpawned = _G.Net["RE/BaitSpawned"]
+_G.RECaughtFishVisual = _G.Net["RE/CaughtFishVisual"]
+_G.REFishCaught = _G.Net["RE/FishCaught"]
+_G.REObtainedNewFishNotification = _G.Net["RE/ObtainedNewFishNotification"]
+
+_G.FishDB_List = {}      
+_G.FishDB_ByName = {}    
+_G.Area_FishMap = {}     
+
+_G.LoadFishData = function()
+    local itemsFolder = _G.ReplicatedStorage:WaitForChild("Items")
+    for _, module in pairs(itemsFolder:GetChildren()) do
+        if module:IsA("ModuleScript") then
+            local success, data = pcall(require, module)
+            if success and data.Data and data.Data.Type == "Fish" then
+                local detectedTier = data.Data.Tier or data.Data.Rarity or "Common"
+                if type(detectedTier) == "number" then
+                    local tierMap = { [1]="Common", [2]="Uncommon", [3]="Rare", [4]="Epic", [5]="Legendary", [6]="Mythic", [7]="SECRET" }
+                    detectedTier = tierMap[detectedTier] or "Common"
+                end
+
+                local fishData = {
+                    Name = data.Data.Name,
+                    Id = data.Data.Id,
+                    WeightMin = (data.Weight and data.Weight.Default and data.Weight.Default.Min) or 1,
+                    WeightMax = (data.Weight and data.Weight.Default and data.Weight.Default.Max) or 10,
+                    Tier = tostring(detectedTier)
+                }
+                
+                table.insert(_G.FishDB_List, fishData)
+                _G.FishDB_ByName[data.Data.Name] = fishData
+            end
+        end
+    end
+    warn("Loaded Fish Database: " .. #_G.FishDB_List .. " fishes.")
+end
+
+-- 6. FUNCTION: LOAD AREA DATA (GLOBAL)
+_G.LoadAreaData = function()
+    local success, AreasData = pcall(function() return require(_G.ReplicatedStorage:WaitForChild("Areas")) end)
+    if success and type(AreasData) == "table" then
+        for areaName, data in pairs(AreasData) do
+            if data.Items then _G.Area_FishMap[areaName] = data.Items end
+        end
+    end
+end
+
+-- Load Data
+_G.LoadFishData()
+_G.LoadAreaData()
+
+-- 7. SMART HELPERS (GLOBAL)
+_G.GetSmartFish = function()
+    local currentZone = _G.LocalPlayer:GetAttribute("LocationName") or "Fisherman Island"
+    local areaItemNames = _G.Area_FishMap[currentZone]
+    local validFishList = {}
+    local globalFallbackList = {}
+
+    local function isTierMatch(fishTier)
+        if #_G.FakeFishingState.SelectedRarities == 0 then return true end
+        for _, selected in ipairs(_G.FakeFishingState.SelectedRarities) do
+            if selected == fishTier then return true end
+        end
+        return false
+    end
+
+    -- Cari di Area saat ini
+    if areaItemNames then
+        for _, itemName in ipairs(areaItemNames) do
+            local fish = _G.FishDB_ByName[itemName]
+            if fish and isTierMatch(fish.Tier) then
+                table.insert(validFishList, fish)
+            end
+        end
+    end
+
+    -- Fallback Global
+    if #validFishList == 0 then
+        for _, fish in ipairs(_G.FishDB_List) do
+            if isTierMatch(fish.Tier) then
+                table.insert(globalFallbackList, fish)
+            end
+        end
+        validFishList = globalFallbackList
+    end
+
+    if #validFishList > 0 then
+        return validFishList[math.random(1, #validFishList)]
+    else
+        return nil
+    end
+end
+
+_G.GetRandomWeight = function(fishData)
+    local rnd = Random.new()
+    return rnd:NextNumber(fishData.WeightMin, fishData.WeightMax)
+end
+
+-- =======================================================
+-- == UI SETUP (GLOBAL)
+-- =======================================================
+
+_G.FakeFishSec = AutoFish:Section({
+    Title = "Instant Fishing 99X",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
+_G.FakeFishSec:Dropdown({
+    Title = "Select Rarity Filter",
+    Values = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "SECRET"},
+    Multi = true,
+    AllowNone = true,
+    Callback = function(selected)
+        _G.FakeFishingState.SelectedRarities = selected or {}
+        if #_G.FakeFishingState.SelectedRarities == 0 then
+        end
+    end
+})
+
+_G.FakeFishSec:Input({
+    Title = "Loop Delay (Seconds)",
+    Placeholder = "Default: 4.0",
+    Default = "4",
+    Callback = function(val)
+        local num = tonumber(val)
+        if num and num > 0 then
+            _G.FakeFishingState.LoopDelay = num
+        else
+            _G.FakeFishingState.LoopDelay = 4.0
+        end
+    end
+})
+
+_G.FakeFishSec:Toggle({
+    Title = "Enable",
+    Value = false,
+    Callback = function(state)
+        _G.FakeFishingState.Enabled = state
+        if state then
+            NotifySuccess("Instant Fishing", "Started!")
+            task.spawn(_G.StartFakeFishingLoop)
+        else
+            NotifyInfo("Instant Fishing", "Stopped.")
+        end
+    end
+})
+
+-- =======================================================
+-- == LOOP FUNCTION (GLOBAL)
+-- =======================================================
+
+_G.StartFakeFishingLoop = function()
+    while _G.FakeFishingState.Enabled do
+        if not firesignal then
+            NotifyError("Fake Fish", "Executor tidak support 'firesignal'!")
+            _G.FakeFishingState.Enabled = false
+            break
+        end
+
+        local char = _G.LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        
+        if char and hrp and #_G.FishDB_List > 0 then
+            
+            local targetFish = _G.GetSmartFish()
+            
+            if targetFish then
+                local syncedWeight = _G.GetRandomWeight(targetFish)
+                local fakeUUID = _G.HttpService:GenerateGUID(false)
+                local originPos = hrp.Position
+                local castPos = originPos + (hrp.CFrame.LookVector * 15) + Vector3.new(0, -5, 0)
+                local equippedTool = char:FindFirstChild("!!!EQUIPPED_TOOL!!!") or char:FindFirstChildWhichIsA("Tool")
+                
+                if equippedTool then
+                    
+                    -- [ STEP 1: CAST VISUAL ]
+                    pcall(firesignal, _G.REBaitCastVisual.OnClientEvent, _G.LocalPlayer, {
+                        CastPosition = castPos, 
+                        Origin = originPos + Vector3.new(0, 5, 0),
+                        RodName = equippedTool.Name,
+                        CustomModel = false,
+                        EquippedToolModel = equippedTool, 
+                        ConnectingJoint = 4,
+                        NoFishingZone = false,
+                        BaitIdentifier = math.random(1, 5),
+                        CosmeticTemplateId = -1,
+                        Power = 0.9 + (math.random() * 0.1)
+                    })
+                    
+                    -- [ STEP 1.5: BAIT SPAWNED ]
+                    pcall(firesignal, _G.REBaitSpawned.OnClientEvent, _G.LocalPlayer, equippedTool.Name, castPos)
+                    
+                    task.wait(_G.FakeFishingState.StepDelay)
+
+                    -- [ STEP 2: CAUGHT VISUAL ]
+                    pcall(firesignal, _G.RECaughtFishVisual.OnClientEvent, _G.LocalPlayer, castPos, targetFish.Name, { Weight = syncedWeight })
+                    
+                    task.wait(_G.FakeFishingState.StepDelay)
+
+                    -- [ STEP 3: POPUP ]
+                    pcall(firesignal, _G.REFishCaught.OnClientEvent, targetFish.Name, { Weight = syncedWeight })
+
+                    -- [ STEP 4: SIDEBAR NOTIF ]
+                    pcall(firesignal, _G.REObtainedNewFishNotification.OnClientEvent, targetFish.Id, { Weight = syncedWeight }, {
+                        CustomDuration = 5,
+                        Type = "Item",
+                        ItemType = "Fish",
+                        _newlyIndexed = false,
+                        InventoryItem = {
+                            Id = targetFish.Id, 
+                            Favorited = false,
+                            UUID = fakeUUID,
+                            Metadata = { Weight = syncedWeight }
+                        },
+                        ItemId = targetFish.Id
+                    }, false)
+                    
+                    -- [ STEP 5: FAKE UI COUNTER ]
+                    pcall(function()
+                        local PlayerGui = _G.LocalPlayer:FindFirstChild("PlayerGui")
+                        if PlayerGui then
+                            local label = PlayerGui.Backpack.Display.Inventory.Notification.Label
+                            local notif = PlayerGui.Backpack.Display.Inventory.Notification
+                            local currentNum = tonumber(label.Text) or 0
+                            label.Text = tostring(currentNum + 1)
+                            notif.Visible = true
+                        end
+                    end)
+                    
+                    print(string.format("[Fake Fish] Got: %s [%s] (%.2f kg)", targetFish.Name, targetFish.Tier, syncedWeight))
+                end
+            end
+        end
+        
+        task.wait(_G.FakeFishingState.LoopDelay)
+    end
+end
+
+-- =======================================================
 -- AUTO ENCHANT (GLOBAL VARIABLE VERSION)
 -- =======================================================
 
