@@ -349,6 +349,7 @@ function _G.loadPosition()
     end
 end
 
+_G.loadPosition()
 -------------------------------------------
 ----- =======[ AUTO FISH TAB ]
 -------------------------------------------
@@ -5038,4 +5039,3 @@ SettingsTab:Button({
     end
 })
 
-_G.loadPosition()
