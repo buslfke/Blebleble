@@ -621,7 +621,9 @@ _G.RecastCD = _G.FishSec:Slider({
     end
 })
 
-_G.FishSec:Slider({
+myConfig:Register("SpeedLegit", _G.RecastCD)
+
+_G.SellThres = _G.FishSec:Slider({
     Title = "Sell Threshold",
     Step = 1,
     Value = {
@@ -634,7 +636,9 @@ _G.FishSec:Slider({
     end
 })
 
-_G.FishSec:Slider({
+myConfig:Register("SellThress", _G.SellThres)
+
+_G.DelayStuck = _G.FishSec:Slider({
     Title = "Anti Stuck Delay",
     Step = 1,
     Value = {
@@ -646,6 +650,8 @@ _G.FishSec:Slider({
         _G.STUCK_TIMEOUT = value
     end
 })
+
+myConfig:Register("DelayStuck", _G.DelayStuck)
 
 _G.FishSec:Toggle({
     Title = "Auto Sell",
