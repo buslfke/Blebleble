@@ -351,6 +351,7 @@ _G.FINISH_DELAY = 1.5
 _G.fishCounter = 0
 _G.sellThreshold = 1000
 _G.sellActive = false
+_G.AutoFishHighQuality = false
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
@@ -432,15 +433,90 @@ task.spawn(function()
 	end
 end)
 
-FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
-    if FuncAutoFish.autofish5x 
-    and data and data.TextData 
-    and data.TextData.EffectType == "Exclaim" then
-    	local myHead = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Head")
-    	if myHead and data.Container == myHead then
-    		_G.startSpam()
-    	end
+local lastEventTime = tick()
+
+task.spawn(function()
+    while task.wait(1) do
+        if _G.AutoFishHighQuality and FuncAutoFish.autofish5x and FuncAutoFish.REReplicateTextEffect then
+            if tick() - lastEventTime > 10 then
+                StopAutoFish5X()
+                lastEventTime = tick()
+                task.wait(0.5)
+                StartAutoFish5X()
+            end
+        end
     end
+end)
+
+local function approx(a, b, tolerance)
+    return math.abs(a - b) <= (tolerance or 0.02)
+end
+
+local function isColor(r, g, b, R, G, B)
+    return approx(r, R) and approx(g, G) and approx(b, B)
+end
+
+local BAD_COLORS = {
+    COMMON    = {1,       0.980392, 0.964706},
+    UNCOMMON  = {0.764706, 1,        0.333333},
+    RARE      = {0.333333, 0.635294, 1},
+    EPIC      = {0.678431, 0.309804, 1},
+}
+
+FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
+
+    if not FuncAutoFish.autofish5x then return end
+
+    local myHead = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Head")
+    if not (data and data.TextData and data.TextData.TextColor and data.TextData.EffectType == "Exclaim" and myHead and data.Container == myHead) then
+        return
+    end
+
+    lastEventTime = tick()
+    if _G.AutoFishHighQuality then
+        local colorValue = data.TextData.TextColor
+        local r, g, b
+    
+        if typeof(colorValue) == "Color3" then
+            r, g, b = colorValue.R, colorValue.G, colorValue.B
+        elseif typeof(colorValue) == "ColorSequence" and #colorValue.Keypoints > 0 then
+            local c = colorValue.Keypoints[1].Value
+            r, g, b = c.R, c.G, c.B
+        end
+    
+        if not (r and g and b) then return end
+    
+        local isBadFish = false
+    
+        for _, col in pairs(BAD_COLORS) do
+            if isColor(r, g, b, col[1], col[2], col[3]) then
+                isBadFish = true
+                break
+            end
+        end
+    
+        if isBadFish then
+            _G.RecastSpam()
+        else
+            _G.startSpam()
+        end
+    else
+        _G.startSpam()
+    end
+end)
+
+
+task.spawn(function()
+	while task.wait(1) do
+		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
+			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
+				StopAutoFish5X()
+				task.wait(0.5)
+				StartAutoFish5X()
+				_G.lastFishTime = tick()
+			end
+		end
+	end
 end)
 
 _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
@@ -676,6 +752,17 @@ _G.AutoFishes = _G.FishSec:Toggle({
         end
     end
 })
+
+_G.HighFish = _G.FishSec:Toggle({
+    Title = "Fish High Quality",
+    Desc = "Only Legendary, Mythic, & SECRET",
+    Value = _G.AutoFishHighQuality,
+    Callback = function(state)
+        _G.AutoFishHighQuality = state
+    end
+})
+
+myConfig:Register("FishHigh", _G.HighFish)
 
 _G.FishSec:Toggle({
     Title = "Auto Fish Legit",
