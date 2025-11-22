@@ -3276,7 +3276,7 @@ local REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitni
 local webhookPath = nil
 local FishWebhookEnabled = true
 local LastCatchData = {}
-local SelectedCategories = { "Secret" }
+local SelectedCategories = { "Secret", "Legendary" }
 
 -------------------------------------------
 ----- =======[ HELPER FUNCTIONS ]
@@ -3452,15 +3452,7 @@ local FishCategories = {
     },
 
     ["Legendary"] = {
-        "Abyss Seahorse", "Ancient Pufferfish", "Blueflame Ray", "Crystal Salamander",
-        "Deep Sea Crab", "Diamond Ring", "Dotted Stingray", "Fish Fossil", "Flying Manta",
-        "Ghastly Crab", "Ghastly Hermit Crab", "Gingerbread Turtle", "Hammerhead Shark",
-        "Hawks Turtle", "Lake Sturgeon", "Lined Cardinal Fish", "Loggerhead Turtle",
-        "Manoai Statue Fish", "Manta Ray", "Plasma Shark", "Primal Axolotl",
-        "Primal Lobster", "Prismy Seahorse", "Pumpkin Carved Shark", "Pumpkin Jellyfish",
-        "Pumpkin StoneTurtle", "Ruby", "Runic Axolotl", "Runic Lobster",
-        "Sacred Guardian Squid", "Saw Fish", "Strippled Seahorse", "Synodontis",
-        "Temple Spokes Tuna", "Thresher Shark", "Wizard Stingray"
+        "Sacred Guardian Squid",
     },
 }
 
