@@ -2298,7 +2298,7 @@ _G.StartArtifactFarm = function()
     _G.AutoFishStarted = true
 
     _G.ArtifactConnection = _G.REFishCaught.OnClientEvent:Connect(function(fishName, data)
-        if string.find(fishName, "Artifact") then
+        if string.find(fishName) then
             _G.ArtifactCollected += 1
             saveProgress()
 
@@ -2518,7 +2518,7 @@ _G.StartRuinFarm = function()
     _G.AutoFishStarted = true
 
     _G.RuinConnection = REFishCaught.OnClientEvent:Connect(function(fishName, data)
-        if string.find(fishName, "Artifact") then
+        if string.find(fishName) then
             _G.FishCollected += 1
             saveProgress()
 
