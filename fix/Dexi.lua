@@ -1607,7 +1607,7 @@ _G.StartRuinFarm = function()
     _G.AutoFishStarted = true
 
     _G.RuinConnection = REFishCaught.OnClientEvent:Connect(function(fishName, data)
-        if string.find(fishName, "Artifact") then
+        if string.find(fishName) then
             _G.FishCollected += 1
             saveProgress()
 
@@ -1738,7 +1738,8 @@ _G.ArtifactSpots = {
 
 local REFishCaught = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishCaught"]
 
-local saveFile = "ArtifactProgress.json"
+local username = LocalPlayer.Name
+local saveFile = username .. "_Progress.json"
 
 if isfile(saveFile) then
     local success, data = pcall(function()
