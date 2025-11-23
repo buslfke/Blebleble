@@ -4646,7 +4646,7 @@ local SelectedCategories = { "Secret" }
 -------------------------------------------
 
 -- FUNGSI UNTUK MENDAPATKAN NAMA EXECUTOR
-local function getExecutorName()
+function getExecutorName()
     if getgenv() and getgenv().syn then return "Synapse X" end
     if getgenv() and getgenv().fluxus then return "Fluxus" end
     if getgenv() and getgenv().krnl_load then return "Krnl" end
@@ -4655,7 +4655,7 @@ local function getExecutorName()
 end
 
 -- FUNGSI UNTUK MENDAPATKAN NAMA ROD YANG VALID (Sesuai Path Baru)
-local function getValidRodName()
+function getValidRodName()
     local player = Players.LocalPlayer
     local backpack = player.PlayerGui:WaitForChild("Backpack", 5)
     if not backpack then return "N/A (Backpack Missing)" end
@@ -4683,7 +4683,7 @@ local function getValidRodName()
 end
 
 -- FUNGSI UNTUK MENDAPATKAN JUMLAH INVENTORY
-local function getInventoryCount()
+function getInventoryCount()
     local player = Players.LocalPlayer
     -- Path: .PlayerGui.Backpack.Display.Inventory.BagSize
     local bagSizePath = player.PlayerGui:FindFirstChild("Backpack", 5)
@@ -4697,7 +4697,7 @@ local function getInventoryCount()
     return "N/A"
 end
 
-local function validateWebhook(path)
+function validateWebhook(path)
     local pasteUrl = "https://paste.monster/" .. path .. "/raw/"
     local success, response = pcall(function()
         return game:HttpGet(pasteUrl)
@@ -4733,7 +4733,7 @@ local function validateWebhook(path)
 end
 
 
-local function safeHttpRequest(data)
+function safeHttpRequest(data)
     local requestFunc = syn and syn.request or http and http.request or http_request or request or
     fluxus and fluxus.request
     if not requestFunc then
