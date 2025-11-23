@@ -2609,6 +2609,102 @@ _G.RuinSec:Button({
     end
 })
 
+
+-------------------------------------------
+----- =======[ AUTO FAV TAB ]
+-------------------------------------------
+
+
+local GlobalFav = {
+    REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ObtainedNewFishNotification"],
+    REFavoriteItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FavoriteItem"],
+
+    FishIdToName = {},
+    FishNameToId = {},
+    FishNames = {},
+    FishRarity = {},
+    Variants = {},
+    SelectedFishIds = {},
+    SelectedVariants = {},
+    SelectedRarities = {},
+    AutoFavoriteEnabled = false
+}
+
+local TierToRarityName = {
+    [3] = "RARE",
+    [4] = "EPIC",
+    [5] = "LEGENDARY",
+    [6] = "MYTHIC",
+    [7] = "SECRET"
+}
+
+for _, item in ipairs(ReplicatedStorage.Items:GetChildren()) do
+    local ok, data = pcall(require, item)
+    if ok and data.Data and data.Data.Type == "Fish" then
+        local id = data.Data.Id
+        local name = data.Data.Name
+        local tier = data.Data.Tier or 1
+
+        GlobalFav.FishIdToName[id] = name
+        GlobalFav.FishNameToId[name] = id
+        GlobalFav.FishRarity[id] = tier
+        table.insert(GlobalFav.FishNames, name)
+    end
+end
+
+-- Load Variants
+for _, variantModule in pairs(ReplicatedStorage.Variants:GetChildren()) do
+    local ok, variantData = pcall(require, variantModule)
+    if ok and variantData.Data.Name then
+        local name = variantData.Data.Name
+        GlobalFav.Variants[name] = name
+    end
+end
+
+AutoFav:Section({
+    Title = "Auto Favorite Menu",
+    TextSize = 22,
+    TextXAlignment = "Center",
+})
+
+AutoFav:Toggle({
+    Title = "Enable Auto Favorite",
+    Value = false,
+    Callback = function(state)
+        GlobalFav.AutoFavoriteEnabled = state
+        if state then
+            NotifySuccess("Auto Favorite", "Auto Favorite feature enabled")
+        else
+            NotifyWarning("Auto Favorite", "Auto Favorite feature disabled")
+        end
+    end
+})
+
+local AllFishNames = GlobalFav.FishNames
+
+_G.FishList = AutoFav:Dropdown({
+    Title = "Auto Favorite Fishes",
+    Values = AllFishNames,
+    Multi = true,
+    AllowNone = true,
+    SearchBarEnabled = true,
+    Callback = function(selectedNames)
+        GlobalFav.SelectedFishIds = {}
+
+        for _, name in ipairs(selectedNames) do
+            local id = GlobalFav.FishNameToId[name]
+            if id then
+                GlobalFav.SelectedFishIds[id] = true
+            end
+        end
+
+        NotifyInfo("Auto Favorite", "Favoriting active for fish: " .. HttpService:JSONEncode(selectedNames))
+    end
+})
+
+
+
+
 -- ===================================================================
 -- 
 -- AUTO QUEST ( GHOSFINN & ELEMENT ROD)
