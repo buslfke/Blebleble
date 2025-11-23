@@ -1656,7 +1656,7 @@ _G.StartArtifactFarm = function()
     _G.AutoFishStarted = true
 
     _G.ArtifactConnection = REFishCaught.OnClientEvent:Connect(function(fishName, data)
-        if string.find(fishName) then
+        if string.find(fishName, "Artifact") then
             _G.ArtifactCollected += 1
             saveProgress()
 
