@@ -1540,7 +1540,7 @@ _G.TempleSpot = {
 
 _G.REFishCaught = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishCaught"]
 
-_G.saveFile = "RuinsProgress.json"
+_G.saveFile = "ArtifactProgress.json"
 
 if isfile(_G.saveFile) then
     local success, data = pcall(function()
