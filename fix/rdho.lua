@@ -4188,50 +4188,7 @@ startFishDetection()
 ----- =======[ SETTINGS TAB ]
 -------------------------------------------
 
-_G.saveFileName = "savedPos.json"
-
-function _G.savePosition()
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if root then
-        local cx, cy, cz,
-              r00, r01, r02,
-              r10, r11, r12,
-              r20, r21, r22 = root.CFrame:GetComponents()
-
-        local posData = {
-            cx = cx, cy = cy, cz = cz,
-            r00 = r00, r01 = r01, r02 = r02,
-            r10 = r10, r11 = r11, r12 = r12,
-            r20 = r20, r21 = r21, r22 = r22
-        }
-
-        writefile(_G.saveFileName, HttpService:JSONEncode(posData))
-    else
-        warn("[❌] Gagal menyimpan posisi: HRP tidak ditemukan")
-    end
-end
-
-function _G.loadPosition()
-    if isfile(_G.saveFileName) then
-        local data = readfile(_G.saveFileName)
-        local pos = HttpService:JSONDecode(data)
-        
-        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-        local root = char:WaitForChild("HumanoidRootPart")
-
-        root.CFrame = CFrame.new(
-            pos.cx, pos.cy, pos.cz,
-            pos.r00, pos.r01, pos.r02,
-            pos.r10, pos.r11, pos.r12,
-            pos.r20, pos.r21, pos.r22
-        )
-
-        print("[📍] CFrame berhasil diload!")
-    else
-        warn("[❌] Tidak ada posisi tersimpan.")
-    end
-end
+_G.loadPosition()
 
 SettingsTab:Button({
     Title = "Save Position",
@@ -4468,4 +4425,3 @@ SettingsTab:Button({
 SettingsTab:Space()
 
 myConfig:Load()
-_G.loadPosition()
