@@ -542,6 +542,7 @@ FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
         end
     
         if isBadFish then
+        	  _G.StopFishing()
             _G.RecastSpam()
         else
             _G.startSpam()
