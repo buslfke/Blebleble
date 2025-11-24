@@ -2691,6 +2691,9 @@ local islandCoords = {
 	["15"] = { name = "The Temple", position = Vector3.new(1477, -22, -631) },
 	["16"] = { name = "Underground Cellar", position = Vector3.new(2133, -91, -674)},
 	["17"] = { name = "Ancient Ruin", position = Vector3.new(6052, -546, 4427)},
+	["18"] = {name = "Iron Cavern", position = Vector3.new(-8873, -582, 157) },
+  ["19"] = {name = "Iron Cafe", position = Vector3.new(-8668, -549, 161) },
+  ["20"] = {name = "Classic Island", position = Vector3.new(1259, 10, 2824) }
 }
 
 local islandNames = {}
