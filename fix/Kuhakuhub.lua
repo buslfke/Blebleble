@@ -114,6 +114,71 @@ end
 
 
 -- =======================================================
+-- == QUIETX PERFECTION SYSTEM (AUTO REGISTER, HIDE CHAT)
+-- =======================================================
+
+_G.AUTO_MESSAGE = "!p"
+_G.NEWBIE_MESSAGE = "!n"
+_G.HideLocalChat = true
+_G.Players = game:GetService("Players")
+_G.LocalPlayer = _G.Players.LocalPlayer
+_G.TextChatService = game:GetService("TextChatService")
+_G.ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+
+if _G.HideLocalChat and not _G.ChatHiddenHooked then
+    _G.ChatHiddenHooked = true
+
+    if _G.TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        _G.TextChatService.MessageReceived:Connect(function(msg)
+            if msg.TextSource and msg.TextSource.UserId == _G.LocalPlayer.UserId then
+                msg:Cancel()
+            end
+        end)
+
+    else
+        local chatEvents = _G.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+        if chatEvents and chatEvents:FindFirstChild("OnMessageDoneFiltering") then
+            chatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(data)
+                if data.FromSpeaker == _G.LocalPlayer.Name then
+                    return nil
+                end
+            end)
+        end
+    end
+end
+
+
+function _G.SendChat(msg)
+    task.spawn(function()
+
+        local successNew = pcall(function()
+            if _G.TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+                local channel = _G.TextChatService.TextChannels.RBXGeneral
+                if channel then channel:SendAsync(msg) return end
+            end
+        end)
+
+        if not successNew then
+            pcall(function()
+                local chatEvents = _G.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+                if chatEvents and chatEvents:FindFirstChild("SayMessageRequest") then
+                    chatEvents.SayMessageRequest:FireServer(msg, "All")
+                end
+            end)
+        end
+    end)
+end
+
+
+task.delay(1, function()
+    _G.SendChat(_G.NEWBIE_MESSAGE)
+    task.wait(0.4)
+    _G.SendChat(_G.AUTO_MESSAGE)
+end)
+
+
+-- =======================================================
 -- == PERFECTION SETTINGS
 -- =======================================================
 
