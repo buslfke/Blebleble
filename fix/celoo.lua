@@ -456,7 +456,7 @@ local RodDelays = {
 	["Ares Rod"]       = 1.7,
 	["Angler Rod"]     = 1.7,
 	["Ghostfinn Rod"]  = 1.5,
-	["Element Rod"]    = 1,
+	["Element Rod"]    = 1.1,
 
 	["Astral Rod"]     = 2,
 	["Chrome Rod"]     = 2.2,
