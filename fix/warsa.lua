@@ -1665,30 +1665,7 @@ local function startAutoFarmLoop()
         hrp.CFrame = location
         task.wait(1.5)
         
-        _G.ConfirmFishType = false
-        _G.DialogFish = Window:Dialog({
-            Icon = "crown",
-            Title = "Important!",
-            Content = "Please select Auto Fish type!",
-            Buttons = {
-                {
-                    Title = "Auto Fish",
-                    Callback = function()
-                        StartAutoFish5X()
-                        _G.ConfirmFishType = true
-                    end,
-                },
-                {
-                    Title = "Auto Fish Legit",
-                    Callback = function()
-                        _G.ToggleAutoClick(true)
-                        _G.ConfirmFishType = true
-                    end,
-                },
-            },
-        })
-    
-        repeat task.wait() until _G.ConfirmFishType
+        StartAutoFish5X()
 
         while isAutoFarmRunning do
             if not isAutoFarmRunning then
