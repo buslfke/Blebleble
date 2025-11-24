@@ -110,6 +110,109 @@ if Shared then
     if not _G.PromptController then pcall(function() _G.PromptController = require(ReplicatedStorage.Controllers.PromptController) end) end
 end
 
+-- =======================================================
+-- == PERFECTION SETTINGS
+-- =======================================================
+
+_G.PerfText = "PERFECTION!"
+_G.PerfColor = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(64, 255, 118)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(64, 255, 118))
+})
+
+_G.TargetTexts = {
+    ["ok"] = true, ["good"] = true, ["great"] = true,
+    ["amazing"] = true, ["perfect!"] = true
+}
+
+_G.Rep = _G.ReplicatedStorage
+_G.Effects = require(_G.Rep.Shared.Effects)
+_G.VFX = require(_G.Rep.Controllers.VFXController)
+_G.Sounds = require(_G.Rep.Shared.Soundbook)
+
+_G.PerfPlayers = _G.PerfPlayers or {}
+
+if not _G.OriginalTextEffect then
+    _G.OriginalTextEffect = _G.Effects.TextEffect
+end
+
+
+
+function _G.ListenToPlayer(player)
+    if player == _G.LocalPlayer then return end
+
+    player.Chatted:Connect(function(msg)
+        msg = msg:lower()
+
+        if msg == _G.NEWBIE_MESSAGE then
+            task.delay(0.3, function()
+                _G.SendChat(_G.AUTO_MESSAGE)
+            end)
+            return
+        end
+
+
+        if msg == "!p" then
+            _G.PerfPlayers[player.Name] = true
+            print("[PERFECTION] Enabled for:", player.Name)
+        end
+
+        if msg == "!unp" then
+            _G.PerfPlayers[player.Name] = nil
+            print("[PERFECTION] Disabled for:", player.Name)
+        end
+    end)
+end
+
+
+for _, p in ipairs(_G.Players:GetPlayers()) do
+    _G.ListenToPlayer(p)
+end
+
+_G.Players.PlayerAdded:Connect(function(player)
+    _G.ListenToPlayer(player)
+end)
+
+
+_G.Effects.TextEffect = function(self, data, ...)
+    if data and data.Container and data.TextData and data.TextData.Text then
+
+        local character = data.Container.Parent
+        local owner = game.Players:GetPlayerFromCharacter(character)
+
+        local isLocal = owner == _G.LocalPlayer
+        local forced = owner and _G.PerfPlayers[owner.Name]
+
+        if (isLocal or forced) then
+            local text = string.lower(data.TextData.Text)
+
+            if _G.TargetTexts[text] or text == string.lower(_G.PerfText) then
+                data.TextData.Text = _G.PerfText
+                data.TextData.TextColor = _G.PerfColor
+
+                task.spawn(function()
+                    pcall(function()
+                        _G.VFX.Handle(_G.PerfText, data.Container)
+                    end)
+                end)
+
+                task.spawn(function()
+                    pcall(function()
+                        if _G.Sounds.Sounds.Perfect then
+                            _G.Sounds.Sounds.Perfect:Play()
+                        elseif _G.Sounds.Sounds.PerfectCast then
+                            _G.Sounds.Sounds.PerfectCast:Play()
+                        end
+                    end)
+                end)
+            end
+        end
+    end
+
+    return _G.OriginalTextEffect(self, data, ...)
+end
+
 
 -------------------------------------------
 ----- =======[ NOTIFY FUNCTION ]
@@ -387,7 +490,7 @@ function InitialCast5X()
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
     local calculationLoopStart = tick()
-    local timeoutDuration = 1 -- Loop 1 detik ini TETAP DI SINI
+    local timeoutDuration = 0.01 -- Loop 1 detik ini TETAP DI SINI
     local lastPower = 0
     while (tick() - calculationLoopStart < timeoutDuration) do
         local currentPower = getPowerFunction(Constants, chargeStartTime)

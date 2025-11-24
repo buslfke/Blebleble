@@ -82,6 +82,201 @@ local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Ani
 local RodShake = animator:LoadAnimation(RodShake)
 local RodIdle = animator:LoadAnimation(RodIdle)
 
+local Shared = ReplicatedStorage:WaitForChild("Shared", 5)
+local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+
+if Shared then
+    if not _G.ItemUtility then
+        local success, utility = pcall(require, Shared:WaitForChild("ItemUtility", 5))
+        if success and utility then
+            _G.ItemUtility = utility
+        else
+            warn("ItemUtility module not found or failed to load.")
+        end
+    end
+    if not _G.ItemStringUtility and Modules then
+        local success, stringUtility = pcall(require, Modules:WaitForChild("ItemStringUtility", 5))
+        if success and stringUtility then
+            _G.ItemStringUtility = stringUtility
+        else
+            warn("ItemStringUtility module not found or failed to load.")
+        end
+    end
+    -- Memuat Replion, Promise, PromptController untuk Auto Accept Trade
+    if not _G.Replion then pcall(function() _G.Replion = require(ReplicatedStorage.Packages.Replion) end) end
+    if not _G.Promise then pcall(function() _G.Promise = require(ReplicatedStorage.Packages.Promise) end) end
+    if not _G.PromptController then pcall(function() _G.PromptController = require(ReplicatedStorage.Controllers.PromptController) end) end
+end
+
+
+-- =======================================================
+-- == QUIETX PERFECTION SYSTEM (AUTO REGISTER, HIDE CHAT)
+-- =======================================================
+
+_G.AUTO_MESSAGE = "!p"
+_G.NEWBIE_MESSAGE = "!n"
+_G.HideLocalChat = true
+_G.Players = game:GetService("Players")
+_G.LocalPlayer = _G.Players.LocalPlayer
+_G.TextChatService = game:GetService("TextChatService")
+_G.ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+
+if _G.HideLocalChat and not _G.ChatHiddenHooked then
+    _G.ChatHiddenHooked = true
+
+    if _G.TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        _G.TextChatService.MessageReceived:Connect(function(msg)
+            if msg.TextSource and msg.TextSource.UserId == _G.LocalPlayer.UserId then
+                msg:Cancel()
+            end
+        end)
+
+    else
+        local chatEvents = _G.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+        if chatEvents and chatEvents:FindFirstChild("OnMessageDoneFiltering") then
+            chatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(data)
+                if data.FromSpeaker == _G.LocalPlayer.Name then
+                    return nil
+                end
+            end)
+        end
+    end
+end
+
+
+function _G.SendChat(msg)
+    task.spawn(function()
+
+        local successNew = pcall(function()
+            if _G.TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+                local channel = _G.TextChatService.TextChannels.RBXGeneral
+                if channel then channel:SendAsync(msg) return end
+            end
+        end)
+
+        if not successNew then
+            pcall(function()
+                local chatEvents = _G.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+                if chatEvents and chatEvents:FindFirstChild("SayMessageRequest") then
+                    chatEvents.SayMessageRequest:FireServer(msg, "All")
+                end
+            end)
+        end
+    end)
+end
+
+
+task.delay(1, function()
+    _G.SendChat(_G.NEWBIE_MESSAGE)
+    task.wait(0.4)
+    _G.SendChat(_G.AUTO_MESSAGE)
+end)
+
+
+-- =======================================================
+-- == PERFECTION SETTINGS
+-- =======================================================
+
+_G.PerfText = "PERFECTION!"
+_G.PerfColor = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(64, 255, 118)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(64, 255, 118))
+})
+
+_G.TargetTexts = {
+    ["ok"] = true, ["good"] = true, ["great"] = true,
+    ["amazing"] = true, ["perfect!"] = true
+}
+
+_G.Rep = _G.ReplicatedStorage
+_G.Effects = require(_G.Rep.Shared.Effects)
+_G.VFX = require(_G.Rep.Controllers.VFXController)
+_G.Sounds = require(_G.Rep.Shared.Soundbook)
+
+_G.PerfPlayers = _G.PerfPlayers or {}
+
+if not _G.OriginalTextEffect then
+    _G.OriginalTextEffect = _G.Effects.TextEffect
+end
+
+
+
+function _G.ListenToPlayer(player)
+    if player == _G.LocalPlayer then return end
+
+    player.Chatted:Connect(function(msg)
+        msg = msg:lower()
+
+        if msg == _G.NEWBIE_MESSAGE then
+            task.delay(0.3, function()
+                _G.SendChat(_G.AUTO_MESSAGE)
+            end)
+            return
+        end
+
+
+        if msg == "!p" then
+            _G.PerfPlayers[player.Name] = true
+            print("[PERFECTION] Enabled for:", player.Name)
+        end
+
+        if msg == "!unp" then
+            _G.PerfPlayers[player.Name] = nil
+            print("[PERFECTION] Disabled for:", player.Name)
+        end
+    end)
+end
+
+
+for _, p in ipairs(_G.Players:GetPlayers()) do
+    _G.ListenToPlayer(p)
+end
+
+_G.Players.PlayerAdded:Connect(function(player)
+    _G.ListenToPlayer(player)
+end)
+
+
+_G.Effects.TextEffect = function(self, data, ...)
+    if data and data.Container and data.TextData and data.TextData.Text then
+
+        local character = data.Container.Parent
+        local owner = game.Players:GetPlayerFromCharacter(character)
+
+        local isLocal = owner == _G.LocalPlayer
+        local forced = owner and _G.PerfPlayers[owner.Name]
+
+        if (isLocal or forced) then
+            local text = string.lower(data.TextData.Text)
+
+            if _G.TargetTexts[text] or text == string.lower(_G.PerfText) then
+                data.TextData.Text = _G.PerfText
+                data.TextData.TextColor = _G.PerfColor
+
+                task.spawn(function()
+                    pcall(function()
+                        _G.VFX.Handle(_G.PerfText, data.Container)
+                    end)
+                end)
+
+                task.spawn(function()
+                    pcall(function()
+                        if _G.Sounds.Sounds.Perfect then
+                            _G.Sounds.Sounds.Perfect:Play()
+                        elseif _G.Sounds.Sounds.PerfectCast then
+                            _G.Sounds.Sounds.PerfectCast:Play()
+                        end
+                    end)
+                end)
+            end
+        end
+    end
+
+    return _G.OriginalTextEffect(self, data, ...)
+end
+
 -------------------------------------------
 ----- =======[ NOTIFY FUNCTION ]
 -------------------------------------------
@@ -1085,7 +1280,7 @@ function StartCast5X()
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
     local calculationLoopStart = tick()
-    local timeoutDuration = 3
+    local timeoutDuration = 0.01
     local lastPower = 0
     while (tick() - calculationLoopStart < timeoutDuration) do
         local currentPower = getPowerFunction(Constants, chargeStartTime)
