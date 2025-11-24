@@ -4620,6 +4620,16 @@ Utils:Dropdown({
 	end
 })
 
+--[[
+    =====================================================================
+    WEBHOOK SCRIPT UPDATE
+    - Added Rod Name detection to Fish Notification.
+    - Added Disconnect Notification webhook.
+    - UPDATED: getValidRodName now uses the specific path structure provided:
+      ...Backpack.Display.Tile.Inner.Tags.ItemName
+    =====================================================================
+--]]
+
 local RodDelays = {
     ["Ares Rod"] = true,
     ["Angler Rod"] = true,
@@ -4651,14 +4661,14 @@ local REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitni
 local webhookPath = nil
 local FishWebhookEnabled = true
 local LastCatchData = {}
-local SelectedCategories = { "Secret" }
+local SelectedCategories = { "Secret", "Mythic" }
 
 -------------------------------------------
 ----- =======[ HELPER FUNCTIONS ]
 -------------------------------------------
 
 -- FUNGSI UNTUK MENDAPATKAN NAMA EXECUTOR
-function getExecutorName()
+local function getExecutorName()
     if getgenv() and getgenv().syn then return "Synapse X" end
     if getgenv() and getgenv().fluxus then return "Fluxus" end
     if getgenv() and getgenv().krnl_load then return "Krnl" end
@@ -4667,7 +4677,7 @@ function getExecutorName()
 end
 
 -- FUNGSI UNTUK MENDAPATKAN NAMA ROD YANG VALID (Sesuai Path Baru)
-function getValidRodName()
+local function getValidRodName()
     local player = Players.LocalPlayer
     local backpack = player.PlayerGui:WaitForChild("Backpack", 5)
     if not backpack then return "N/A (Backpack Missing)" end
@@ -4695,7 +4705,7 @@ function getValidRodName()
 end
 
 -- FUNGSI UNTUK MENDAPATKAN JUMLAH INVENTORY
-function getInventoryCount()
+local function getInventoryCount()
     local player = Players.LocalPlayer
     -- Path: .PlayerGui.Backpack.Display.Inventory.BagSize
     local bagSizePath = player.PlayerGui:FindFirstChild("Backpack", 5)
@@ -4709,7 +4719,7 @@ function getInventoryCount()
     return "N/A"
 end
 
-function validateWebhook(path)
+local function validateWebhook(path)
     local pasteUrl = "https://paste.monster/" .. path .. "/raw/"
     local success, response = pcall(function()
         return game:HttpGet(pasteUrl)
@@ -4745,7 +4755,7 @@ function validateWebhook(path)
 end
 
 
-function safeHttpRequest(data)
+local function safeHttpRequest(data)
     local requestFunc = syn and syn.request or http and http.request or http_request or request or
     fluxus and fluxus.request
     if not requestFunc then
@@ -4802,52 +4812,79 @@ FishNotif:Section({
     TextXAlignment = "Center",
 })
 
-FishNotif:Paragraph({
-    Title = "Fish Notification",
-    Color = "Green",
-    Desc = [[
-This is a Fish Notification that functions to display fish in the channel server.
-You can buy a Key for the custom Channel you want.
-Price : 50K IDR
-]]
-})
-
 FishNotif:Space()
 
 
+-- ==================================================================
+-- [UPDATE] SYSTEM KATEGORI OTOMATIS (AUTO-DETECT TIER)
+-- ==================================================================
+
 local FishCategories = {
-    ["Secret"] = {
-        "Ancient Lochness Monster", "Ancient Whale", "Blob Shark", "Bloodmoon Whale", "Bone Whale",
-        "Cryoshade Glider", "Crystal Crab", "Dead Zombie Shark", "Eerie Shark", "Elshark Gran Maja",
-        "Frostborn Shark", "Ghost Shark", "Ghost Worm Fish", "Giant Squid", "Gladiator Shark",
-        "Great Christmas Whale", "Great Whale", "King Jelly", "Lochness Monster", "Megalodon",
-        "Monster Shark", "Mosasaur Shark", "Orca", "Queen Crab", "Robot Kraken", "Scare",
-        "Skeleton Narwhal", "Talon Serpent", "Thin Armor Shark", "Wild Serpent", "Worm Fish",
-        "Zombie Megalodon", "Zombie Shark"
-    },
-
-    ["Mythic"] = {
-        "Ancient Relic Crocodile", "Ancient Squid", "Armor Catfish", "Blob Fish", "Cavern Dweller",
-        "Crocodile", "Dark Pumpkin Appafish", "Flatheaded Whale Shark", "Fossilized Shark",
-        "Frankenstein Longsnapper", "Gingerbread Shark", "Hammerhead Mummy",
-        "Hybodus Shark", "King Crab", "Loving Shark", "Luminous Fish", "Magma Shark",
-        "Mammoth Appafish", "Panther Eel", "Plasma Serpent", "Primordial Octopus",
-        "Pumpkin Ray", "Runic Sea Crustacean", "Runic Squid", "Sea Crustacean",
-        "Sharp One", "Starlight Manta Ray"
-    },
-
-    ["Legendary"] = {
-        "Abyss Seahorse", "Ancient Pufferfish", "Blueflame Ray", "Crystal Salamander",
-        "Deep Sea Crab", "Diamond Ring", "Dotted Stingray", "Fish Fossil", "Flying Manta",
-        "Ghastly Crab", "Ghastly Hermit Crab", "Gingerbread Turtle", "Hammerhead Shark",
-        "Hawks Turtle", "Lake Sturgeon", "Lined Cardinal Fish", "Loggerhead Turtle",
-        "Manoai Statue Fish", "Manta Ray", "Plasma Shark", "Primal Axolotl",
-        "Primal Lobster", "Prismy Seahorse", "Pumpkin Carved Shark", "Pumpkin Jellyfish",
-        "Pumpkin StoneTurtle", "Ruby", "Runic Axolotl", "Runic Lobster",
-        "Sacred Guardian Squid", "Saw Fish", "Strippled Seahorse", "Synodontis",
-        "Temple Spokes Tuna", "Thresher Shark", "Wizard Stingray"
-    },
+    ["Secret"] = {},
+    ["Mythic"] = {},
+    ["Legendary"] = {}
 }
+
+local function AutoPopulateCategories()
+    local itemsFolder = ReplicatedStorage:WaitForChild("Items")
+    local count = 0
+    
+    for _, module in pairs(itemsFolder:GetChildren()) do
+        if module:IsA("ModuleScript") then
+            local success, data = pcall(require, module)
+            
+            -- Cek Validasi: Apakah ini Ikan?
+            if success and data.Data and data.Data.Type == "Fish" then
+                local tier = data.Data.Tier or 1
+                local fishName = data.Data.Name
+                
+                -- Mapping Tier Angka ke Kategori Webhook
+                -- 7 = SECRET, 6 = Mythic, 5 = Legendary
+                
+                if tier == 7 then
+                    table.insert(FishCategories["Secret"], fishName)
+                    count = count + 1
+                elseif tier == 6 then
+                    table.insert(FishCategories["Mythic"], fishName)
+                    count = count + 1
+                elseif tier == 5 then
+                    table.insert(FishCategories["Legendary"], fishName)
+                    count = count + 1
+                end
+                
+                -- Debug: Uncomment jika ingin lihat ikan apa saja yang masuk
+                -- print("Loaded: " .. fishName .. " [Tier " .. tier .. "]")
+            end
+        end
+    end
+    
+    warn("Webhook System: Berhasil mendeteksi " .. count .. " ikan High-Tier secara otomatis.")
+end
+
+-- 3. Jalankan Deteksi
+AutoPopulateCategories()
+
+
+_G.FishTierById = {}
+
+for _, itemModule in pairs(ReplicatedStorage.Items:GetChildren()) do
+    local success, data = pcall(require, itemModule)
+    if success and data.Data and data.Data.Type == "Fish" then
+        local tier = data.Data.Tier or 1
+        _G.FishTierById[data.Data.Id] = tier
+    end
+end
+
+-- Mapping Tier Angka ke Nama Kategori Anda
+local TierNumberToCategory = {
+    [5] = "Legendary",
+    [6] = "Mythic",
+    [7] = "Secret" -- Kadang game pakai 7 untuk Secret
+}
+
+print("Webhook: Loaded Tier Data for " .. 0 .. " fishes.") -- Count susah di map, tapi ini jalan.
+
+
 
 local FishDataById = {}
 for _, item in pairs(ReplicatedStorage.Items:GetChildren()) do
@@ -4899,19 +4936,25 @@ _G.Replion.Client:AwaitReplion("Data", function(dataReplion)
 end)
 
 
-local function isTargetFish(fishName)
-    for _, category in pairs(SelectedCategories) do
-        local list = FishCategories[category]
-        if list then
-            for _, keyword in pairs(list) do
-                if string.find(string.lower(fishName), string.lower(keyword)) then
-                    return true
-                end
-            end
+-- ==================================================================
+-- [UPDATE] FUNGSI CEK TARGET BERDASARKAN TIER
+-- ==================================================================
+
+local function isTargetTier(itemId)
+    if not itemId then return false end
+    local tierNumber = _G.FishTierById[itemId]
+    if not tierNumber then return false end
+    local categoryName = TierNumberToCategory[tierNumber]
+    if not categoryName then return false end
+    for _, selected in pairs(SelectedCategories) do
+        if string.lower(selected) == string.lower(categoryName) then
+            return true
         end
     end
+
     return false
 end
+
 
 
 _G.BNNotif = true
@@ -4961,7 +5004,7 @@ FishNotif:Dropdown({
     Desc = "Choose which categories to send to webhook",
     Values = { "Secret", "Legendary", "Mythic" },
     Multi = true,
-    Default = { "Secret", "Mythic" },
+    Default = { "Secret" },
     Callback = function(selected)
         SelectedCategories = selected
         WindUI:Notify({
@@ -5235,15 +5278,30 @@ local function startFishDetection()
         return
     end
 
-    -- B. Listener untuk memicu Webhook saat Fish Name berubah (Tangkapan Terdeteksi)
+    -- Listener perubahan Text (Visual Trigger)
     fishText:GetPropertyChangedSignal("Text"):Connect(function()
         local fishName = fishText.Text
-        if FishWebhookEnabled and isTargetFish(fishName) then
+        
+        -- [PERBAIKAN UTAMA]
+        -- Kita gunakan 'LastCatchData.ItemId' yang sudah ditangkap dari RemoteEvent
+        -- sebelumnya (baris REObtainedNewFishNotification.OnClientEvent).
+        -- Ini menjamin kita mengecek DATA server, bukan cuma nama di layar.
+        
+        local currentItemId = LastCatchData.ItemId
+        
+        -- Validasi: Pastikan ID ada dan Nama di UI cocok dengan data ID (Optional safety)
+        -- Tapi yang terpenting adalah cek Tier dari ID.
+        
+        if currentItemId and isTargetTier(currentItemId) then
             local rarity = rarityText.Text
             local assetId = string.match(imageFrame.Image, "%d+")
+            
             if assetId then
                 sendFishWebhook(fishName, rarity, assetId, LastCatchData.ItemId, LastCatchData.VariantId)
             end
+        else
+            -- Debugging (Opsional, hapus nanti)
+            -- warn("Ikan ditangkap tapi tidak masuk filter Tier:", fishName)
         end
     end)
 end
