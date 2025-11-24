@@ -4634,7 +4634,7 @@ local SelectedCategories = { "Secret", "Mythic" }
 -------------------------------------------
 
 -- FUNGSI UNTUK MENDAPATKAN NAMA EXECUTOR
-local function getExecutorName()
+function getExecutorName()
     if getgenv() and getgenv().syn then return "Synapse X" end
     if getgenv() and getgenv().fluxus then return "Fluxus" end
     if getgenv() and getgenv().krnl_load then return "Krnl" end
@@ -4643,7 +4643,7 @@ local function getExecutorName()
 end
 
 -- FUNGSI UNTUK MENDAPATKAN NAMA ROD YANG VALID (Sesuai Path Baru)
-local function getValidRodName()
+function getValidRodName()
     local player = Players.LocalPlayer
     local backpack = player.PlayerGui:WaitForChild("Backpack", 5)
     if not backpack then return "N/A (Backpack Missing)" end
@@ -4671,7 +4671,7 @@ local function getValidRodName()
 end
 
 -- FUNGSI UNTUK MENDAPATKAN JUMLAH INVENTORY
-local function getInventoryCount()
+function getInventoryCount()
     local player = Players.LocalPlayer
     -- Path: .PlayerGui.Backpack.Display.Inventory.BagSize
     local bagSizePath = player.PlayerGui:FindFirstChild("Backpack", 5)
@@ -4685,7 +4685,7 @@ local function getInventoryCount()
     return "N/A"
 end
 
-local function validateWebhook(path)
+function validateWebhook(path)
     local pasteUrl = "https://paste.monster/" .. path .. "/raw/"
     local success, response = pcall(function()
         return game:HttpGet(pasteUrl)
@@ -4721,7 +4721,7 @@ local function validateWebhook(path)
 end
 
 
-local function safeHttpRequest(data)
+function safeHttpRequest(data)
     local requestFunc = syn and syn.request or http and http.request or http_request or request or
     fluxus and fluxus.request
     if not requestFunc then
@@ -4906,7 +4906,7 @@ end)
 -- [UPDATE] FUNGSI CEK TARGET BERDASARKAN TIER
 -- ==================================================================
 
-local function isTargetTier(itemId)
+function isTargetTier(itemId)
     if not itemId then return false end
     local tierNumber = _G.FishTierById[itemId]
     if not tierNumber then return false end
@@ -5023,7 +5023,7 @@ FishNotif:Button({
 -------------------------------------------
 
 -- GANTI LAGI FUNGSI LAMA ANDA DENGAN VERSI FINAL INI
-local function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
+function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
 
     local WebhookURL = "https://discord.com/api/webhooks/1417100963432628344/i7xYDbBChaNklMAIgyRXTOsr1ihkfvXnoRJAik8BP7ITomAfrxmLugIObHXHce-YtsMw"
     local username = LocalPlayer.DisplayName
@@ -5175,7 +5175,7 @@ local function detectExecutor()
     return "Unknown Executor"
 end
 
-local function sendDisconnectWebhook(reason)
+function sendDisconnectWebhook(reason)
     if not webhookPath or webhookPath == "" then return end
 
     local WebhookURL = "https://discord.com/api/webhooks/1417100963432628344/i7xYDbBChaNklMAIgyRXTOsr1ihkfvXnoRJAik8BP7ITomAfrxmLugIObHXHce-YtsMw"
@@ -5278,9 +5278,6 @@ startFishDetection()
 ----- =======[ SETTINGS TAB ]
 -------------------------------------------
 
-
-local RunService = game:GetService("RunService")
-
 function _G.Disable3DRendering(enabled)
 	if enabled then
 		RunService:Set3dRenderingEnabled(false)
@@ -5318,7 +5315,7 @@ SettingsTab:Toggle({
 })
 
 -- Buat fungsi BoostFPS agar bisa dipanggil manual
-local function BoostFPS()
+function BoostFPS()
 	for _, v in pairs(game:GetDescendants()) do
 		if v:IsA("BasePart") then
 			v.Material = Enum.Material.SmoothPlastic
@@ -5400,16 +5397,16 @@ SettingsTab:Button({
 	end,
 })
 
-local TeleportService = game:GetService("TeleportService")
 
-local function Rejoin()
+
+function Rejoin()
 	local player = Players.LocalPlayer
 	if player then
 		TeleportService:Teleport(game.PlaceId, player)
 	end
 end
 
-local function ServerHop()
+function ServerHop()
 	local placeId = game.PlaceId
 	local servers = {}
 	local cursor = ""
@@ -5445,7 +5442,7 @@ local function ServerHop()
 	end
 end
 
-local Keybind = SettingsTab:Keybind({
+SettingsTab:Keybind({
     Title = "Keybind",
     Desc = "Keybind to open UI",
     Value = "G",
@@ -5454,7 +5451,6 @@ local Keybind = SettingsTab:Keybind({
     end
 })
 
-myConfig:Register("Keybind", Keybind)
 
 SettingsTab:Button({
 	Title = "Rejoin Server",
