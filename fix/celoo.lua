@@ -409,7 +409,7 @@ _G.REUpdateChargeState = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"
 
 
 _G.StopFishing = function()
-    _G.RFCancelFishingInputs:InvokeServer()
+    
     firesignal(_G.REFishingStopped.OnClientEvent)
 end
 
