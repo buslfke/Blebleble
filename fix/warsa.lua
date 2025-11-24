@@ -1653,7 +1653,7 @@ local farmLocations = {
 }
 
 local function startAutoFarmLoop()
-    NotifySuccess("Auto Farm Enabled", "Fishing started on island: " .. selectedIsland)
+    NotifySuccess("Auto Farm Enabled", "Fishing started on islands: " .. selectedIsland)
 
     while isAutoFarmRunning do
         local islandSpots = farmLocations[selectedIsland]
