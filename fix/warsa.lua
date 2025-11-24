@@ -532,7 +532,6 @@ function _G.TrySellNow()
 end
 
 function InitialCast5X()
-    _G.StopFishing()
     local getPowerFunction = Constants.GetPower
     local perfectThreshold = 0.99
     local chargeStartTime = workspace:GetServerTimeNow()
