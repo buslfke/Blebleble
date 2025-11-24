@@ -564,6 +564,7 @@ function _G.TrySellNow()
 end
 
 function InitialCast5X()
+    _G.StopFishing()
     local getPowerFunction = Constants.GetPower
     local perfectThreshold = 0.99
     local chargeStartTime = workspace:GetServerTimeNow()
@@ -590,7 +591,7 @@ function _G.RecastSpam()
     _G.rspamThread = task.spawn(function()
         while _G.rSpamming do
             InitialCast5X()
-            task.wait(0) 
+            task.wait(0.01)
         end
     end)
 end
@@ -705,7 +706,6 @@ _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
     if FuncAutoFish.autofish5x then
         _G.lastFishTime = tick()
         _G.stopSpam()
-        _G.StopFishing()
         _G.RecastSpam()
     end
 end)
