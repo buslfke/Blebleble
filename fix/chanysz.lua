@@ -2565,7 +2565,7 @@ _G.StartCavernFarm = function()
                 local spotName = "Spot " .. tostring(_G.CurrentSpot)
                 if _G.CavernSpot[spotName] then
                     task.wait(2)
-                    Player.Character:PivotTo(_G.TempleSpot[spotName])
+                    Player.Character:PivotTo(_G.CavernSpot[spotName])
                     updateParagraphCavern("Auto The Iron Cafe",
                         ("Fish Found : %s\nTotal : %d/4\n\nTeleporting to %s..."):format(
                             fishName,
