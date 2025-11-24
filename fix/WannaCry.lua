@@ -5314,8 +5314,6 @@ startFishDetection()
 ----- =======[ SETTINGS TAB ]
 -------------------------------------------
 
-local RunService = game:GetService("RunService")
-
 function _G.Disable3DRendering(enabled)
 	if enabled then
 		RunService:Set3dRenderingEnabled(false)
@@ -5404,16 +5402,15 @@ SettingsTab:Button({
 	end,
 })
 
-local TeleportService = game:GetService("TeleportService")
 
-local function Rejoin()
+function Rejoin()
 	local player = Players.LocalPlayer
 	if player then
 		TeleportService:Teleport(game.PlaceId, player)
 	end
 end
 
-local function ServerHop()
+function ServerHop()
 	local placeId = game.PlaceId
 	local servers = {}
 	local cursor = ""
@@ -5449,7 +5446,7 @@ local function ServerHop()
 	end
 end
 
-local Keybind = SettingsTab:Keybind({
+SettingsTab:Keybind({
     Title = "Keybind",
     Desc = "Keybind to open UI",
     Value = "G",
@@ -5457,8 +5454,6 @@ local Keybind = SettingsTab:Keybind({
         Window:SetToggleKey(Enum.KeyCode[v])
     end
 })
-
-myConfig:Register("Keybind", Keybind)
 
 SettingsTab:Button({
 	Title = "Rejoin Server",
