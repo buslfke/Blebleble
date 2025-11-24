@@ -3819,7 +3819,7 @@ local REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitni
 local webhookPath = nil
 local FishWebhookEnabled = true
 local LastCatchData = {}
-local SelectedCategories = { "Secret", "Mythic" }
+local SelectedCategories = { "Secret" }
 
 -------------------------------------------
 ----- =======[ HELPER FUNCTIONS ]
