@@ -942,9 +942,8 @@ _G.REUpdateChargeState = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"
 
 
 _G.StopFishing = function()
+	  _G.RFCancelFishingInputs:InvokeServer()
     firesignal(_G.REFishingStopped.OnClientEvent)
-    task.wait(0.001)
-    _G.RFCancelFishingInputs:InvokeServer()
 end
 
 local FuncAutoFish = {
@@ -1027,10 +1026,8 @@ function _G.startSpam()
     if _G.isSpamming then return end
     _G.isSpamming = true
     _G.spamThread = task.spawn(function()
-    while _G.isSpamming do
-        task.wait(tonumber(_G.FINISH_DELAY))
-        finishRemote:FireServer()
-        end
+    	task.wait(tonumber(_G.FINISH_DELAY))
+    	finishRemote:FireServer()
     end)
 end
     
@@ -1076,12 +1073,13 @@ end)
 _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
     if FuncAutoFish.autofish5x then
         _G.stopSpam()
-        StopCast()
+        _G.StopFishing()
         _G.RecastSpam()
     end
 end)
 
 function StartCast5X()
+	  _G.StopFishing()
     local getPowerFunction = Constants.GetPower
     local perfectThreshold = 0.99
     local chargeStartTime = workspace:GetServerTimeNow()

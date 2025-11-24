@@ -409,9 +409,8 @@ _G.REUpdateChargeState = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"
 
 
 _G.StopFishing = function()
-    firesignal(_G.REFishingStopped.OnClientEvent)
-    task.wait(0.001)
     _G.RFCancelFishingInputs:InvokeServer()
+    firesignal(_G.REFishingStopped.OnClientEvent)
 end
 
 local FuncAutoFish = {
@@ -610,10 +609,8 @@ function _G.startSpam()
     if _G.isSpamming then return end
     _G.isSpamming = true
     _G.spamThread = task.spawn(function()
-    while _G.isSpamming do
         task.wait(tonumber(_G.FINISH_DELAY))
         finishRemote:FireServer()
-        end
     end)
 end
     
