@@ -2446,164 +2446,165 @@ _G.RuinSec:Button({
 
 
 -------------------------------------------
------ =======[ IRON CAVERN FARMING ]
+----- =======[ IRON CAVERN FARMING (SMART) ]
 -------------------------------------------
 
+-- 1. Remote Unlock
 _G.REPlaceItems2 = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/PlaceCavernTotemItem"]
-
-_G.UnlockCafe = function()
-    task.spawn(function()
-        local Cafes = {
-            "Guest Guppy",
-            "Builderman Guppy",
-            "Brighteyes Guppy",
-            "Shedletsky Guppy",
-        }
-
-        for _, cafe in ipairs(Cafes) do
-            _G.REPlaceItems2:FireServer(cafe)
-            NotifyInfo("The Iron Cafe", "Placing: " .. ruins)
-            task.wait(2.1)
-        end
-
-        NotifySuccess("The Iron Cafe", "All Fish placed successfully!")
-    end)
-end
-
-_G.CavernSpot = {
-    ["Spot 1"] = CFrame.new(-8797.98438, -585.000061, 81.8659973, 0.621304512, 7.69412338e-08, -0.783569217, -8.01423212e-08, 1, 3.4647158e-08, 0.783569217, 4.12706207e-08, 0.621304512),
-    ["Spot 2"] = CFrame.new(-8781.08594, -585.000061, 220.914062, -0.744228005, -2.82071593e-08, -0.667925656, -7.50003579e-08, 1, 4.13372483e-08, 0.667925656, 8.0859003e-08, -0.744228005),
-    ["Spot 3"] = CFrame.new(-8788.70508, -585.000061, 96.8170547, 0.814901888, 2.71509681e-09, -0.579598963, -5.01786808e-08, 1, -6.58655495e-08, 0.579598963, 8.27574738e-08, 0.814901888),
-    ["Spot 4"] = CFrame.new(-8754.25977, -580.000061, 267.518188, 0.866729259, -4.04597955e-08, 0.498778909, 1.90199643e-08, 1, 4.806666e-08, -0.498778909, -3.21740252e-08, 0.866729259),
-}
-
 _G.REFishCaught = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishCaught"]
 
-_G.username = LocalPlayer.Name
-_G.saveFile = _G.username .. "_ProgressCafe.json"
+-- 2. Daftar Ikan Target
+_G.TargetGuppies = {
+    ["Guest Guppy"] = false,
+    ["Builderman Guppy"] = false,
+    ["Brighteyes Guppy"] = false,
+    ["Shedletsky Guppy"] = false
+}
 
-if isfile(_G.saveFile) then
-    local success, data = pcall(function()
-        return game:GetService("HttpService"):JSONDecode(readfile(_G.saveFile))
-    end)
-    if success and type(data) == "table" then
-        _G.FishCollected = data.FishCollected or 0
-        _G.CurrentSpot = data.CurrentSpot or 1
-    else
-        _G.FishCollected = 0
-        _G.CurrentSpot = 1
-    end
-else
-    _G.FishCollected = 0
-    _G.CurrentSpot = 1
-end
+-- 3. Lokasi Farming (Satu Spot Saja)
+_G.IronCafeSpot = CFrame.new(-8797.98438, -585.000061, 81.8659973, 0.621304512, 7.69412338e-08, -0.783569217, -8.01423212e-08, 1, 3.4647158e-08, 0.783569217, 4.12706207e-08, 0.621304512) 
 
+-- 4. State & Save File
 _G.CavernFarmEnabled = false
+_G.username = game:GetService("Players").LocalPlayer.Name
+_G.saveFileCafe = _G.username .. "_IronCafe_Progress.json"
 
-local function saveProgress()
-    local data = {
-        FishCollected = _G.FishCollected,
-        CurrentSpot = _G.CurrentSpot
-    }
-    writefile(_G.saveFile, game:GetService("HttpService"):JSONEncode(data))
+-- Fungsi Load Progress
+local function loadCafeProgress()
+    if isfile(_G.saveFileCafe) then
+        local success, data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(readfile(_G.saveFileCafe))
+        end)
+        if success and type(data) == "table" then
+            -- Update status ikan yang sudah didapat
+            for fish, status in pairs(data) do
+                if _G.TargetGuppies[fish] ~= nil then
+                    _G.TargetGuppies[fish] = status
+                end
+            end
+        end
+    end
 end
 
+-- Fungsi Save Progress
+local function saveCafeProgress()
+    writefile(_G.saveFileCafe, game:GetService("HttpService"):JSONEncode(_G.TargetGuppies))
+end
+
+-- Helper: Hitung berapa ikan yang sudah didapat
+local function countCollectedGuppies()
+    local count = 0
+    for _, caught in pairs(_G.TargetGuppies) do
+        if caught then count = count + 1 end
+    end
+    return count
+end
+
+-- Helper: Update Paragraph UI
+local function updateCafeUI()
+    if _G.CavernParagraph then
+        local statusText = ""
+        for fish, caught in pairs(_G.TargetGuppies) do
+            local check = caught and "✅" or "❌"
+            statusText = statusText .. check .. " " .. fish .. "\n"
+        end
+        
+        local total = countCollectedGuppies()
+        _G.CavernParagraph:SetDesc(string.format("Status (%d/4 Found):\n%s", total, statusText))
+    end
+end
+
+-- 5. Fungsi Unlock (Dijalankan saat semua ikan terkumpul)
+_G.UnlockCafe = function()
+    task.spawn(function()
+        NotifyInfo("The Iron Cafe", "All Guppies found! Unlocking door...")
+        
+        -- Loop kirim semua ikan ke totem
+        for fishName, _ in pairs(_G.TargetGuppies) do
+            _G.REPlaceItems2:FireServer(fishName)
+            task.wait(2.1) -- Delay aman agar server memproses
+        end
+
+        NotifySuccess("The Iron Cafe", "Door Unlocked! Farming Stopped.")
+        _G.StopCavernFarm()
+        
+        -- Hapus file save karena misi selesai
+        if isfile(_G.saveFileCafe) then delfile(_G.saveFileCafe) end
+    end)
+end
+
+-- 6. Fungsi Utama START
 _G.StartCavernFarm = function()
     if _G.CavernFarmEnabled then return end
     _G.CavernFarmEnabled = true
 
-    updateParagraphCavern("Auto The Iron Cafe", ("Resuming from Spot %d..."):format(_G.CurrentSpot))
+    -- Load data lama
+    loadCafeProgress()
+    updateCafeUI()
 
+    -- Cek jika sudah selesai dari awal
+    if countCollectedGuppies() >= 4 then
+        _G.UnlockCafe()
+        return
+    end
+
+    -- Teleport ke Spot
     local Player = game.Players.LocalPlayer
-    task.wait(1)
-    Player.Character:PivotTo(_G.CavernSpot["Spot " .. tostring(_G.CurrentSpot)])
-    task.wait(1)
-
-    _G.ConfirmFishType = false
-    _G.DialogFish = Window:Dialog({
-            Icon = "crown",
-            Title = "Important!",
-            Content = "Please select Auto Fish type!",
-            Buttons = {
-                {
-                    Title = "Auto Fish",
-                    Callback = function()
-                        StartAutoFish5X()
-                        _G.ConfirmFishType = true
-                    end,
-                },
-                {
-                    Title = "Auto Fish Legit",
-                    Callback = function()
-                        _G.ToggleAutoClick(true)
-                        _G.ConfirmFishType = true
-                    end,
-                },
-            },
-        })
+    if Player.Character then
+        Player.Character:PivotTo(_G.IronCafeSpot)
+    end
     
-    repeat task.wait() until _G.ConfirmFishType
-    _G.AutoFishStarted = true
+    -- Mulai Auto Fish (Pilih metode terbaik Anda, misal 5X)
+    if StartAutoFish5X then
+        StartAutoFish5X()
+    elseif _G.ToggleAutoClick then
+        _G.ToggleAutoClick(true)
+    end
 
-    _G.CavernConnection = REFishCaught.OnClientEvent:Connect(function(fishName, data)
-        if string.find(fishName, "Guppy") then
-            _G.FishCollected += 1
-            saveProgress()
+    NotifySuccess("Iron Cafe", "Farming started at Spot 1...")
 
-            updateParagraphCavern(
-                "Auto The Iron Cafe",
-                ("Fish Found : %s\nTotal: %d/4"):format(fishName, _G.FishCollected)
-            )
+    -- Listener Ikan
+    if _G.CavernConnection then _G.CavernConnection:Disconnect() end
+    _G.CavernConnection = _G.REFishCaught.OnClientEvent:Connect(function(fishName)
+        -- Cek apakah ikan yang ditangkap adalah salah satu Guppy target
+        if _G.TargetGuppies[fishName] == false then
+            _G.TargetGuppies[fishName] = true -- Tandai sudah dapat
+            saveCafeProgress()
+            updateCafeUI()
+            
+            NotifySuccess("Iron Cafe", "Caught: " .. fishName)
 
-            if _G.FishCollected < 4 then
-                _G.CurrentSpot += 1
-                saveProgress()
-                local spotName = "Spot " .. tostring(_G.CurrentSpot)
-                if _G.CavernSpot[spotName] then
-                    task.wait(2)
-                    Player.Character:PivotTo(_G.CavernSpot[spotName])
-                    updateParagraphCavern("Auto The Iron Cafe",
-                        ("Fish Found : %s\nTotal : %d/4\n\nTeleporting to %s..."):format(
-                            fishName,
-                            _G.FishCollected,
-                            spotName
-                        )
-                    )
-                    task.wait(1)
-                end
-            else
-                updateParagraphCavern("Auto The Iron Cafe", "All Fish collected! Unlocking The Iron Cafe...")
-                StopAutoFish5X()
-                _G.ToggleAutoClick(false)
-                StopCast()
-                task.wait(1.5)
-                if typeof(_G.UnlockCafe) == "function" then
-                    _G.UnlockCafe()
-                end
-                _G.StopCavernFarm()
-                delfile(_G.saveFile)
+            -- Cek apakah semua sudah terkumpul
+            if countCollectedGuppies() >= 4 then
+                if StopAutoFish5X then StopAutoFish5X() end
+                if StopCast then StopCast() end
+                _G.UnlockCafe()
             end
         end
     end)
 end
 
+-- 7. Fungsi Utama STOP
 _G.StopCavernFarm = function()
-    StopAutoFish5X()
     _G.CavernFarmEnabled = false
-    _G.AutoFishStarted = false
+    
+    -- Matikan Auto Fish
+    if StopAutoFish5X then StopAutoFish5X() end
+    if _G.ToggleAutoClick then _G.ToggleAutoClick(false) end
+    
+    -- Matikan Listener
     if _G.CavernConnection then
         _G.CavernConnection:Disconnect()
         _G.CavernConnection = nil
     end
-    saveProgress()
-    updateParagraphCavern("Auto The Iron Cafe", "Auto Farm stopped. Progress saved.")
-end
-
-function updateParagraphCavern(title, desc)
+    
+    updateCafeUI()
     if _G.CavernParagraph then
-        _G.CavernParagraph:SetDesc(desc)
+        _G.CavernParagraph:SetTitle("Auto Iron Cafe (Stopped)")
     end
 end
+
+-- ================= UI ELEMENTS =================
 
 _G.CavernParagraph = _G.CavernSec:Paragraph({
     Title = "Auto The Iron Cafe",
@@ -2615,7 +2616,7 @@ _G.CavernSec:Space()
 
 _G.CavernSec:Toggle({
     Title = "Auto Farm Iron Cafe",
-    Desc = "Automatically collects 4 Fish and unlocks The Iron Cafe.",
+    Desc = "collect 4 Guppies, unlock door.",
     Default = false,
     Callback = function(state)
         if state then
@@ -2626,12 +2627,9 @@ _G.CavernSec:Toggle({
     end
 })
 
-
 _G.CavernSec:Button({
-    Title = "Unlock The Iron Cafe",
-    Desc = "Still need 4 Fish!",
-    Justify = "Center",
-    Icon = "",
+    Title = "Manual Unlock",
+    Desc = "Click if you already have all fishes",
     Callback = function()
         _G.UnlockCafe()
     end
