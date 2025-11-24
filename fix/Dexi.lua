@@ -1541,7 +1541,7 @@ _G.TempleSpot = {
 _G.REFishCaught = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishCaught"]
 
 local username = LocalPlayer.Name
-_G.saveFile = username .. "_Progress.json"
+_G.saveFile = username .. "_RuinProgress.json"
 
 if isfile(_G.saveFile) then
     local success, data = pcall(function()
@@ -1739,7 +1739,7 @@ _G.ArtifactSpots = {
 local REFishCaught = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishCaught"]
 
 local username = LocalPlayer.Name
-local saveFile = username .. "_Progress.json"
+local saveFile = username .. "_ArtifactProgress.json"
 
 if isfile(saveFile) then
     local success, data = pcall(function()
