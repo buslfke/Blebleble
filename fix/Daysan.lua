@@ -3628,7 +3628,7 @@ You have successfully caught a fish.
         rodName,
         tostring(basePrice),
         caught and caught.Value or "N/A",
-        rarest and rarest.Value or "N/A",
+        rarest and rarest.Value or "N/A"
     )
 
     local data = {
