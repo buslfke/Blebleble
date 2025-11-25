@@ -332,7 +332,7 @@ local Window = WindUI:CreateWindow({
 })
 
 Window:EditOpenButton({
-    Title = "Dasyan",
+    Title = "Dasyannyamancing",
     Icon = "crown",
     CornerRadius = UDim.new(0,19),
     StrokeThickness = 2,
