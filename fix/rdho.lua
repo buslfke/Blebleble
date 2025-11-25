@@ -1816,10 +1816,11 @@ end
 ----- =======[ UI DEFINITION MODIFIED ]
 -------------------------------------------
 
-AutoFarmTab:Section({
+_G.FarmSec = AutoFarmTab:Section({
 	Title = "Auto Farming Menu",
 	TextSize = 22,
 	TextXAlignment = "Center",
+	Opened = true,
 })
 
 -- =======================================================
