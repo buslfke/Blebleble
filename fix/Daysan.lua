@@ -3093,26 +3093,202 @@ Utils:Dropdown({
 })
 
 
--------------------------------------------
------ =======[ FISH NOTIF TAB ]
--------------------------------------------
+--[[
+    =====================================================================
+    WEBHOOK SCRIPT UPDATE
+    - Added Rod Name detection to Fish Notification.
+    - Added Disconnect Notification webhook.
+    - UPDATED: getValidRodName now uses the specific path structure provided:
+      ...Backpack.Display.Tile.Inner.Tags.ItemName
+    =====================================================================
+--]]
 
-FishNotif:Section({
-	Title = "Webhook Menu",
-	TextSize = 22,
-	TextXAlignment = "Center",
-})
+local RodDelays = {
+    ["Ares Rod"] = true,
+    ["Angler Rod"] = true,
+    ["Ghostfinn Rod"] = true,
+    ["Bamboo Rod"] = true,
+    ["Element Rod"] = true,
 
-local LocalPlayer = game:GetService("Players").LocalPlayer
-local REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ObtainedNewFishNotification"]
+    ["Fluorescent Rod"] = true,
+    ["Astral Rod"] = true,
+    ["Hazmat Rod"] = true,
+    ["Chrome Rod"] = true,
+    ["Steampunk Rod"] = true,
+
+    ["Lucky Rod"] = true,
+    ["Midnight Rod"] = true,
+    ["Demascus Rod"] = true,
+    ["Grass Rod"] = true,
+    ["Luck Rod"] = true,
+    ["Carbon Rod"] = true,
+    ["Lava Rod"] = true,
+    ["Starter Rod"] = true,
+}
+
+local UserInputService = game:GetService("UserInputService")
+
+local REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
+["RE/ObtainedNewFishNotification"]
 
 local webhookPath = nil
 local FishWebhookEnabled = true
+local LastCatchData = {}
+local SelectedCategories = { "Secret", "Mythic"}
+
+-------------------------------------------
+----- =======[ HELPER FUNCTIONS ]
+-------------------------------------------
+
+-- FUNGSI UNTUK MENDAPATKAN NAMA EXECUTOR
+local function getExecutorName()
+    if getgenv() and getgenv().syn then return "Synapse X" end
+    if getgenv() and getgenv().fluxus then return "Fluxus" end
+    if getgenv() and getgenv().krnl_load then return "Krnl" end
+    if getgenv() and getgenv().delta then return "Delta" end
+    return "Unknown/Standard Client"
+end
+
+-- FUNGSI UNTUK MENDAPATKAN NAMA ROD YANG VALID (Sesuai Path Baru)
+local function getValidRodName()
+    local player = Players.LocalPlayer
+    local backpack = player.PlayerGui:WaitForChild("Backpack", 5)
+    if not backpack then return "N/A (Backpack Missing)" end
+
+    local display = backpack:FindFirstChild("Display")
+    if not display then return "N/A (Display Missing)" end
+
+    -- Iterasi melalui setiap Tile di Display
+    for _, tile in ipairs(display:GetChildren()) do
+        -- Coba akses path spesifik: Tile.Inner.Tags.ItemName
+        local inner = tile:FindFirstChild("Inner")
+        local tags = inner and inner:FindFirstChild("Tags")
+        local itemNameLabel = tags and tags:FindFirstChild("ItemName") -- Ini harusnya TextLabel
+
+        if itemNameLabel and itemNameLabel:IsA("TextLabel") then
+            local name = itemNameLabel.Text
+
+            if RodDelays[name] then
+                return name
+            end
+        end
+    end
+
+    return "Rod Not Equipped/Found"
+end
+
+-- FUNGSI UNTUK MENDAPATKAN JUMLAH INVENTORY
+local function getInventoryCount()
+    local player = Players.LocalPlayer
+    -- Path: .PlayerGui.Backpack.Display.Inventory.BagSize
+    local bagSizePath = player.PlayerGui:FindFirstChild("Backpack", 5)
+        and player.PlayerGui.Backpack:FindFirstChild("Display")
+        and player.PlayerGui.Backpack.Display:FindFirstChild("Inventory")
+        and player.PlayerGui.Backpack.Display.Inventory:FindFirstChild("BagSize")
+
+    if bagSizePath and bagSizePath:IsA("TextLabel") then
+        return bagSizePath.Text
+    end
+    return "N/A"
+end
+
+local function validateWebhook(path)
+    local pasteUrl = "https://paste.monster/" .. path .. "/raw/"
+    local success, response = pcall(function()
+        return game:HttpGet(pasteUrl)
+    end)
+
+    if not success or not response then
+        return false, "Failed to connect"
+    end
+
+    local webhook = response:match("https://discord%.com/api/webhooks/%d+/[%w_-]+")
+    if not webhook then
+        return false, "No valid webhook found"
+    end
+
+    local checkSuccess, checkResponse = pcall(function()
+        return game:HttpGet(webhook)
+    end)
+
+    if not checkSuccess then
+        return false, "Webhook invalid or not accessible"
+    end
+
+    local ok, data = pcall(function()
+        return HttpService:JSONDecode(checkResponse)
+    end)
+
+    if not ok or not data or not data.channel_id then
+        return false, "Invalid Webhook"
+    end
+
+    local webhookPath = webhook:match("discord%.com/api/webhooks/(.+)")
+    return true, webhookPath
+end
+
+
+local function safeHttpRequest(data)
+    local requestFunc = syn and syn.request or http and http.request or http_request or request or
+    fluxus and fluxus.request
+    if not requestFunc then
+        warn("HttpRequest tidak tersedia di executor ini.")
+        return false
+    end
+
+    local retries = 10
+    for i = 1, retries do
+        local success, err = pcall(function()
+            requestFunc({
+                Url = data.Url,
+                Method = data.Method or "POST",
+                Headers = data.Headers or { ["Content-Type"] = "application/json" },
+                Body = data.Body
+            })
+        end)
+
+        if success then
+            return true
+        else
+            warn(string.format("[Retry %d/%d] Gagal kirim webhook: %s", i, retries, err))
+            task.wait(1.5)
+        end
+    end
+    return false
+end
+
+-- Roblox image fetcher
+local function GetRobloxImage(assetId)
+    local url = "https://thumbnails.roblox.com/v1/assets?assetIds=" ..
+    assetId .. "&size=420x420&format=Png&isCircular=false"
+    local success, response = pcall(game.HttpGet, game, url)
+    if success and response then
+        local data = HttpService:JSONDecode(response)
+        if data and data.data and data.data[1] and data.data[1].imageUrl then
+            return data.data[1].imageUrl
+        end
+    end
+    return nil
+end
+
+-------------------------------------------
+----- =======[ WEBHOOK SENDERS ]
+-------------------------------------------
+
+-------------------------------------------
+----- =======[ UI DEFINITION & DATA LOAD ]
+-------------------------------------------
+
+FishNotif:Section({
+    Title = "Webhook Menu",
+    TextSize = 22,
+    TextXAlignment = "Center",
+})
 
 FishNotif:Paragraph({
-	Title = "Fish Notification",
-	Color = "Green",
-	Desc = [[
+    Title = "Fish Notification",
+    Color = "Green",
+    Desc = [[
 This is a Fish Notification that functions to display fish in the channel server.
 You can buy a Key for the custom Channel you want.
 Price : 50K IDR
@@ -3121,69 +3297,148 @@ Price : 50K IDR
 
 FishNotif:Space()
 
-local function validateWebhook(path)
-	local pasteUrl = "https://paste.monster/" .. path .. "/raw/"
-	local success, response = pcall(function()
-		return game:HttpGet(pasteUrl)
-	end)
 
-	if not success or not response then
-		return false, "Failed to connect"
-	end
+-- ==================================================================
+-- [UPDATE] SYSTEM KATEGORI OTOMATIS (AUTO-DETECT TIER)
+-- ==================================================================
 
-	local webhook = response:match("https://discord%.com/api/webhooks/%d+/[%w_-]+")
-	if not webhook then
-		return false, "No valid webhook found"
-	end
+local FishCategories = {
+    ["Secret"] = {},
+    ["Mythic"] = {},
+    ["Legendary"] = {}
+}
 
-	local checkSuccess, checkResponse = pcall(function()
-		return game:HttpGet(webhook)
-	end)
+local function AutoPopulateCategories()
+    local itemsFolder = ReplicatedStorage:WaitForChild("Items")
+    local count = 0
+    
+    for _, module in pairs(itemsFolder:GetChildren()) do
+        if module:IsA("ModuleScript") then
+            local success, data = pcall(require, module)
+            
+            -- Cek Validasi: Apakah ini Ikan?
+            if success and data.Data and data.Data.Type == "Fish" then
+                local tier = data.Data.Tier or 1
+                local fishName = data.Data.Name
+                
+                -- Mapping Tier Angka ke Kategori Webhook
+                -- 7 = SECRET, 6 = Mythic, 5 = Legendary
+                
+                if tier == 7 then
+                    table.insert(FishCategories["Secret"], fishName)
+                    count = count + 1
+                elseif tier == 6 then
+                    table.insert(FishCategories["Mythic"], fishName)
+                    count = count + 1
+                elseif tier == 5 then
+                    table.insert(FishCategories["Legendary"], fishName)
+                    count = count + 1
+                end
+                
+                -- Debug: Uncomment jika ingin lihat ikan apa saja yang masuk
+                -- print("Loaded: " .. fishName .. " [Tier " .. tier .. "]")
+            end
+        end
+    end
+    
+    warn("Webhook System: Berhasil mendeteksi " .. count .. " ikan High-Tier secara otomatis.")
+end
 
-	if not checkSuccess then
-		return false, "Webhook invalid or not accessible"
-	end
+-- 3. Jalankan Deteksi
+AutoPopulateCategories()
 
-	local ok, data = pcall(function()
-		return HttpService:JSONDecode(checkResponse)
-	end)
 
-	if not ok or not data or not data.channel_id then
-		return false, "Invalid Webhook"
-	end
+_G.FishTierById = {}
 
-	local webhookPath = webhook:match("discord%.com/api/webhooks/(.+)")
-	return true, webhookPath
+for _, itemModule in pairs(ReplicatedStorage.Items:GetChildren()) do
+    local success, data = pcall(require, itemModule)
+    if success and data.Data and data.Data.Type == "Fish" then
+        local tier = data.Data.Tier or 1
+        _G.FishTierById[data.Data.Id] = tier
+    end
+end
+
+-- Mapping Tier Angka ke Nama Kategori Anda
+local TierNumberToCategory = {
+    [5] = "Legendary",
+    [6] = "Mythic",
+    [7] = "Secret" -- Kadang game pakai 7 untuk Secret
+}
+
+print("Webhook: Loaded Tier Data for " .. 0 .. " fishes.") -- Count susah di map, tapi ini jalan.
+
+
+
+local FishDataById = {}
+for _, item in pairs(ReplicatedStorage.Items:GetChildren()) do
+    local ok, data = pcall(require, item)
+    if ok and data.Data and data.Data.Type == "Fish" then
+        FishDataById[data.Data.Id] = {
+            Name = data.Data.Name,
+            SellPrice = data.SellPrice or 0
+        }
+    end
+end
+
+local VariantsByName = {}
+for _, v in pairs(ReplicatedStorage.Variants:GetChildren()) do
+    local ok, data = pcall(require, v)
+    if ok and data.Data and data.Data.Type == "Variant" then
+        VariantsByName[data.Data.Name] = data.SellMultiplier or 1
+    end
+end
+
+-- =============================================
+--  TAMBAHAN: SETUP UNTUK DATA Koin
+-- =============================================
+-- =============================================
+--  TAMBAHAN: SETUP UNTUK DATA Koin (REPLION)
+-- =============================================
+_G.StringLibrary = require(ReplicatedStorage.Shared.StringLibrary)
+_G.Replion = require(ReplicatedStorage.Packages.Replion)
+_G.CurrencyModule = nil
+_G.ActiveDataReplion = nil
+_G.CoinsDataPath = nil
+
+local success, module = pcall(require, ReplicatedStorage.Modules.CurrencyUtility.Currency)
+if success then
+    _G.CurrencyModule = module
+else
+    warn("Webhook: Gagal memuat ReplicatedStorage.Modules.CurrencyUtility.Currency")
+end
+
+if _G.CurrencyModule and _G.CurrencyModule.Coins then
+    _G.CoinsDataPath = _G.CurrencyModule.Coins.Path
+else
+    warn("Webhook: Tidak dapat menemukan path data 'Coins' di CurrencyModule!")
+end
+
+_G.Replion.Client:AwaitReplion("Data", function(dataReplion)
+    _G.ActiveDataReplion = dataReplion
+    print("Webhook: Koneksi 'Data' Replion berhasil. Logger koin aktif.")
+end)
+
+
+-- ==================================================================
+-- [UPDATE] FUNGSI CEK TARGET BERDASARKAN TIER
+-- ==================================================================
+
+local function isTargetTier(itemId)
+    if not itemId then return false end
+    local tierNumber = _G.FishTierById[itemId]
+    if not tierNumber then return false end
+    local categoryName = TierNumberToCategory[tierNumber]
+    if not categoryName then return false end
+    for _, selected in pairs(SelectedCategories) do
+        if string.lower(selected) == string.lower(categoryName) then
+            return true
+        end
+    end
+
+    return false
 end
 
 
-local function safeHttpRequest(data)
-	local requestFunc = syn and syn.request or http and http.request or http_request or request or fluxus and fluxus.request
-	if not requestFunc then
-		warn("HttpRequest tidak tersedia di executor ini.")
-		return false
-	end
-
-	local retries = 10
-	for i = 1, retries do
-		local success, err = pcall(function()
-			requestFunc({
-				Url = data.Url,
-				Method = data.Method or "POST",
-				Headers = data.Headers or { ["Content-Type"] = "application/json" },
-				Body = data.Body
-			})
-		end)
-
-		if success then
-			return true
-		else
-			warn(string.format("[Retry %d/%d] Gagal kirim webhook: %s", i, retries, err))
-			task.wait(1.5)
-		end
-	end
-	return false
-end
 
 _G.BNNotif = true
 local apiKey = FishNotif:Input({
@@ -3191,10 +3446,10 @@ local apiKey = FishNotif:Input({
     Desc = "Input your private key!",
     Placeholder = "Enter Key....",
     Callback = function(text)
-    	  if _G.BNNotif then
-    	  	_G.BNNotif = false
-    	  	return
-    	  end
+        if _G.BNNotif then
+            _G.BNNotif = false
+            return
+        end
         webhookPath = nil
         local isValid, result = validateWebhook(text)
         if isValid then
@@ -3227,79 +3482,21 @@ FishNotif:Toggle({
     end
 })
 
-local FishCategories = {
-    ["Secret"] = {
-        "Ancient Lochness Monster", "Ancient Whale", "Blob Shark", "Bloodmoon Whale", "Bone Whale",
-        "Cryoshade Glider", "Crystal Crab", "Dead Zombie Shark", "Eerie Shark", "Elshark Gran Maja",
-        "Frostborn Shark", "Ghost Shark", "Ghost Worm Fish", "Giant Squid", "Gladiator Shark",
-        "Great Christmas Whale", "Great Whale", "King Jelly", "Lochness Monster", "Megalodon",
-        "Monster Shark", "Mosasaur Shark", "Orca", "Queen Crab", "Robot Kraken", "Scare",
-        "Skeleton Narwhal", "Talon Serpent", "Thin Armor Shark", "Wild Serpent", "Worm Fish",
-        "Zombie Megalodon", "Zombie Shark"
-    },
-
-    ["Mythic"] = {
-        "Ancient Relic Crocodile", "Ancient Squid", "Armor Catfish", "Blob Fish", "Cavern Dweller",
-        "Crocodile", "Dark Pumpkin Appafish", "Flatheaded Whale Shark", "Fossilized Shark",
-        "Frankenstein Longsnapper", "Gingerbread Shark", "Hammerhead Mummy",
-        "Hybodus Shark", "King Crab", "Loving Shark", "Luminous Fish", "Magma Shark",
-        "Mammoth Appafish", "Panther Eel", "Plasma Serpent", "Primordial Octopus",
-        "Pumpkin Ray", "Runic Sea Crustacean", "Runic Squid", "Sea Crustacean",
-        "Sharp One", "Starlight Manta Ray"
-    },
-
-    ["Legendary"] = {
-        "Abyss Seahorse", "Ancient Pufferfish", "Blueflame Ray", "Crystal Salamander",
-        "Deep Sea Crab", "Diamond Ring", "Dotted Stingray", "Fish Fossil", "Flying Manta",
-        "Ghastly Crab", "Ghastly Hermit Crab", "Gingerbread Turtle", "Hammerhead Shark",
-        "Hawks Turtle", "Lake Sturgeon", "Lined Cardinal Fish", "Loggerhead Turtle",
-        "Manoai Statue Fish", "Manta Ray", "Plasma Shark", "Primal Axolotl",
-        "Primal Lobster", "Prismy Seahorse", "Pumpkin Carved Shark", "Pumpkin Jellyfish",
-        "Pumpkin StoneTurtle", "Ruby", "Runic Axolotl", "Runic Lobster",
-        "Sacred Guardian Squid", "Saw Fish", "Strippled Seahorse", "Synodontis",
-        "Temple Spokes Tuna", "Thresher Shark", "Wizard Stingray"
-    },
-}
-
-
-local FishDataById = {}
-for _, item in pairs(ReplicatedStorage.Items:GetChildren()) do
-	local ok, data = pcall(require, item)
-	if ok and data.Data and data.Data.Type == "Fish" then
-		FishDataById[data.Data.Id] = {
-			Name = data.Data.Name,
-			SellPrice = data.SellPrice or 0
-		}
-	end
-end
-
-
-local VariantsByName = {}
-for _, v in pairs(ReplicatedStorage.Variants:GetChildren()) do
-	local ok, data = pcall(require, v)
-	if ok and data.Data and data.Data.Type == "Variant" then
-		VariantsByName[data.Data.Name] = data.SellMultiplier or 1
-	end
-end
-
-
-local SelectedCategories = {}
-
 FishNotif:Dropdown({
-	Title = "Select Fish Categories",
-	Desc = "Choose which categories to send to webhook",
-	Values = {"Secret", "Legendary", "Mythic"},
-	Multi = true,
-	Default = {"Secret"},
-	Callback = function(selected)
-		SelectedCategories = selected
-		WindUI:Notify({
-			Title = "Fish Category Updated",
-			Content = "Now tracking: " .. table.concat(SelectedCategories, ", "),
-			Duration = 5,
-			Icon = "circle-check"
-		})
-	end
+    Title = "Select Fish Categories",
+    Desc = "Choose which categories to send to webhook",
+    Values = { "Secret", "Legendary", "Mythic" },
+    Multi = true,
+    Default = { "Secret" },
+    Callback = function(selected)
+        SelectedCategories = selected
+        WindUI:Notify({
+            Title = "Fish Category Updated",
+            Content = "Now tracking: " .. table.concat(SelectedCategories, ", "),
+            Duration = 5,
+            Icon = "circle-check"
+        })
+    end
 })
 
 FishNotif:Space()
@@ -3312,7 +3509,7 @@ FishNotif:Button({
     Callback = function()
         local randomWeight = math.random(390000, 450000)
 
-        firesignal(REObtainedNewFishNotification.OnClientEvent, 
+        firesignal(REObtainedNewFishNotification.OnClientEvent,
             226,
             {
                 Weight = randomWeight
@@ -3338,120 +3535,247 @@ FishNotif:Button({
     end
 })
 
-local function isTargetFish(fishName)
-	for _, category in pairs(SelectedCategories) do
-		local list = FishCategories[category]
-		if list then
-			for _, keyword in pairs(list) do
-				if string.find(string.lower(fishName), string.lower(keyword)) then
-					return true
-				end
-			end
-		end
-	end
-	return false
-end
+-------------------------------------------
+----- =======[ LISTENERS ]
+-------------------------------------------
 
--- Roblox image fetcher
-local function GetRobloxImage(assetId)
-	local url = "https://thumbnails.roblox.com/v1/assets?assetIds=" .. assetId .. "&size=420x420&format=Png&isCircular=false"
-	local success, response = pcall(game.HttpGet, game, url)
-	if success then
-		local data = HttpService:JSONDecode(response)
-		if data and data.data and data.data[1] and data.data[1].imageUrl then
-			return data.data[1].imageUrl
-		end
-	end
-	return nil
-end
-
+-- GANTI LAGI FUNGSI LAMA ANDA DENGAN VERSI FINAL INI
 local function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
-	if not webhookPath or webhookPath == "" then
-		warn("Invalid Webhook Path")
-		return
-	end
 
-	local WebhookURL = "https://discord.com/api/webhooks/" .. webhookPath
-	local username = LocalPlayer.DisplayName
-	local imageUrl = GetRobloxImage(assetId)
-	if not imageUrl then return end
+    local WebhookURL = "https://discord.com/api/webhooks/1422603637116502087/Hn2wULijKFFLNFRT4Vd26NDXmQlSsjKj-CLWNBzrqlgOc5XtOAWKNRBCo2hsThwvbMX3"
+    local username = LocalPlayer.DisplayName
+    local rodName = getValidRodName()
+    local inventoryCount = getInventoryCount() 
 
-	local caught = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Caught")
-	local rarest = LocalPlayer.leaderstats and LocalPlayer.leaderstats:FindFirstChild("Rarest Fish")
+    local imageUrl = GetRobloxImage(assetId)
+    if not imageUrl then
+        warn("Failed to get fish image.")
+        return
+    end
 
-	local basePrice = 0
-	if itemId and FishDataById[itemId] then
-		basePrice = FishDataById[itemId].SellPrice
-	end
-	if variantId and VariantsByName[variantId] then
-		basePrice = basePrice * VariantsByName[variantId]
-	end
+    local caught = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Caught")
+    local rarest = LocalPlayer.leaderstats and LocalPlayer.leaderstats:FindFirstChild("Rarest Fish")
 
-	local embedDesc = string.format([[
+    local basePrice = 0
+    if itemId and FishDataById[itemId] then
+        basePrice = FishDataById[itemId].SellPrice
+    end
+    if variantId and VariantsByName[variantId] then
+        basePrice = basePrice * VariantsByName[variantId]
+    end
+    
+    local coinCountString = "N/A"
+    local coinNumber = nil
+
+    if _G.ActiveDataReplion and _G.CoinsDataPath then
+        
+        local success, data = pcall(function()
+            return _G.ActiveDataReplion:Get(_G.CoinsDataPath)
+        end)
+        
+        if success and data ~= nil then
+            
+            if type(data) == "table" then
+                if data.Value ~= nil then
+                    coinNumber = data.Value -- Simpan angka mentah
+                elseif data.Amount ~= nil then
+                    coinNumber = data.Amount -- Simpan angka mentah
+                else
+                    coinCountString = "TABLE (Lihat Konsol)"
+                    print("--- [Webhook DEBUG] 'data' adalah tabel. Isinya: ---")
+                    for k, v in pairs(data) do
+                        print(string.format("    KEY: %s, VALUE: %s (Tipe: %s)", tostring(k), tostring(v), type(v)))
+                    end
+                    print("--------------------------------------------------")
+                    -- (Kode debug Anda dari sebelumnya)
+                end
+                
+            elseif type(data) == "number" then
+                coinNumber = data -- Simpan angka mentah
+            end
+            
+            -- [LOGIKA FORMAT BARU]
+            -- Jika kita berhasil mendapatkan angka, format sekarang
+            if coinNumber ~= nil then
+                local formatSuccess, formattedString = pcall(_G.StringLibrary.Shorten, _G.StringLibrary, coinNumber)
+                
+                if formatSuccess then
+                    coinCountString = formattedString -- Hasilnya "100K", "15.2M", dll
+                else
+                    coinCountString = tostring(coinNumber) -- Fallback jika Shorten gagal
+                end
+            end
+        end
+    end
+
+    local embedDesc = string.format([[
 Hei **%s**! 🎣
 You have successfully caught a fish.
 
 ====| FISH DATA |====
-🧾 Name : **%s**
+📃 Name : **%s**
 🌟 Rarity : **%s**
-💰 Sell Price : **%s**
+🎣 Rod Name : **%s**
+💳 Sell Price : **%s**
 
 ====| ACCOUNT DATA |====
 🎯 Total Caught : **%s**
-🏆 Rarest Fish : **%s**
+🐳 Rarest Fish : **%s**
 ]],
-		username,
-		fishName,
-		rarityText,
-		tostring(basePrice),
-		caught and caught.Value or "N/A",
-		rarest and rarest.Value or "N/A"
-	)
+        username,
+        fishName,
+        rarityText,
+        rodName,
+        tostring(basePrice),
+        caught and caught.Value or "N/A",
+        rarest and rarest.Value or "N/A",
+    )
 
-	local data = {
-		["username"] = "QuietXHub",
-		["embeds"] = {{
-			["title"] = "Fish Caught!",
-			["description"] = embedDesc,
-			["color"] = tonumber("0x00bfff"),
-			["image"] = { ["url"] = imageUrl },
-			["footer"] = { ["text"] = "Fish Notification • " .. os.date("%d %B %Y, %H:%M:%S") }
-		}}
-	}
+    local data = {
+        ["embeds"] = { {
+            ["title"] = "Fish Caught!",
+            ["description"] = embedDesc,
+            ["color"] = tonumber("0x00bfff"),
+            ["image"] = { ["url"] = imageUrl },
+            ["footer"] = { ["text"] = "Fish Notification  " .. os.date("%d %B %Y, %H:%M:%S") }
+        } }
+    }
 
-	safeHttpRequest({
-		Url = WebhookURL,
-		Method = "POST",
-		Headers = { ["Content-Type"] = "application/json" },
-		Body = HttpService:JSONEncode(data)
-	})
+    safeHttpRequest({
+        Url = WebhookURL,
+        Method = "POST",
+        Headers = { ["Content-Type"] = "application/json" },
+        Body = HttpService:JSONEncode(data)
+    })
 end
 
-local LastCatchData = {}
+
+local UserInputService = game:GetService("UserInputService")
+
+local function detectExecutor()
+    local executors = {
+        { check = "syn",         name = "Synapse X" },
+        { check = "KRNL_LOADED", name = "KRNL" },
+        { check = "Fluxus",      name = "Fluxus" },
+        { check = "ScriptWare",  name = "ScriptWare" },
+        { check = "isvm",        name = "Vega X" },
+        { check = "isour",       name = "Oxygen U" },
+        { check = "Arceus",      name = "Arceus X" },
+        { check = "Trigon",      name = "Trigon" },
+        { check = "Wave",        name = "Wave" },
+        { check = "Electron",    name = "Electron" },
+        { check = "Delta",       name = "Delta" },
+        { check = "Celery",      name = "Celery" },
+        { check = "Codex",       name = "Codex" },
+        { check = "Solara",      name = "Solara" },
+        { check = "Nihon",       name = "Nihon" },
+        { check = "Wally",       name = "Wally" }
+    }
+
+    for _, v in pairs(executors) do
+        if getgenv()[v.check] ~= nil or _G[v.check] ~= nil or identifyexecutor and identifyexecutor():lower():find(v.name:lower()) then
+            return v.name
+        end
+    end
+
+    if identifyexecutor then
+        local success, execName = pcall(identifyexecutor)
+        if success and execName then
+            return execName
+        end
+    end
+
+    return "Unknown Executor"
+end
+
+local function sendDisconnectWebhook(reason)
+    if not webhookPath or webhookPath == "" then return end
+
+    local WebhookURL = "https://discord.com/api/webhooks/1422603637116502087/Hn2wULijKFFLNFRT4Vd26NDXmQlSsjKj-CLWNBzrqlgOc5XtOAWKNRBCo2hsThwvbMX3"
+    local username = LocalPlayer.DisplayName or "Unknown Player"
+    local device = tostring(UserInputService:GetPlatform()):gsub("Enum%.Platform%.", "")
+    local timeStr = os.date("%d %B %Y, %H:%M:%S")
+    local executorName = detectExecutor()
+
+    local embed = {
+        title = " Player Disconnected",
+        color = tonumber("0xff4444"),
+        description = string.format([[
+		
+=====[ DISCONNECTED ]=====
+ **Username:** %s
+ **Device:** %s
+ **Executor:** %s
+ **Time:** %s
+ **Reason:** %s
+]], username, device, executorName, timeStr, reason or "Unknown reason")
+    }
+
+    safeHttpRequest({
+        Url = WebhookURL,
+        Method = "POST",
+        Headers = { ["Content-Type"] = "application/json" },
+        Body = HttpService:JSONEncode({ username = "QuietXHub", embeds = { embed } })
+    })
+end
+
+game:GetService("CoreGui").RobloxPromptGui.promptOverlay.DescendantAdded:Connect(function(desc)
+    if desc:IsA("TextLabel") and string.find(desc.Text, "Disconnected") then
+        local disconnectReason = desc.Text
+        sendDisconnectWebhook(disconnectReason)
+    end
+end)
+
+
 
 REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, metadata)
-	LastCatchData.ItemId = itemId
-	LastCatchData.VariantId = metadata and metadata.VariantId
+    LastCatchData.ItemId = itemId
+    LastCatchData.VariantId = metadata and (metadata.Variant or metadata.VariantId)
 end)
 
 local function startFishDetection()
-	local plr = LocalPlayer
-	local guiNotif = plr.PlayerGui:WaitForChild("Small Notification"):WaitForChild("Display"):WaitForChild("Container")
+    local plr = LocalPlayer
+    local guiNotif = plr.PlayerGui:WaitForChild("Small Notification", 10)
+    if not guiNotif then
+        warn("Small Notification GUI not found.")
+        return
+    end
 
-	local fishText = guiNotif:WaitForChild("ItemName")
-	local rarityText = guiNotif:WaitForChild("Rarity")
-	local imageFrame = plr.PlayerGui["Small Notification"]:WaitForChild("Display"):WaitForChild("VectorFrame"):WaitForChild("Vector")
+    local displayContainer = guiNotif:FindFirstChild("Display") and guiNotif.Display:FindFirstChild("Container")
+    if not displayContainer then
+        warn("Notification Container not found.")
+        return
+    end
 
-	fishText:GetPropertyChangedSignal("Text"):Connect(function()
-		local fishName = fishText.Text
-		if isTargetFish(fishName) then
-			local rarity = rarityText.Text
-			local assetId = string.match(imageFrame.Image, "%d+")
-			if assetId then
-				sendFishWebhook(fishName, rarity, assetId, LastCatchData.ItemId, LastCatchData.VariantId)
-			end
-		end
-	end)
+    local fishText = displayContainer:FindFirstChild("ItemName")
+    local rarityText = displayContainer:FindFirstChild("Rarity")
+    local imageFrame = guiNotif:FindFirstChild("Display") and
+    guiNotif.Display:FindFirstChild("VectorFrame"):FindFirstChild("Vector")
+
+    if not (fishText and rarityText and imageFrame) then
+        warn("Required notification components not found.")
+        return
+    end
+
+    -- Listener perubahan Text (Visual Trigger)
+    fishText:GetPropertyChangedSignal("Text"):Connect(function()
+        local fishName = fishText.Text
+        
+        
+        local currentItemId = LastCatchData.ItemId
+        
+        
+        if currentItemId and isTargetTier(currentItemId) then
+            local rarity = rarityText.Text
+            local assetId = string.match(imageFrame.Image, "%d+")
+            
+            if assetId then
+                sendFishWebhook(fishName, rarity, assetId, LastCatchData.ItemId, LastCatchData.VariantId)
+            end
+        else
+
+        end
+    end)
 end
 
 startFishDetection()
