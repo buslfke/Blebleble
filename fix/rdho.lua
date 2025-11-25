@@ -2020,7 +2020,7 @@ function _G.CheckDiscoMusic()
         hrp.Anchored = true
 
 
-        local targetCF = (math.random(1,2) == 1) and DiscoCF1 or DiscoCF2
+        local targetCF = (math.random(1,2) == 1) and _G.DiscoCF1 or _G.DiscoCF2
         hrp.CFrame = targetCF
 
         task.wait(0.25)
