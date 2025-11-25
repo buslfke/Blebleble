@@ -1641,10 +1641,11 @@ end
 
 table.sort(nameList)
 
-AutoFarmTab:Section({
+_G.FarmSec = AutoFarmTab:Section({
 	Title = "Auto Farming Menu",
 	TextSize = 22,
 	TextXAlignment = "Center",
+	Opened = true
 })
 
 -- =======================================================
@@ -1675,7 +1676,7 @@ local LOCHNESS_CFRAME = CFrame.new(
 -- 1. UI: SHARED PARAGRAPH & TOGGLES
 -- =======================================================
 
-_G.EventParagraph = AutoFarmTab:Paragraph({
+_G.EventParagraph = _G.FarmSec:Paragraph({
     Title = "Event Status Monitor",
     Desc = "Loading Data...",
     Locked = false
