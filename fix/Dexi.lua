@@ -524,8 +524,8 @@ _G.AntiStuckEnabled = false
 _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1.5
 _G.fishCounter = 0
-_G.sellThreshold = 5
-_G.sellActive = false
+_G.sellThreshold = 10
+_G.sellActive = true
 _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
