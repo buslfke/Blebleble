@@ -1675,7 +1675,7 @@ local LOCHNESS_CFRAME = CFrame.new(
 -- 1. UI: SHARED PARAGRAPH & TOGGLES
 -- =======================================================
 
-_G.EventParagraph = _G.FarmSec:Paragraph({
+_G.EventParagraph = AutoFarmTab:Paragraph({
     Title = "Event Status Monitor",
     Desc = "Loading Data...",
     Locked = false
