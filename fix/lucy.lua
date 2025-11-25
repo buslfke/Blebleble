@@ -1075,25 +1075,55 @@ _G.FishSec:Button({
 _G.FishSec:Space()
 
 
-_G.REReplicateCutscene = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ReplicateCutscene"]
-_G.BlockCutsceneEnabled = false
+-- =======================================================
+-- == AUTO CUTSCENE REMOVER (TOGGLE + HOOK)
+-- =======================================================
 
+_G.CutsceneController = require(ReplicatedStorage.Controllers.CutsceneController)
+_G.GuiControl = require(ReplicatedStorage.Modules.GuiControl)
+_G.ProximityPromptService = game:GetService("ProximityPromptService")
+
+_G.AutoSkipCutscene = true
+
+if not _G.OriginalPlayCutscene then
+    _G.OriginalPlayCutscene = _G.CutsceneController.Play
+end
+
+_G.CutsceneController.Play = function(self, ...)
+    if _G.AutoSkipCutscene then
+        task.spawn(function()
+            task.wait()
+            if _G.GuiControl then 
+                _G.GuiControl:SetHUDVisibility(true) 
+            end
+            _G.ProximityPromptService.Enabled = true
+            LocalPlayer:SetAttribute("IgnoreFOV", false)
+        end)
+
+        return
+    end
+
+    return _G.OriginalPlayCutscene(self, ...)
+end
 
 _G.FishAdvenc:Toggle({
-    Title = "Block Cutscene",
-    Value = false,
+    Title = "Auto Skip Cutscenes",
+    Value = true,
     Callback = function(state)
-        _G.BlockCutsceneEnabled = state
-        print("Block Cutscene: " .. tostring(state))
+        _G.AutoSkipCutscene = state
+
+        if state then
+            if _G.CutsceneController then
+                _G.CutsceneController:Stop()
+                _G.GuiControl:SetHUDVisibility(true)
+                _G.ProximityPromptService.Enabled = true
+            end
+            NotifySuccess("Cutscene", "Auto Skip Enabled. No more animations.")
+        else
+            NotifyInfo("Cutscene", "Auto Skip Disabled.")
+        end
     end
 })
-
-_G.REReplicateCutscene.OnClientEvent:Connect(function(rarity, player, position, fishName, data)
-    if _G.BlockCutsceneEnabled then
-        print("[QuietX] Cutscene diblokir:", fishName, "(Rarity:", rarity .. ")")
-        return nil -- blokir event agar tidak muncul cutscene
-    end
-end)
 
 _G.FishAdvenc:Input({
     Title = "Max Inventory Size",

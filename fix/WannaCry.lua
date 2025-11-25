@@ -1041,34 +1041,53 @@ _G.FishSec:Button({
 _G.FishSec:Space()
 
 
-_G.BlockCutsceneEnabled = false 
+-- =======================================================
+-- == AUTO CUTSCENE REMOVER (TOGGLE + HOOK)
+-- =======================================================
 
-_G.CutsceneController = nil
-_G.success, _G.result = pcall(require, game:GetService("ReplicatedStorage").Controllers.CutsceneController)
+_G.CutsceneController = require(ReplicatedStorage.Controllers.CutsceneController)
+_G.GuiControl = require(ReplicatedStorage.Modules.GuiControl)
+_G.ProximityPromptService = game:GetService("ProximityPromptService")
 
-if not _G.success then
-    warn("Block Cutscene: Gagal memuat CutsceneController! Path mungkin salah.")
-    return
-else
-    _G.CutsceneController = _G.result
+_G.AutoSkipCutscene = true
+
+if not _G.OriginalPlayCutscene then
+    _G.OriginalPlayCutscene = _G.CutsceneController.Play
 end
 
-_G.old_Play = _G.CutsceneController.Play
-
 _G.CutsceneController.Play = function(self, ...)
-    if _G.BlockCutsceneEnabled then
-        return 
+    if _G.AutoSkipCutscene then
+        task.spawn(function()
+            task.wait()
+            if _G.GuiControl then 
+                _G.GuiControl:SetHUDVisibility(true) 
+            end
+            _G.ProximityPromptService.Enabled = true
+            LocalPlayer:SetAttribute("IgnoreFOV", false)
+        end)
+
+        return
     end
-   
-    return _G.old_Play(self, ...)
+
+    return _G.OriginalPlayCutscene(self, ...)
 end
 
 _G.FishAdvenc:Toggle({
-    Title = "Block Cutscene",
-    Value = _G.BlockCutsceneEnabled,
-    Callback = function(state) 
-        _G.BlockCutsceneEnabled = state 
-        print("Block Cutscene: " .. tostring(state))
+    Title = "Auto Skip Cutscenes",
+    Value = true,
+    Callback = function(state)
+        _G.AutoSkipCutscene = state
+
+        if state then
+            if _G.CutsceneController then
+                _G.CutsceneController:Stop()
+                _G.GuiControl:SetHUDVisibility(true)
+                _G.ProximityPromptService.Enabled = true
+            end
+            NotifySuccess("Cutscene", "Auto Skip Enabled. No more animations.")
+        else
+            NotifyInfo("Cutscene", "Auto Skip Disabled.")
+        end
     end
 })
 
