@@ -2215,13 +2215,20 @@ _G.CavernSec = AutoFarmTab:Section({
 })
 
 -- =======================================================
--- == AUTO LOCHNESS (FIXED WITH REAL-TIME .Changed EVENT)
+-- == AUTO EVENT MANAGER (LOCHNESS & DISCO MUSIC)
 -- =======================================================
 
+-- [GLOBAL VARIABLES]
 _G.AutoLochNess = false
+_G.AutoDisco = false
+
 _G.LochStatus = "Idle"
+_G.DiscoStatus = "Waiting Music..."
 _G.OriginalCFrame = nil
 _G.EventEndTime = nil
+_G.DiscoCooldown = false
+
+-- Path & Config
 _G.countdownPath = workspace["!!! MENU RINGS"]["Event Tracker"].Main.Gui.Content.Items.Countdown.Label
 
 local LOCHNESS_CFRAME = CFrame.new(
@@ -2231,68 +2238,91 @@ local LOCHNESS_CFRAME = CFrame.new(
     0.999767482, 5.5350835e-08, 0.0215646587
 )
 
-_G.Lochness = _G.FarmSec:Paragraph({
-    Title = "Ancient Lochness Monster",
-    Desc = string.format([[
-Status : Idle
-Countdown : %s
-]], _G.countdownPath and _G.countdownPath.Text or "Loading..."),
-    Locked = false,
-    Buttons = {}
+-- =======================================================
+-- 1. UI: SHARED PARAGRAPH & TOGGLES
+-- =======================================================
+
+_G.EventParagraph = _G.FarmSec:Paragraph({
+    Title = "Event Status Monitor",
+    Desc = "Loading Data...",
+    Locked = false
 })
 
-function _G.updateStatus(text, currentCountdown)
-    _G.LochStatus = text
-    _G.Lochness:SetDesc(string.format([[
-Status : %s
-Countdown : %s
-]], text, currentCountdown or _G.countdownPath.Text))
+function _G.UpdateEventUI()
+    if not _G.EventParagraph then return end
+    
+    local lochTime = (_G.countdownPath and _G.countdownPath.Text) or "N/A"
+    
+    local text = string.format(
+        "LochNess Status: %s\nCountdown: %s\n\nDisco Status: %s",
+        _G.LochStatus, 
+        lochTime, 
+        _G.DiscoStatus
+    )
+    
+    _G.EventParagraph:SetDesc(text)
 end
 
+-- Toggle LochNess
 _G.FarmSec:Toggle({
-    Title = "Auto Teleport Monster",
+    Title = "Auto Teleport LochNess",
     Value = false,
     Callback = function(state)
         _G.AutoLochNess = state
-        
         if state then
-            if not _G.OriginalCFrame and game.Players.LocalPlayer.Character then
-                local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if root then
-                    _G.OriginalCFrame = root.CFrame
-                end
+            if not _G.OriginalCFrame and LocalPlayer.Character then
+                local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if root then _G.OriginalCFrame = root.CFrame end
             end
-            _G.updateStatus("Monitoring…")
+            _G.updateLochStatus("Monitoring...")
         else
-            _G.updateStatus("Idle")
+            _G.updateLochStatus("Idle")
         end
     end
 })
 
+-- Toggle Disco
+_G.FarmSec:Toggle({
+    Title = "Auto Teleport Disco",
+    Desc = "Teleport saat musik Disco dimulai.",
+    Value = false,
+    Callback = function(state)
+        _G.AutoDisco = state
+        if state then
+            -- Cek manual saat dinyalakan
+            task.spawn(_G.CheckDiscoMusic)
+        end
+    end
+})
+
+-- =======================================================
+-- 2. LOGIKA LOCHNESS (Original Code Adapted)
+-- =======================================================
+
+-- Wrapper function agar kompatibel dengan kode lama
+function _G.updateStatus(text, currentCountdown)
+    _G.LochStatus = text
+    _G.UpdateEventUI()
+end
+
+_G.updateLochStatus = _G.updateStatus
 
 function _G.OnCountdownChanged()
-    
     local newText = _G.countdownPath.Text
 
-    if not _G.AutoLochNess then
-        return
-    end
+    if not _G.AutoLochNess then return end
 
-
-    _G.Lochness:SetDesc(string.format([[
-Status : %s
-Countdown : %s
-]], _G.LochStatus, newText))
+    _G.UpdateEventUI()
     
     if _G.EventEndTime then
         if tick() >= _G.EventEndTime then
-            _G.updateStatus("Returning to original position…", newText)
-            local char = game.Players.LocalPlayer.Character
+            _G.updateLochStatus("Returning...")
+            local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") and _G.OriginalCFrame then
                 char.HumanoidRootPart.CFrame = _G.OriginalCFrame
             end
             _G.EventEndTime = nil
-            _G.updateStatus("Done — Monitoring…", newText)
+            _G.updateLochStatus("Done — Monitoring...")
         end
         return
     end
@@ -2305,22 +2335,18 @@ Countdown : %s
     
     if newText == "0H 0M 10S" then
         shouldTeleport = true
-    
     elseif h == 0 and m == 0 and s <= 10 and s >= 1 then
         shouldTeleport = true
     end
 
-
     if shouldTeleport then
-        _G.updateStatus("Teleporting to LochNess…", newText)
-    
-        local char = game.Players.LocalPlayer.Character
+        _G.updateLochStatus("Teleporting...")
+        local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             char.HumanoidRootPart.CFrame = LOCHNESS_CFRAME
         end
-    
-        _G.EventEndTime = tick() + (12 * 60) -- Set 10 menit timer
-        _G.updateStatus("Waiting for event to end…", newText)
+        _G.EventEndTime = tick() + (12 * 60)
+        _G.updateLochStatus("Waiting Event End...")
     end
 end
 
@@ -2329,15 +2355,133 @@ if _G.countdownPath then
 end
 
 
+_G.IsAtDisco = false
+_G.OriginalPosDisco = nil
+
+_G.DiscoCF1 = CFrame.new(
+    -8607.80371, -547.500183, 163.406143,
+    -0.0462620407, 5.0948568e-08, 0.998929322,
+    -8.16116064e-09, 1, -5.13811322e-08,
+    -0.998929322, -1.05294191e-08, -0.0462620407
+)
+
+_G.DiscoCF2 = CFrame.new(
+    -8624.56934, -547.500183, 143.245453,
+    -0.99118042, -3.94022166e-08, -0.13251923,
+    -3.34171197e-08, 1, -4.7387978e-08,
+    0.13251923, -4.25416253e-08, -0.99118042
+)
+
+-- =======================================================
+-- LOGIKA UTAMA DISCO (PERBAIKAN)
+-- =======================================================
+
+function _G.GetDiscoSound()
+    local classic = Workspace:FindFirstChild("ClassicEvent")
+    if not classic then return nil end
+    local discoEvent = classic:FindFirstChild("DiscoEvent")
+    if not discoEvent then return nil end
+    local ballModel = discoEvent:FindFirstChild("DiscoBall")
+    if not ballModel then return nil end
+    local ballPart = ballModel:FindFirstChild("DiscoBall")
+    if not ballPart then return nil end
+    return ballPart:FindFirstChild("Sound")
+end
+
+function _G.CheckDiscoMusic()
+    if not _G.AutoDisco then return end
+
+    local sound = _G.GetDiscoSound()
+    local char = game.Players.LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+    if not (sound and hrp) then
+        _G.DiscoStatus = "Searching Event Object..."
+        _G.UpdateEventUI()
+        return
+    end
+
+    if sound.Playing and not _G.IsAtDisco then
+        _G.DiscoStatus = "MUSIC START! OTW..."
+        _G.UpdateEventUI()
+
+        _G.OriginalPosDisco = hrp.CFrame
+        _G.IsAtDisco = true
+
+
+        hrp.Anchored = true
+
+
+        local targetCF = (math.random(1,2) == 1) and DiscoCF1 or DiscoCF2
+        hrp.CFrame = targetCF
+
+        task.wait(0.25)
+        hrp.Anchored = false
+
+        if _G.WasAutoFishing then
+            ToggleFish(true)
+        end
+
+        _G.DiscoStatus = "DANCING & FISHING!"
+        _G.UpdateEventUI()
+
+        return
+    end
+
+
+    if not sound.Playing and _G.IsAtDisco then
+        _G.DiscoStatus = "MUSIC STOP! GOING HOME..."
+        _G.UpdateEventUI()
+
+ 
+        if _G.OriginalPosDisco then
+            hrp.Anchored = true
+            hrp.CFrame = _G.OriginalPosDisco
+            task.wait(0.25)
+            hrp.Anchored = false
+        end
+
+        _G.IsAtDisco = false
+
+
+        _G.DiscoStatus = "Waiting Music..."
+        _G.UpdateEventUI()
+
+        return
+    end
+
+    if sound.Playing then
+        _G.DiscoStatus = "Active (You are here)"
+    else
+        _G.DiscoStatus = "Waiting Music..."
+    end
+
+    _G.UpdateEventUI()
+end
+
+task.spawn(function()
+    while true do
+        local sound = _G.GetDiscoSound()
+        if sound then
+            _G.CheckDiscoMusic()
+            
+            local conn
+            conn = sound:GetPropertyChangedSignal("Playing"):Connect(function()
+                _G.CheckDiscoMusic()
+            end)
+            
+            repeat task.wait(1) until not sound or not sound.Parent
+            
+            if conn then conn:Disconnect() end
+        end
+        task.wait(2)
+    end
+end)
+
+-- Loop Update UI Backup
 task.spawn(function()
     while task.wait(1) do
-        if not _G.Lochness then continue end
-        if not _G.countdownPath then continue end
-        if not _G.countdownPath.Text then continue end
-        _G.Lochness:SetDesc(string.format([[
-Status : %s
-Countdown : %s
-]], _G.LochStatus, _G.countdownPath.Text))
+        if _G.EventParagraph then _G.UpdateEventUI() end
     end
 end)
 
