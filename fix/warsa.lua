@@ -1300,60 +1300,352 @@ _G.FishAdvenc:Button({
 
 _G.FishSec:Space()
 
-_G.FishAdvenc:Button({
-    Title = "Auto Enchant Rod",
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        local ENCHANT_POSITION = Vector3.new(3231, -1303, 1402)
-        local char = workspace:WaitForChild("Characters"):FindFirstChild(LocalPlayer.Name)
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+-- =======================================================
+-- AUTO ENCHANT (GLOBAL VARIABLE VERSION)
+-- =======================================================
 
-        if not hrp then
-            NotifyError("Auto Enchant Rod", "Failed to get character HRP.")
-            return
-        end
-
-        NotifyInfo("Preparing Enchant...", "Please manually place Enchant Stone into slot 5 before we begin...", 5)
-
-        task.wait(3)
-
-        local Player = game:GetService("Players").LocalPlayer
-        local slot5 = Player.PlayerGui.Backpack.Display:GetChildren()[10]
-
-        local itemName = slot5 and slot5:FindFirstChild("Inner") and slot5.Inner:FindFirstChild("Tags") and
-        slot5.Inner.Tags:FindFirstChild("ItemName")
-
-        if not itemName or not itemName.Text:lower():find("enchant") then
-            NotifyError("Auto Enchant Rod", "Slot 5 does not contain an Enchant Stone.")
-            return
-        end
-
-        NotifyInfo("Enchanting...", "It is in the process of Enchanting, please wait until the Enchantment is complete",
-            7)
-
-        local originalPosition = hrp.Position
-        task.wait(1)
-        hrp.CFrame = CFrame.new(ENCHANT_POSITION + Vector3.new(0, 5, 0))
-        task.wait(1.2)
-
-        local equipRod = net:WaitForChild("RE/EquipToolFromHotbar")
-        local activateEnchant = net:WaitForChild("RE/ActivateEnchantingAltar")
-
-        pcall(function()
-            equipRod:FireServer(5)
-            task.wait(0.5)
-            activateEnchant:FireServer()
-            task.wait(7)
-            NotifySuccess("Enchant", "Successfully Enchanted!", 3)
-        end)
-
-        task.wait(0.9)
-        hrp.CFrame = CFrame.new(originalPosition + Vector3.new(0, 3, 0))
-    end
+_G.EnchantSec = AutoFish:Section({
+    Title = "Auto Enchant",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
 })
-
-_G.FishSec:Space()
+do
+    -- Definisi State Global
+    _G.autoEnchantState = { 
+        enabled = false, 
+        targetEnchant = nil, 
+        stoneLimit = math.huge, 
+        stonesUsed = 0, 
+        selectedRodUUID = nil,
+        selectedRodName = "",
+        enchantLoopThread = nil 
+    }
+    
+    -- Variabel UI Global (Disiapkan dulu agar tidak nil)
+    _G.enchantStatusParagraph = nil
+    _G.enchantStoneCountParagraph = nil
+    _G.rodDropdown = nil
+    _G.autoEnchantToggle = nil
+    _G.targetEnchantDropdown = nil
+    _G.stoneLimitInput = nil
+    
+    _G.altarPosition = Vector3.new(3234, -1300, 1401)
+    
+    -- Helper: Cari Data Rod berdasarkan UUID (Fresh Data)
+    _G.getRodByUUID = function(uuid)
+        if not (_G.Replion and _G.ItemUtility) then return nil end
+        local DataReplion = _G.Replion.Client:GetReplion("Data")
+        if not DataReplion then return nil end
+    
+        local rods = DataReplion:Get({ "Inventory", "Fishing Rods" })
+        if rods then
+            for _, rod in ipairs(rods) do
+                if rod.UUID == uuid then return rod end
+            end
+        end
+        return nil
+    end
+    
+    -- Populate Dropdown Rod
+    _G.populateRodDropdown = function()
+        task.spawn(function()
+            if not (_G.ItemUtility and _G.Replion) then return end
+            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Loading rod list...") end
+            
+            local DataReplion = _G.Replion.Client:WaitReplion("Data")
+            if not DataReplion then return end
+    
+            local rodList, uuidMap = { "Select a rod..." }, {}
+            local rod_inventory = DataReplion:Get({ "Inventory", "Fishing Rods" })
+            
+            if rod_inventory then
+                for i, rodItem in ipairs(rod_inventory) do
+                    local itemData = _G.ItemUtility:GetItemData(rodItem.Id)
+                    if itemData and itemData.Data then
+                        local rodName = itemData.Data.Name or rodItem.Id
+                        local enchantName = ""
+                        
+                        -- Cek metadata enchant saat ini
+                        if rodItem.Metadata and rodItem.Metadata.EnchantId then
+                            local enchantData = _G.ItemUtility:GetEnchantData(rodItem.Metadata.EnchantId)
+                            if enchantData and enchantData.Data.Name then
+                                enchantName = " [" .. enchantData.Data.Name .. "]"
+                            end
+                        end
+    
+                        local displayName = rodName .. enchantName
+                        
+                        -- Handle nama duplikat agar dropdown unik
+                        local count = 2
+                        local originalName = displayName
+                        while uuidMap[displayName] do
+                            displayName = originalName .. " #" .. count
+                            count = count + 1
+                        end
+                        
+                        table.insert(rodList, displayName)
+                        uuidMap[displayName] = rodItem.UUID
+                    end
+                end
+            end
+            
+            -- Simpan mapping di dropdown
+            if _G.rodDropdown then
+                _G.rodDropdown.UUIDMap = uuidMap
+                pcall(_G.rodDropdown.Refresh, _G.rodDropdown, rodList)
+            end
+            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Rods loaded.") end
+        end)
+    end
+    
+    -- Get List Enchantment dari ReplicatedStorage
+    _G.getEnchantmentList = function()
+        local enchants = {}
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local success, enchantsModule = pcall(require, ReplicatedStorage:WaitForChild("Enchants"))
+        if success then
+            for name, data in pairs(enchantsModule) do
+                if type(data) == "table" and data.Data and data.Data.Name then
+                    table.insert(enchants, data.Data.Name)
+                end
+            end
+        end
+        table.sort(enchants)
+        return enchants
+    end
+    
+    -- === UI ELEMENTS ===
+    
+    _G.targetEnchantDropdown = _G.EnchantSec:Dropdown({
+        Title = "Select Target Enchantment",
+        Values = _G.getEnchantmentList(),
+        AllowNone = true,
+        SearchBarEnabled = true,
+        Callback = function(v) _G.autoEnchantState.targetEnchant = v end
+    })
+    -- myConfig:Register("TargetEnchantQuite", _G.targetEnchantDropdown)
+    
+    _G.rodDropdown = _G.EnchantSec:Dropdown({
+        Title = "Select Rod to Enchant",
+        Values = { "Click Refresh or wait..." },
+        AllowNone = true,
+        Callback = function(v)
+            if _G.rodDropdown.UUIDMap and _G.rodDropdown.UUIDMap[v] then
+                _G.autoEnchantState.selectedRodUUID = _G.rodDropdown.UUIDMap[v]
+                _G.autoEnchantState.selectedRodName = v
+                if _G.enchantStatusParagraph then
+                    _G.enchantStatusParagraph:SetDesc("Selected: " .. v)
+                end
+            end
+        end
+    })
+    -- myConfig:Register("SelectedRodToEnchantQuite", _G.rodDropdown)
+    
+    _G.EnchantSec:Button({ Title = "Refresh Rod List", Icon = "refresh-cw", Callback = _G.populateRodDropdown })
+    
+    _G.stoneLimitInput = _G.EnchantSec:Input({
+        Title = "Max Enchant Stones to Use",
+        Placeholder = "Empty for no limit",
+        Type = "Input",
+        Callback = function(v) _G.autoEnchantState.stoneLimit = tonumber(v) or math.huge end
+    })
+    -- myConfig:Register("StoneLimitQuite", _G.stoneLimitInput)
+    
+    _G.enchantStoneCountParagraph = _G.EnchantSec:Paragraph({ Title = "Stones Owned", Desc = "Loading..." })
+    _G.enchantStatusParagraph = _G.EnchantSec:Paragraph({ Title = "Status", Desc = "Idle." })
+    
+    -- Thread Update Stone Count
+    task.spawn(function()
+        while task.wait(2) do
+            -- Pastikan Window aktif (jika variabel Window ada di _G atau scope lain)
+            pcall(function()
+                if not _G.Replion then return end
+                local DataReplion = _G.Replion.Client:GetReplion("Data")
+                if not DataReplion then return end
+                local items = DataReplion:Get({ "Inventory", "Items" })
+                local count = 0
+                if items then
+                    for _, item in ipairs(items) do
+                        local base = _G.ItemUtility:GetItemData(item.Id)
+                        if base and base.Data and base.Data.Type == "Enchant Stones" then
+                            count = count + (item.Quantity or 1)
+                        end
+                    end
+                end
+                if _G.enchantStoneCountParagraph then
+                    _G.enchantStoneCountParagraph:SetDesc("You have: " .. count .. " stones")
+                end
+            end)
+        end
+    end)
+    
+    _G.autoEnchantToggle = _G.EnchantSec:Toggle({
+        Title = "Enable Auto Enchant",
+        Value = false,
+        Callback = function(value)
+            _G.autoEnchantState.enabled = value
+            
+            -- Matikan thread lama jika ada
+            if _G.autoEnchantState.enchantLoopThread then
+                task.cancel(_G.autoEnchantState.enchantLoopThread)
+                _G.autoEnchantState.enchantLoopThread = nil
+            end
+    
+            if value then
+                _G.autoEnchantState.enchantLoopThread = task.spawn(function()
+                    if not _G.autoEnchantState.targetEnchant or not _G.autoEnchantState.selectedRodUUID then
+                        if _G.enchantStatusParagraph then 
+                            _G.enchantStatusParagraph:SetDesc("Error: Select Rod AND Target Enchant!") 
+                        end
+                        pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                        return
+                    end
+    
+                    -- 1. Teleport ke Altar
+                    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and (hrp.Position - _G.altarPosition).Magnitude > 10 then
+                        if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Teleporting to Altar...") end
+                        hrp.CFrame = CFrame.new(_G.altarPosition) * CFrame.new(0, 5, 0)
+                        task.wait(1.5)
+                    end
+    
+                    _G.autoEnchantState.stonesUsed = 0
+                    local DataReplion = _G.Replion.Client:WaitReplion("Data")
+                    local EquipItemEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
+                    local EquipToolEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipToolFromHotbar"]
+                    local UnequipItemEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/UnequipItem"]
+                    local ActivateAltarEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/ActivateEnchantingAltar"]
+                    local RollEnchantEvent = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RE/RollEnchant"]
+    
+                    while _G.autoEnchantState.enabled do
+                        -- 2. Ambil Data Terbaru Rod
+                        local currentRod = _G.getRodByUUID(_G.autoEnchantState.selectedRodUUID)
+                        if not currentRod then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Error: Rod not found in inventory!") end
+                            break
+                        end
+    
+                        -- 3. Cari Stone
+                        local stoneItem = nil
+                        local items = DataReplion:Get({ "Inventory", "Items" })
+                        for _, item in ipairs(items or {}) do
+                            local base = _G.ItemUtility:GetItemData(item.Id)
+                            if base and base.Data and base.Data.Type == "Enchant Stones" then
+                                stoneItem = item
+                                break
+                            end
+                        end
+    
+                        if not stoneItem then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Stopped: Out of Enchant Stones.") end
+                            break
+                        end
+    
+                        if _G.autoEnchantState.stonesUsed >= _G.autoEnchantState.stoneLimit then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Stopped: Limit reached.") end
+                            break
+                        end
+    
+                        _G.autoEnchantState.stonesUsed = _G.autoEnchantState.stonesUsed + 1
+                        if _G.enchantStatusParagraph then 
+                            _G.enchantStatusParagraph:SetDesc(string.format("Rolling... (Stone #%d)", _G.autoEnchantState.stonesUsed)) 
+                        end
+    
+                        -- 4. Proses Equip & Roll
+                        local success, resultEnchantName = pcall(function()
+                            -- Equip Rod
+                            EquipItemEvent:FireServer(currentRod.UUID, "Fishing Rods")
+                            task.wait(0.6)
+    
+                            -- Equip Stone
+                            EquipItemEvent:FireServer(stoneItem.UUID, "Enchant Stones")
+                            task.wait(0.6)
+    
+                            -- Equip Tool
+                            EquipToolEvent:FireServer(6) 
+                            task.wait(0.8)
+    
+                            -- Snapshot ID Enchant Lama
+                            local oldEnchantId = currentRod.Metadata and currentRod.Metadata.EnchantId or nil
+                            local gotResult = false
+                            local resultName = "None"
+    
+                            -- Setup Listener Replion untuk deteksi perubahan
+                            local connection
+                            connection = DataReplion:OnChange({"Inventory", "Fishing Rods"}, function(newRods)
+                                for _, rod in ipairs(newRods) do
+                                    if rod.UUID == currentRod.UUID then
+                                        local newEnchantId = rod.Metadata and rod.Metadata.EnchantId
+                                        -- Jika ID berubah, berarti roll sukses
+                                        if newEnchantId ~= oldEnchantId then
+                                            if newEnchantId then
+                                                local eData = _G.ItemUtility:GetEnchantData(newEnchantId)
+                                                resultName = eData and eData.Data.Name or "Unknown"
+                                            else
+                                                resultName = "None"
+                                            end
+                                            gotResult = true
+                                        end
+                                        break
+                                    end
+                                end
+                            end)
+    
+                            -- Trigger Roll
+                            ActivateAltarEvent:FireServer(currentRod.UUID) -- Init
+                            task.wait(0.5)
+                            RollEnchantEvent:FireServer(currentRod.UUID) -- Confirm Roll
+    
+                            -- Tunggu hasil (Max 6 detik)
+                            local timer = 0
+                            while not gotResult and timer < 2 do
+                                task.wait(0.7)
+                                timer = timer + 0.7
+                                if not _G.autoEnchantState.enabled then break end
+                            end
+    
+                            if connection then connection:Disconnect() end
+    
+                            if not gotResult then
+                                error("Timeout waiting for enchant result")
+                            end
+    
+                            return resultName
+                        end)
+    
+                        -- Unequip Tool Safety
+                        pcall(function() UnequipItemEvent:FireServer(6) end)
+    
+                        if success then
+                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Rolled: " .. resultEnchantName) end
+                            
+                            -- Cek apakah sesuai target
+                            if string.lower(resultEnchantName) == string.lower(_G.autoEnchantState.targetEnchant) then
+                                if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("SUCCESS! Got " .. resultEnchantName) end
+                                NotifySuccess("Auto Enchant", "Successfully got " .. resultEnchantName, 5)
+                                _G.autoEnchantState.enabled = false
+                                pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                                _G.populateRodDropdown() -- Refresh nama rod
+                                break
+                            end
+                        else
+                            warn("Enchant fail/retry: " .. tostring(resultEnchantName))
+                            _G.autoEnchantState.stonesUsed = _G.autoEnchantState.stonesUsed - 1 
+                            task.wait(0.5)
+                        end
+    
+                        task.wait(0.5) -- Delay aman antar roll agar tidak crash
+                    end
+    
+                    pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                    _G.autoEnchantState.enchantLoopThread = nil
+                end)
+            end
+        end
+    })
+    task.delay(1, _G.populateRodDropdown)
+end
 
 -------------------------------------------
 ----- =======[ AUTO FAV TAB ]
