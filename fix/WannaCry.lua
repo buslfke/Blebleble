@@ -1500,7 +1500,7 @@ do
     
                             -- Tunggu hasil (Max 6 detik)
                             local timer = 0
-                            while not gotResult and timer < 7 do
+                            while not gotResult and timer < 2 do
                                 task.wait(0.7)
                                 timer = timer + 0.7
                                 if not _G.autoEnchantState.enabled then break end
