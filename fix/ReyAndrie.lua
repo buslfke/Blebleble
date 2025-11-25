@@ -4782,6 +4782,51 @@ _G.DStones:Button({
 ----- =======[ PLAYER TAB ]
 -------------------------------------------
 
+_G.RadarRemote = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/UpdateFishingRadar"]
+_G.EquipTankRemote = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/EquipOxygenTank"]
+_G.UnequipTankRemote = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/UnequipOxygenTank"]
+
+
+_G.RadarEnabled = false
+
+Player:Toggle({
+    Title = "Fishing Radar",
+    Value = false,
+    Callback = function(state)
+        _G.RadarEnabled = state
+
+        pcall(function()
+            _G.RadarRemote:InvokeServer(state)
+        end)
+
+        if state then
+            NotifySuccess("Divine Radar", "Fishing Radar Activated!")
+        else
+            NotifyWarning("Divine Radar", "Fishing Radar Deactivated.")
+        end
+    end
+})
+
+_G.DivineGear = false
+
+Player:Toggle({
+    Title = "Divine Gear (Oxygen Tank)",
+    Value = false,
+    Callback = function(state)
+        _G.DivineGear = state
+
+        pcall(function()
+            if state then
+                _G.EquipTankRemote:InvokeServer(105)
+                NotifySuccess("Divine Gear", "Oxygen Tank Equipped!")
+            else
+                _G.UnequipTankRemote:InvokeServer()
+                NotifyWarning("Divine Gear", "Oxygen Tank Unequipped.")
+            end
+        end)
+    end
+})
+
 local currentDropdown = nil
 
 local function getPlayerList()
@@ -6438,6 +6483,97 @@ SettingsTab:Toggle({
     Value = false,
     Callback = function(state)
         _G.Disable3DRendering(state)
+    end
+})
+
+_G.username = LocalPlayer.Name
+_G.saveFileName = _G.username .. "_savedPos.json"
+
+function _G.savePosition()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root then
+        local cx, cy, cz,
+              r00, r01, r02,
+              r10, r11, r12,
+              r20, r21, r22 = root.CFrame:GetComponents()
+
+        local posData = {
+            cx = cx, cy = cy, cz = cz,
+            r00 = r00, r01 = r01, r02 = r02,
+            r10 = r10, r11 = r11, r12 = r12,
+            r20 = r20, r21 = r21, r22 = r22
+        }
+
+        writefile(_G.saveFileName, HttpService:JSONEncode(posData))
+    else
+        warn("[❌] Gagal menyimpan posisi: HRP tidak ditemukan")
+    end
+end
+
+function _G.loadPosition()
+    if isfile(_G.saveFileName) then
+        local data = readfile(_G.saveFileName)
+        local pos = HttpService:JSONDecode(data)
+        
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local root = char:WaitForChild("HumanoidRootPart")
+
+        root.CFrame = CFrame.new(
+            pos.cx, pos.cy, pos.cz,
+            pos.r00, pos.r01, pos.r02,
+            pos.r10, pos.r11, pos.r12,
+            pos.r20, pos.r21, pos.r22
+        )
+
+        print("[📍] CFrame berhasil diload!")
+    else
+        warn("[❌] Tidak ada posisi tersimpan.")
+    end
+end
+
+SettingsTab:Button({
+    Title = "Save Position",
+    Justify = "Center",
+    Callback = function()
+        _G.savePosition()
+    end
+})
+
+SettingsTab:Button({
+    Title = "Load Position",
+    Justify = "Center",
+    Callback = function()
+        _G.loadPosition()
+    end
+})
+
+_G.HideFishNotif = false
+
+SettingsTab:Toggle({
+    Title = "Hide Fish Notifications",
+    Value = false,
+    Callback = function(state)
+        _G.HideFishNotif = state
+        
+        local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+        local smallNotif = gui:FindFirstChild("Small Notification")
+        local textNotif = gui:FindFirstChild("Text Notifications")
+
+        -- Apply state
+        if smallNotif and smallNotif:FindFirstChild("Display") then
+            smallNotif.Display.Visible = not state
+        end
+        if textNotif and textNotif:FindFirstChild("Frame") then
+            textNotif.Frame.Visible = not state
+        end
+
+        if state then
+            NotifyInfo("Notifications", "Fish notifications have been hidden.")
+        else
+            NotifySuccess("Notifications", "Fish notifications are now visible.")
+        end
     end
 })
 
