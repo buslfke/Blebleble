@@ -1960,10 +1960,13 @@ for _, item in ipairs(ReplicatedStorage.Items:GetChildren()) do
         local name = data.Data.Name
         local tier = data.Data.Tier or 1
 
-        GlobalFav.FishIdToName[id] = name
-        GlobalFav.FishNameToId[name] = id
+        local nameWithId = name .. " [ID:" .. id .. "]"
+
+        GlobalFav.FishIdToName[id] = nameWithId
+        GlobalFav.FishNameToId[nameWithId] = id
         GlobalFav.FishRarity[id] = tier
-        table.insert(GlobalFav.FishNames, name)
+
+        table.insert(GlobalFav.FishNames, nameWithId)
     end
 end
 
@@ -1995,25 +1998,26 @@ AutoFav:Toggle({
     end
 })
 
-local AllFishNames = GlobalFav.FishNames
+local fishName = GlobalFav.FishIdToName[itemId]
 
 _G.FishList = AutoFav:Dropdown({
     Title = "Auto Favorite Fishes",
-    Values = AllFishNames,
+    Values = GlobalFav.FishNames,
+    Value = {},
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
     Callback = function(selectedNames)
         GlobalFav.SelectedFishIds = {}
 
-        for _, name in ipairs(selectedNames) do
-            local id = GlobalFav.FishNameToId[name]
+        for _, nameWithId in ipairs(selectedNames) do
+            local id = GlobalFav.FishNameToId[nameWithId]
             if id then
                 GlobalFav.SelectedFishIds[id] = true
             end
         end
 
-        NotifyInfo("Auto Favorite", "Favoriting active for fish: " .. HttpService:JSONEncode(selectedNames))
+        NotifyInfo("Auto Favorite", "Favoriting fish: " .. HttpService:JSONEncode(selectedNames))
     end
 })
 

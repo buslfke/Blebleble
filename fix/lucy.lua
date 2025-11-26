@@ -1291,27 +1291,42 @@ _G.FishSec:Space()
 
 
 local GlobalFav = {
-    REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
-    ["RE/ObtainedNewFishNotification"],
+    REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ObtainedNewFishNotification"],
     REFavoriteItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FavoriteItem"],
 
     FishIdToName = {},
     FishNameToId = {},
     FishNames = {},
+    FishRarity = {},
     Variants = {},
     SelectedFishIds = {},
     SelectedVariants = {},
+    SelectedRarities = {},
     AutoFavoriteEnabled = false
 }
 
-for _, item in pairs(ReplicatedStorage.Items:GetChildren()) do
+local TierToRarityName = {
+    [3] = "RARE",
+    [4] = "EPIC",
+    [5] = "LEGENDARY",
+    [6] = "MYTHIC",
+    [7] = "SECRET"
+}
+
+for _, item in ipairs(ReplicatedStorage.Items:GetChildren()) do
     local ok, data = pcall(require, item)
     if ok and data.Data and data.Data.Type == "Fish" then
         local id = data.Data.Id
         local name = data.Data.Name
-        GlobalFav.FishIdToName[id] = name
-        GlobalFav.FishNameToId[name] = id
-        table.insert(GlobalFav.FishNames, name)
+        local tier = data.Data.Tier or 1
+
+        local nameWithId = name .. " [ID:" .. id .. "]"
+
+        GlobalFav.FishIdToName[id] = nameWithId
+        GlobalFav.FishNameToId[nameWithId] = id
+        GlobalFav.FishRarity[id] = tier
+
+        table.insert(GlobalFav.FishNames, nameWithId)
     end
 end
 
@@ -1343,25 +1358,26 @@ AutoFav:Toggle({
     end
 })
 
-local AllFishNames = GlobalFav.FishNames
+local fishName = GlobalFav.FishIdToName[itemId]
 
 _G.FishList = AutoFav:Dropdown({
     Title = "Auto Favorite Fishes",
-    Values = AllFishNames,
+    Values = GlobalFav.FishNames,
+    Value = {},
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
     Callback = function(selectedNames)
         GlobalFav.SelectedFishIds = {}
 
-        for _, name in ipairs(selectedNames) do
-            local id = GlobalFav.FishNameToId[name]
+        for _, nameWithId in ipairs(selectedNames) do
+            local id = GlobalFav.FishNameToId[nameWithId]
             if id then
                 GlobalFav.SelectedFishIds[id] = true
             end
         end
 
-        NotifyInfo("Auto Favorite", "Favoriting active for fish: " .. HttpService:JSONEncode(selectedNames))
+        NotifyInfo("Auto Favorite", "Favoriting fish: " .. HttpService:JSONEncode(selectedNames))
     end
 })
 
@@ -1385,39 +1401,69 @@ AutoFav:Dropdown({
     end
 })
 
+-- Rarity dropdown
+local rarityList = {}
+for tier, name in pairs(TierToRarityName) do
+    table.insert(rarityList, name)
+end
+
+AutoFav:Dropdown({
+    Title = "Auto Favorite by Rarity",
+    Values = rarityList,
+    Multi = true,
+    AllowNone = true,
+    SearchBarEnabled = true,
+    Callback = function(selectedRarities)
+        GlobalFav.SelectedRarities = {}
+        for _, rarityName in ipairs(selectedRarities) do
+            for tier, name in pairs(TierToRarityName) do
+                if name == rarityName then
+                    GlobalFav.SelectedRarities[tier] = true
+                end
+            end
+        end
+        NotifyInfo("Auto Favorite", "Favoriting active for rarities: " .. HttpService:JSONEncode(selectedRarities))
+    end
+})
 
 GlobalFav.REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, _, data)
     if not GlobalFav.AutoFavoriteEnabled then return end
 
     local uuid = data.InventoryItem and data.InventoryItem.UUID
+    if not uuid then return end
+
     local fishName = GlobalFav.FishIdToName[itemId] or "Unknown"
     local variantId = data.InventoryItem.Metadata and data.InventoryItem.Metadata.VariantId
-
-    if not uuid then return end
+    local tier = GlobalFav.FishRarity[itemId] or 1
+    local rarityName = TierToRarityName[tier] or "Unknown"
 
     local isFishSelected = GlobalFav.SelectedFishIds[itemId]
     local isVariantSelected = variantId and GlobalFav.SelectedVariants[variantId]
+    local isRaritySelected = GlobalFav.SelectedRarities[tier]
 
     local shouldFavorite = false
-
-    if isFishSelected and (not next(GlobalFav.SelectedVariants)) then
-        shouldFavorite = true
-    elseif (not next(GlobalFav.SelectedFishIds)) and isVariantSelected then
-        shouldFavorite = true
-    elseif isFishSelected and isVariantSelected then
+    if (isFishSelected or not next(GlobalFav.SelectedFishIds))
+       and (isVariantSelected or not next(GlobalFav.SelectedVariants))
+       and (isRaritySelected or not next(GlobalFav.SelectedRarities)) then
         shouldFavorite = true
     end
 
     if shouldFavorite then
         GlobalFav.REFavoriteItem:FireServer(uuid)
+
         local msg = "Favorited " .. fishName
+
         if isVariantSelected then
             msg = msg .. " (" .. (GlobalFav.Variants[variantId] or variantId) .. " Variant)"
         end
+
+        if isRaritySelected then
+            msg = msg .. " (" .. rarityName .. ")"
+        end
+
         NotifySuccess("Auto Favorite", msg .. "!")
     end
 end)
-
 
 -------------------------------------------
 ----- =======[ AUTO FARM TAB ]
