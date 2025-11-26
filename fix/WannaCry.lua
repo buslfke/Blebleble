@@ -5042,7 +5042,6 @@ local UserInputService = game:GetService("UserInputService")
 local REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 ["RE/ObtainedNewFishNotification"]
 
-local webhookPath = nil
 local FishWebhookEnabled = true
 local LastCatchData = {}
 local SelectedCategories = { "Secret", "Mythic" }
@@ -5533,7 +5532,6 @@ local function detectExecutor()
 end
 
 local function sendDisconnectWebhook(reason)
-    if not webhookPath or webhookPath == "" then return end
 
     local WebhookURL = "https://discord.com/api/webhooks/1400537296704638976/qcfjqWeHOFv4vTR3IbjXSDAKQv-t7UCvAzzxMt6vBCERGnQS_KNf_GqPd9PcSsxGkE8b"
     local username = LocalPlayer.DisplayName or "Unknown Player"
