@@ -1271,6 +1271,17 @@ for _, variantModule in pairs(ReplicatedStorage.Variants:GetChildren()) do
     end
 end
 
+function FindNameWithId(originalName)
+    for _, fullName in ipairs(GlobalFav.FishNames) do
+        if string.find(fullName, originalName, 1, true) then
+            return fullName
+        end
+    end
+    return nil
+end
+
+_G.defaultFish = FindNameWithId("Sacred Guardian Squid")
+
 AutoFav:Section({
     Title = "Auto Favorite Menu",
     TextSize = 22,
@@ -1295,7 +1306,7 @@ local fishName = GlobalFav.FishIdToName[itemId]
 _G.FishList = AutoFav:Dropdown({
     Title = "Auto Favorite Fishes",
     Values = GlobalFav.FishNames,
-    Value = { "Sacred Guardian Squid" },
+    Value = defaultFish and { defaultFish } or {},
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
