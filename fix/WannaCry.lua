@@ -5323,7 +5323,7 @@ end)
 -- [UPDATE] FUNGSI CEK TARGET BERDASARKAN TIER
 -- ==================================================================
 
-local function isTargetTier(itemId)
+function isTargetTier(itemId)
     if not itemId then return false end
     local tierNumber = _G.FishTierById[itemId]
     if not tierNumber then return false end
@@ -5337,6 +5337,67 @@ local function isTargetTier(itemId)
 
     return false
 end
+
+_G.BNNotif = true
+FishNotif:Input({
+    Title = "Key Notification",
+    Desc = "Input your private key!",
+    Placeholder = "Enter Key....",
+    Callback = function(text)
+        if _G.BNNotif then
+            _G.BNNotif = false
+            return
+        end
+        webhookPath = nil
+        local isValid, result = validateWebhook(text)
+        if isValid then
+            webhookPath = result
+            WindUI:Notify({
+                Title = "Key Valid",
+                Content = "Webhook connected to channel!",
+                Duration = 5,
+                Icon = "circle-check"
+            })
+        else
+            WindUI:Notify({
+                Title = "Key Invalid",
+                Content = tostring(result),
+                Duration = 5,
+                Icon = "ban"
+            })
+        end
+    end
+})
+
+myConfig:Register("FishApiKey", apiKey)
+
+FishNotif:Toggle({
+    Title = "Fish Notification",
+    Desc = "Send fish notifications to Discord",
+    Value = true,
+    Callback = function(state)
+        FishWebhookEnabled = state
+    end
+})
+
+FishNotif:Dropdown({
+    Title = "Select Fish Categories",
+    Desc = "Choose which categories to send to webhook",
+    Values = { "Secret", "Legendary", "Mythic" },
+    Multi = true,
+    Default = { "Secret" },
+    Callback = function(selected)
+        SelectedCategories = selected
+        WindUI:Notify({
+            Title = "Fish Category Updated",
+            Content = "Now tracking: " .. table.concat(SelectedCategories, ", "),
+            Duration = 5,
+            Icon = "circle-check"
+        })
+    end
+})
+
+FishNotif:Space()
 
 FishNotif:Space()
 
@@ -5379,7 +5440,7 @@ FishNotif:Button({
 -------------------------------------------
 
 -- GANTI LAGI FUNGSI LAMA ANDA DENGAN VERSI FINAL INI
-local function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
+function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
 
     local WebhookURL = "https://discord.com/api/webhooks/1400537296704638976/qcfjqWeHOFv4vTR3IbjXSDAKQv-t7UCvAzzxMt6vBCERGnQS_KNf_GqPd9PcSsxGkE8b"
     local username = LocalPlayer.DisplayName
@@ -5495,7 +5556,7 @@ end
 
 local UserInputService = game:GetService("UserInputService")
 
-local function detectExecutor()
+function detectExecutor()
     local executors = {
         { check = "syn",         name = "Synapse X" },
         { check = "KRNL_LOADED", name = "KRNL" },
@@ -5531,7 +5592,7 @@ local function detectExecutor()
     return "Unknown Executor"
 end
 
-local function sendDisconnectWebhook(reason)
+function sendDisconnectWebhook(reason)
 
     local WebhookURL = "https://discord.com/api/webhooks/1400537296704638976/qcfjqWeHOFv4vTR3IbjXSDAKQv-t7UCvAzzxMt6vBCERGnQS_KNf_GqPd9PcSsxGkE8b"
     local username = LocalPlayer.DisplayName or "Unknown Player"
@@ -5575,7 +5636,7 @@ REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, metadata)
     LastCatchData.VariantId = metadata and (metadata.Variant or metadata.VariantId)
 end)
 
-local function startFishDetection()
+function startFishDetection()
     local plr = LocalPlayer
     local guiNotif = plr.PlayerGui:WaitForChild("Small Notification", 10)
     if not guiNotif then
