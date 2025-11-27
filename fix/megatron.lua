@@ -4990,7 +4990,7 @@ function safeHttpRequest(data)
 end
 
 -- Roblox image fetcher
-local function GetRobloxImage(assetId)
+function GetRobloxImage(assetId)
     local url = "https://thumbnails.roblox.com/v1/assets?assetIds=" ..
     assetId .. "&size=420x420&format=Png&isCircular=false"
     local success, response = pcall(game.HttpGet, game, url)
@@ -5030,7 +5030,7 @@ local FishCategories = {
     ["Legendary"] = {}
 }
 
-local function AutoPopulateCategories()
+function AutoPopulateCategories()
     local itemsFolder = ReplicatedStorage:WaitForChild("Items")
     local count = 0
     
@@ -5163,7 +5163,7 @@ end
 
 
 _G.BNNotif = true
-local apiKey = FishNotif:Input({
+_G.apiKey = FishNotif:Input({
     Title = "Key Notification",
     Desc = "Input your private key!",
     Placeholder = "Enter Key....",
@@ -5193,7 +5193,7 @@ local apiKey = FishNotif:Input({
     end
 })
 
-myConfig:Register("FishApiKey", apiKey)
+myConfig:Register("FishApiKey", _G.apiKey)
 
 FishNotif:Toggle({
     Title = "Fish Notification",
@@ -5378,7 +5378,7 @@ end
 
 local UserInputService = game:GetService("UserInputService")
 
-local function detectExecutor()
+function detectExecutor()
     local executors = {
         { check = "syn",         name = "Synapse X" },
         { check = "KRNL_LOADED", name = "KRNL" },
