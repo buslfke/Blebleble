@@ -525,7 +525,7 @@ _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1.5
 _G.fishCounter = 0
 _G.sellThreshold = 10
-_G.sellActive = true
+_G.sellActive = false
 _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
@@ -1234,7 +1234,7 @@ local GlobalFav = {
     SelectedFishIds = {},
     SelectedVariants = {},
     SelectedRarities = {},
-    AutoFavoriteEnabled = true
+    AutoFavoriteEnabled = false
 }
 
 local TierToRarityName = {
@@ -1290,7 +1290,7 @@ AutoFav:Section({
 
 AutoFav:Toggle({
     Title = "Enable Auto Favorite",
-    Value = true,
+    Value = false,
     Callback = function(state)
         GlobalFav.AutoFavoriteEnabled = state
         if state then
