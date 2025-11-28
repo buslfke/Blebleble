@@ -479,7 +479,6 @@ function _G.TrySellNow()
 end
 
 function InitialCast5X()
-    _G.equipRemote:FireServer(1)
     _G.StopFishing()
     local getPowerFunction = Constants.GetPower
     local perfectThreshold = 0.99
@@ -645,6 +644,7 @@ end)
 
 
 function StartAutoFish5X()
+    _G.equipRemote:FireServer(1)
     FuncAutoFish.autofish5x = true
     _G.AntiStuckEnabled = true
     lastEventTime = tick()
