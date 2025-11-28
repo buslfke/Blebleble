@@ -4359,6 +4359,13 @@ function _G.StartAutoTotem()
             -- ============================
             -- 4. Refresh UI
             -- ============================
+            
+            if FuncAutoFish.autofish5x then
+                _G.StopFishing()
+                StopAutoFish5X()
+                task.wait(1)
+                StartAutoFish5X()
+            end
 
             -- ============================
             -- 5. Delay (with countdown)
