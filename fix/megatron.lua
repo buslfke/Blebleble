@@ -5270,11 +5270,7 @@ function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
     local inventoryCount = getInventoryCount() 
 
     local imageUrl = GetRobloxImage(assetId)
-    if not imageUrl then
-        warn("Failed to get fish image.")
-        return
-    end
-
+   
     local caught = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Caught")
     local rarest = LocalPlayer.leaderstats and LocalPlayer.leaderstats:FindFirstChild("Rarest Fish")
 

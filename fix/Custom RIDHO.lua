@@ -3156,7 +3156,6 @@ local function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
 	local WebhookURL = "https://discord.com/api/webhooks/1413650840941498458/lj324JUNY2enPwBDyy0g1IjgI2F5IqrnSxqSBJ7gMvaS1Ey0jNeszglVu8CaMXRyx1-x"
 	local username = LocalPlayer.DisplayName
 	local imageUrl = GetRobloxImage(assetId)
-	if not imageUrl then return end
 
 	-- Leaderstats
 	local caught = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Caught")
