@@ -4366,16 +4366,11 @@ function _G.StartAutoTotem()
                 _G.RESpawnTotem:FireServer(uuid)
                 NotifySuccess("Auto Totem", "Spawned 1x " .. cleanName)
             end
+            
+            StopAutoFish5X()
+            task.wait(1)
+            StartAutoFish5X()
 
-            -- ============================
-            -- 4. Refresh UI
-            -- ============================
-            if FuncAutoFish.autofish5x then
-                _G.StopFishing()
-                StopAutoFish5X()
-                task.wait(1)
-                StartAutoFish5X()
-            end
 
             -- ============================
             -- 5. Delay (with countdown)
