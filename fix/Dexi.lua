@@ -525,7 +525,7 @@ _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1.5
 _G.fishCounter = 0
 _G.sellThreshold = 10
-_G.sellActive = false
+_G.sellActive = true
 _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
@@ -2582,7 +2582,7 @@ end
 _G.Ghosfinn = _G.AutoQuestTab:Toggle({
     Title = "Auto Quest - Ghosfinn Rod",
     Desc = "Automatically farm the Ghostfinn Rod quest.",
-    Value = true,
+    Value = false,
     Callback = function(state)
         if state then
             if _G.AutoQuestState.IsRunning then
@@ -2598,8 +2598,6 @@ _G.Ghosfinn = _G.AutoQuestTab:Toggle({
         end
     end
 })
-
-_G.Ghosfinn:Set(true)
 
 _G.AutoQuestTab:Toggle({
     Title = "Auto Quest - Element Rod",
