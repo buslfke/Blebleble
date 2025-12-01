@@ -5003,7 +5003,7 @@ local function safeHttpRequest(data)
 end
 
 -- Roblox image fetcher (IMPROVED VERSION)
-local function GetRobloxImage(assetId)
+function GetRobloxImage(assetId)
     if not assetId or assetId == "" then
         warn("[Webhook] AssetId kosong atau invalid!")
         return "https://i.imgur.com/placeholder.png" -- Placeholder image
