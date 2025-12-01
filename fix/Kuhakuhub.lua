@@ -3571,7 +3571,20 @@ local function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
 
 	local WebhookURL = "https://discord.com/api/webhooks/1418561114077138944/Lc5csYY2e09E6hnQVITjRr-mkt1QjzXuL2CweE1Ruu9WbEh3FaUdy5fw5kb1vpP5hfws"
 	local username = LocalPlayer.DisplayName
-	local imageUrl = GetRobloxImage(assetId)
+	local imageUrl = "https://i.imgur.com/placeholder.png" -- Default placeholder
+
+    task.spawn(function()
+        local fetchedImage = GetRobloxImage(assetId)
+        if fetchedImage then
+            imageUrl = fetchedImage
+        end
+    end)
+    
+    -- Wait maksimal 2 detik untuk gambar
+    local waitStart = tick()
+    while imageUrl == "https://i.imgur.com/placeholder.png" and (tick() - waitStart) < 2 do
+        task.wait(0.1)
+    end
 
 	-- Leaderstats
 	local caught = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Caught")

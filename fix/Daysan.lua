@@ -3231,12 +3231,13 @@ end
 local function safeHttpRequest(data)
     local requestFunc = syn and syn.request or http and http.request or http_request or request or
     fluxus and fluxus.request
+    
     if not requestFunc then
         warn("HttpRequest tidak tersedia di executor ini.")
         return false
     end
 
-    local retries = 10
+    local retries = 3 -- Kurangi dari 10 ke 3 untuk faster
     for i = 1, retries do
         local success, err = pcall(function()
             requestFunc({
@@ -3248,27 +3249,68 @@ local function safeHttpRequest(data)
         end)
 
         if success then
+            print(string.format("✅ Webhook sent successfully (attempt %d)", i))
             return true
         else
-            warn(string.format("[Retry %d/%d] Gagal kirim webhook: %s", i, retries, err))
-            task.wait(1.5)
+            warn(string.format("[Retry %d/%d] Gagal kirim webhook: %s", i, retries, tostring(err)))
+            
+            -- PERBAIKAN: Jangan retry jika error 429 (rate limit) atau 400 (bad request)
+            if err and (string.find(tostring(err), "429") or string.find(tostring(err), "400")) then
+                warn("Rate limit atau bad request, skip retry.")
+                break
+            end
+            
+            if i < retries then
+                task.wait(1) -- Delay sebelum retry
+            end
         end
     end
+    
+    warn("❌ Webhook gagal terkirim setelah " .. retries .. " percobaan.")
     return false
 end
 
--- Roblox image fetcher
+-- Roblox image fetcher (IMPROVED VERSION)
 local function GetRobloxImage(assetId)
+    if not assetId or assetId == "" then
+        warn("[Webhook] AssetId kosong atau invalid!")
+        return "https://i.imgur.com/placeholder.png" -- Placeholder image
+    end
+    
     local url = "https://thumbnails.roblox.com/v1/assets?assetIds=" ..
-    assetId .. "&size=420x420&format=Png&isCircular=false"
-    local success, response = pcall(game.HttpGet, game, url)
-    if success and response then
-        local data = HttpService:JSONDecode(response)
-        if data and data.data and data.data[1] and data.data[1].imageUrl then
-            return data.data[1].imageUrl
+                assetId .. "&size=420x420&format=Png&isCircular=false"
+    
+    -- RETRY LOGIC (3 percobaan)
+    local maxRetries = 10
+    for attempt = 1, maxRetries do
+        local success, response = pcall(function()
+            return game:HttpGet(url)
+        end)
+        
+        if success and response then
+            -- Parse JSON
+            local parseSuccess, data = pcall(function()
+                return HttpService:JSONDecode(response)
+            end)
+            
+            if parseSuccess and data and data.data and data.data[1] then
+                local imageUrl = data.data[1].imageUrl
+                
+                -- Validate URL
+                if imageUrl and imageUrl:match("^https?://") then
+                    return imageUrl
+                end
+            end
+        end
+        
+        if attempt < maxRetries then
+            warn(string.format("[Webhook] Gagal ambil gambar (attempt %d/%d), retry...", attempt, maxRetries))
+            task.wait(0.5 * attempt) -- Incremental delay
         end
     end
-    return nil
+    
+    warn("[Webhook] Gagal mengambil gambar asset ID: " .. tostring(assetId))
+    return "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-" .. assetId .. "-352x352-Png-Placeholder.png"
 end
 
 -------------------------------------------
@@ -3547,7 +3589,20 @@ local function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
     local rodName = getValidRodName()
     local inventoryCount = getInventoryCount() 
 
-    local imageUrl = GetRobloxImage(assetId)
+    local imageUrl = "https://i.imgur.com/placeholder.png" -- Default placeholder
+
+    task.spawn(function()
+        local fetchedImage = GetRobloxImage(assetId)
+        if fetchedImage then
+            imageUrl = fetchedImage
+        end
+    end)
+    
+    -- Wait maksimal 2 detik untuk gambar
+    local waitStart = tick()
+    while imageUrl == "https://i.imgur.com/placeholder.png" and (tick() - waitStart) < 2 do
+        task.wait(0.1)
+    end
 
     local caught = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Caught")
     local rarest = LocalPlayer.leaderstats and LocalPlayer.leaderstats:FindFirstChild("Rarest Fish")
