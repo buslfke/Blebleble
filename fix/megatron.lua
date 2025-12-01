@@ -5510,7 +5510,7 @@ REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, metadata)
     LastCatchData.VariantId = metadata and (metadata.Variant or metadata.VariantId)
 end)
 
-local function startFishDetection()
+function startFishDetection()
     local plr = LocalPlayer
     local guiNotif = plr.PlayerGui:WaitForChild("Small Notification", 10)
     if not guiNotif then
