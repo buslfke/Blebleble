@@ -3656,23 +3656,78 @@ end)
 
 -- GUI Detection (Trigger)
 local function startFishDetection()
-	local plr = LocalPlayer
-	local guiNotif = plr.PlayerGui:WaitForChild("Small Notification"):WaitForChild("Display"):WaitForChild("Container")
+    local plr = LocalPlayer
+    local guiNotif = plr.PlayerGui:WaitForChild("Small Notification", 10)
+    if not guiNotif then
+        warn("Small Notification GUI not found.")
+        return
+    end
 
-	local fishText = guiNotif:WaitForChild("ItemName")
-	local rarityText = guiNotif:WaitForChild("Rarity")
-	local imageFrame = plr.PlayerGui["Small Notification"]:WaitForChild("Display"):WaitForChild("VectorFrame"):WaitForChild("Vector")
+    local displayContainer = guiNotif:FindFirstChild("Display") and guiNotif.Display:FindFirstChild("Container")
+    if not displayContainer then
+        warn("Notification Container not found.")
+        return
+    end
 
-	fishText:GetPropertyChangedSignal("Text"):Connect(function()
-		local fishName = fishText.Text
-		if isTargetFish(fishName) then
-			local rarity = rarityText.Text
-			local assetId = string.match(imageFrame.Image, "%d+")
-			if assetId then
-				sendFishWebhook(fishName, rarity, assetId, LastCatchData.ItemId, LastCatchData.VariantId)
-			end
-		end
-	end)
+    local fishText = displayContainer:FindFirstChild("ItemName")
+    local rarityText = displayContainer:FindFirstChild("Rarity")
+    local imageFrame = guiNotif:FindFirstChild("Display") and
+    guiNotif.Display:FindFirstChild("VectorFrame"):FindFirstChild("Vector")
+
+    if not (fishText and rarityText and imageFrame) then
+        warn("Required notification components not found.")
+        return
+    end
+
+    -- ============================================
+    -- PERBAIKAN: VALIDASI GANDA (ID + NAMA)
+    -- ============================================
+    fishText:GetPropertyChangedSignal("Text"):Connect(function()
+        local fishName = fishText.Text
+        local currentItemId = LastCatchData.ItemId
+        local currentVariantId = LastCatchData.VariantId
+        
+        -- VALIDASI 1: Pastikan ItemId ada
+        if not currentItemId then
+            warn("⚠️ ItemId tidak ditemukan, skip webhook.")
+            return
+        end
+        
+        -- VALIDASI 2: Cek apakah Tier sesuai filter
+        if not isTargetTier(currentItemId) then
+            -- Debug (hapus nanti)
+            -- print("⚠️ Ikan tidak masuk filter tier:", fishName, "| ID:", currentItemId)
+            return
+        end
+        
+        -- VALIDASI 3: Cross-check Nama dengan ItemId
+        local expectedFishData = FishDataById[currentItemId]
+        if expectedFishData then
+            local expectedName = expectedFishData.Name
+            
+            -- Jika ada variant, nama bisa beda (contoh: "Megalodon" vs "Megalodon Lightning")
+            -- Kita cek apakah nama UI MENGANDUNG nama base fish
+            if not string.find(fishName, expectedName) then
+                warn("⚠️ MISMATCH! UI Name:", fishName, "| Expected:", expectedName)
+                warn("   Kemungkinan ItemId dari catch sebelumnya (race condition)")
+                return -- SKIP webhook karena data tidak match
+            end
+        end
+        
+        -- VALIDASI 4: Ambil asset ID dari gambar
+        local assetId = string.match(imageFrame.Image, "%d+")
+        if not assetId then
+            warn("❌ Asset ID tidak ditemukan dari imageFrame!")
+            return
+        end
+        
+        -- SEMUA VALIDASI PASS - KIRIM WEBHOOK
+        local rarity = rarityText.Text
+        
+        print("✅ Webhook triggered for:", fishName, "| ID:", currentItemId, "| Tier:", _G.FishTierById[currentItemId])
+        
+        sendFishWebhook(fishName, rarity, assetId, currentItemId, currentVariantId)
+    end)
 end
 
 startFishDetection()

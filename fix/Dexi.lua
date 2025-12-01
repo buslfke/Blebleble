@@ -4287,16 +4287,54 @@ local function startFishDetection()
         return
     end
 
-    -- B. Listener untuk memicu Webhook saat Fish Name berubah (Tangkapan Terdeteksi)
+    -- ============================================
+    -- PERBAIKAN: VALIDASI GANDA (ID + NAMA)
+    -- ============================================
     fishText:GetPropertyChangedSignal("Text"):Connect(function()
         local fishName = fishText.Text
-        if FishWebhookEnabled and isTargetFish(fishName) then
-            local rarity = rarityText.Text
-            local assetId = string.match(imageFrame.Image, "%d+")
-            if assetId then
-                sendFishWebhook(fishName, rarity, assetId, LastCatchData.ItemId, LastCatchData.VariantId)
+        local currentItemId = LastCatchData.ItemId
+        local currentVariantId = LastCatchData.VariantId
+        
+        -- VALIDASI 1: Pastikan ItemId ada
+        if not currentItemId then
+            warn("⚠️ ItemId tidak ditemukan, skip webhook.")
+            return
+        end
+        
+        -- VALIDASI 2: Cek apakah Tier sesuai filter
+        if not isTargetTier(currentItemId) then
+            -- Debug (hapus nanti)
+            -- print("⚠️ Ikan tidak masuk filter tier:", fishName, "| ID:", currentItemId)
+            return
+        end
+        
+        -- VALIDASI 3: Cross-check Nama dengan ItemId
+        local expectedFishData = FishDataById[currentItemId]
+        if expectedFishData then
+            local expectedName = expectedFishData.Name
+            
+            -- Jika ada variant, nama bisa beda (contoh: "Megalodon" vs "Megalodon Lightning")
+            -- Kita cek apakah nama UI MENGANDUNG nama base fish
+            if not string.find(fishName, expectedName) then
+                warn("⚠️ MISMATCH! UI Name:", fishName, "| Expected:", expectedName)
+                warn("   Kemungkinan ItemId dari catch sebelumnya (race condition)")
+                return -- SKIP webhook karena data tidak match
             end
         end
+        
+        -- VALIDASI 4: Ambil asset ID dari gambar
+        local assetId = string.match(imageFrame.Image, "%d+")
+        if not assetId then
+            warn("❌ Asset ID tidak ditemukan dari imageFrame!")
+            return
+        end
+        
+        -- SEMUA VALIDASI PASS - KIRIM WEBHOOK
+        local rarity = rarityText.Text
+        
+        print("✅ Webhook triggered for:", fishName, "| ID:", currentItemId, "| Tier:", _G.FishTierById[currentItemId])
+        
+        sendFishWebhook(fishName, rarity, assetId, currentItemId, currentVariantId)
     end)
 end
 
