@@ -754,7 +754,6 @@ function StopCast()
 end
 
 function StartAutoFish5X()
-    _G.savePosition()
     FuncAutoFish.autofish5x = true
     FuncAutoFish.CatchLast5x = tick()
     _G.equipRemote:FireServer(1)
@@ -961,6 +960,7 @@ _G.AutoFishes = _G.FishSec:Toggle({
     Title = "Auto Fish",
     Callback = function(value)
         if value then
+            _G.savePosition()
             StartAutoFish5X()
         else
             StopAutoFish5X()
