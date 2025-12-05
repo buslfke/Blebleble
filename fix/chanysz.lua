@@ -3383,9 +3383,12 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
                 -- ===================================
                 -- == [BARU] VALIDASI AMOUNT V3
                 -- ===================================
-                if categoryTradeState.tradeAmount <= 0 then
-                    V3_StatusParagraph:SetDesc("Error: Please enter a valid amount in the 'Amount to Trade (V3)' input.")
-                    pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
+                if categoryTradeState.tradeAmount == nil then
+                    V3_StatusParagraph:SetDesc("Amount unset → Sending ALL matching items.")
+                else
+                    if categoryTradeState.tradeAmount < 1 then
+                        V3_StatusParagraph:SetDesc("Amount invalid → Sending ALL matching items instead.")
+                    end
                 end
                 -- ===================================
 
@@ -3445,8 +3448,16 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
                 
                 -- 4. Kirim item
                 local totalFound = #uuidsToSend
-                -- Gunakan math.min untuk mengambil jumlah yang lebih kecil antara yang ditemukan dan yang diminta
-                local amountToSend = math.min(totalFound, categoryTradeState.tradeAmount) 
+
+                local amountRequested = tonumber(categoryTradeState.tradeAmount)
+                
+                -- Jika amount kosong atau invalid, kirim semua
+                if not amountRequested or amountRequested <= 0 then
+                    amountRequested = totalFound
+                    V3_StatusParagraph:SetDesc("Amount unset → Sending ALL items (" .. totalFound .. ")")
+                end
+                
+                local amountToSend = math.min(totalFound, amountRequested)
                 local successCount, failCount = 0, 0
                 local targetName = tradeState.selectedPlayerName
 
