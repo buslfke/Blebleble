@@ -1,6 +1,5 @@
 local Version = "1.6.53"
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/download/" ..
-Version .. "/main.lua"))()
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Madindun/cukimaw/refs/heads/main/ui.lua"))()
 
 -------------------------------------------
 ----- =======[ GLOBAL FUNCTION ]
