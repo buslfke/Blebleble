@@ -3772,6 +3772,168 @@ myConfig:Register("JumpPower", Jp)
 -------------------------------------------
 
 
+_G.AutoSellEnchantState = {
+    Enabled = false,
+    Amount = 1,
+    LoopThread = nil
+}
+
+_G.RFSellItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/SellItem"]
+
+
+_G.AutoSellProgressParagraph = Utils:Paragraph({
+    Title = "Auto Sell Status",
+    Desc = "Idle..."
+})
+
+function _G.CheckEnchantStone()
+    refreshInventory()
+
+    local total = 0
+
+    for name, list in pairs(inventoryCache) do
+        if string.find(string.lower(name), "stone") then
+            total += #list
+        end
+    end
+
+    if total == 0 then
+        _G.AutoSellProgressParagraph:SetDesc("You have 0 Enchant Stones.")
+        NotifyWarning("Enchant Stone", "No stones found.")
+        return 0
+    end
+
+    local msg = string.format("Total Enchant Stones Available: %d", total)
+    _G.AutoSellProgressParagraph:SetDesc(msg)
+    NotifySuccess("Enchant Stone", msg)
+    return total
+end
+
+
+function _G.StartAutoSellEnchant()
+    if _G.AutoSellEnchantState.Enabled then return end
+
+    _G.AutoSellEnchantState.Enabled = true
+    _G.AutoSellProgressParagraph:SetDesc("Preparing inventory...")
+
+    _G.AutoSellEnchantState.LoopThread = task.spawn(function()
+
+        refreshInventory()
+
+        local stoneUUIDs = {}
+        for name, list in pairs(inventoryCache) do
+            if string.find(string.lower(name), "stone") then
+                for _, uuid in ipairs(list) do
+                    stoneUUIDs[#stoneUUIDs+1] = uuid
+                end
+            end
+        end
+
+        local totalFound = #stoneUUIDs
+
+        if totalFound == 0 then
+            NotifyWarning("Auto Sell", "No enchant stones found.")
+            _G.AutoSellProgressParagraph:SetDesc("No stones found. Stopping.")
+            _G.StopAutoSellEnchant()
+            return
+        end
+
+        -- Amount requested
+        local amountRequested = tonumber(_G.AutoSellEnchantState.Amount) or 1
+
+        -- Actual sellable amount
+        local amountToSell = math.min(amountRequested, totalFound)
+
+        _G.AutoSellProgressParagraph:SetDesc(
+            string.format(
+                "Selling up to %d Enchant Stones...\nInventory has: %d",
+                amountToSell,
+                totalFound
+            )
+        )
+
+        local successCount, failCount = 0, 0
+
+        for i = 1, amountToSell do
+            if not _G.AutoSellEnchantState.Enabled then break end
+
+            local uuid = stoneUUIDs[i]
+            if not uuid then break end
+
+            local ok = pcall(_G.RFSellItem.InvokeServer, _G.RFSellItem, uuid)
+
+            if ok then successCount += 1
+            else failCount += 1 end
+
+            _G.AutoSellProgressParagraph:SetDesc(
+                string.format(
+                    "Selling Enchant Stones...\nProgress: %d / %d\nSuccess=%d | Failed=%d",
+                    i, amountToSell, successCount, failCount
+                )
+            )
+
+            task.wait(1.1)
+        end
+
+        _G.AutoSellProgressParagraph:SetDesc(
+            string.format(
+                "Complete.\nTotal Sold: %d\nTotal Failed: %d",
+                successCount, failCount
+            )
+        )
+
+        NotifySuccess(
+            "Auto Sell Completed",
+            string.format("Sold %d successfully, %d failed", successCount, failCount)
+        )
+
+        _G.StopAutoSellEnchant()
+    end)
+end
+
+
+function _G.StopAutoSellEnchant()
+    _G.AutoSellEnchantState.Enabled = false
+    if _G.AutoSellEnchantState.LoopThread then
+        task.cancel(_G.AutoSellEnchantState.LoopThread)
+    end
+    _G.AutoSellEnchantState.LoopThread = nil
+    _G.AutoSellProgressParagraph:SetDesc("Stopped.")
+end
+
+
+Utils:Input({
+    Title = "Amount",
+    Placeholder = "Enter amount",
+    Default = 5,
+    Callback = function(val)
+        _G.AutoSellEnchantState.Amount = tonumber(val) or 1
+    end
+})
+
+Utils:Button({
+    Title = "Check Enchant Stones",
+    Callback = function()
+        _G.CheckEnchantStone()
+    end
+})
+
+Utils:Toggle({
+    Title = "Sell Enchant Stones",
+    Value = false,
+    Callback = function(state)
+        if state then
+            _G.StartAutoSellEnchant()
+        else
+            _G.StopAutoSellEnchant()
+        end
+    end
+})
+
+Utils:Space()
+
+
+
 _G.RFRedeemCode = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/RedeemCode"]
 
 _G.RedeemCodes = {
