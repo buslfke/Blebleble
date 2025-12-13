@@ -495,11 +495,12 @@ _G.REObtainedNewFishNotification = ReplicatedStorage
     .Packages._Index["sleitnick_net@0.2.0"]
     .net["RE/ObtainedNewFishNotification"]
 
-
 _G.isSpamming = false
 _G.rSpamming = false
+_G.rStopSpam = false
 _G.spamThread = nil
 _G.rspamThread = nil
+_G.stopThread = nil
 _G.lastRecastTime = 0
 _G.DELAY_ANTISTUCK = 10
 _G.isRecasting5x = false
@@ -515,6 +516,7 @@ _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
 _G.RemoteSell = _G.RemotePackage["RF/SellAllItems"]
+_G.REEquipItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
 
 _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
     if _G.sellActive and data then
@@ -526,34 +528,189 @@ _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
     end
 end)
 
-_G.LastSellTick = 0
-
-function _G.TrySellNow()
-    local now = tick()
-    if now - _G.LastSellTick < 1 then 
-        return 
-    end
-    _G.LastSellTick = now
-    _G.RemoteSell:InvokeServer()
+-------------------------------------------
+-- STOP FISHING
+-------------------------------------------
+_G.StopFishing = function()
+    _G.RFCancelFishingInputs:InvokeServer()
+    firesignal(_G.REFishingStopped.OnClientEvent)
 end
+
+-------------------------------------------
+-- APPLY DELAY FROM EQUIPPED ROD (ATTRIBUTE)
+-------------------------------------------
+function _G.ApplyDelayFromEquippedRod()
+    local rodName = LocalPlayer:GetAttribute("FishingRod")
+
+    if type(rodName) ~= "string" then
+        _G.FINISH_DELAY = _G.ROD_PROFILE.Default.FinishDelay
+        return
+    end
+
+    local profile = _G.ROD_PROFILE[rodName] or _G.ROD_PROFILE.Default
+    _G.FINISH_DELAY = profile.FinishDelay
+end
+
+-- LISTEN ATTRIBUTE CHANGE (SYNC POINT)
+LocalPlayer:GetAttributeChangedSignal("FishingRod"):Connect(function()
+    _G.ApplyDelayFromEquippedRod()
+end)
+
+-------------------------------------------
+-- GET CURRENT ISLAND
+-------------------------------------------
+function _G.GetCurrentIsland()
+    -- 1️⃣ SOURCE OF TRUTH: PLAYER ATTRIBUTE
+    local attrIsland = LocalPlayer:GetAttribute("LocationName")
+    if type(attrIsland) == "string" and attrIsland ~= "" then
+        return attrIsland
+    end
+end
+
+-------------------------------------------
+-- GET PLAYER RODS FROM REPLION (FIXED)
+-------------------------------------------
+function _G.GetPlayerRodInventory()
+    local Data = _G.Replion.Client:WaitReplion("Data")
+    if not Data then return {} end
+
+    local rodsData = Data:Get({ "Inventory", "Fishing Rods" })
+    if type(rodsData) ~= "table" then return {} end
+
+    local ItemUtility = require(game.ReplicatedStorage.Shared.ItemUtility)
+    local rods = {}
+
+    for _, rod in ipairs(rodsData) do
+        if rod.UUID and rod.Id then
+            local base = ItemUtility:GetItemData(rod.Id)
+            if base and base.Data and base.Data.Type == "Fishing Rods" then
+                table.insert(rods, {
+                    UUID = rod.UUID,
+                    Id = rod.Id,
+                    Name = base.Data.Name,
+                    Tier = base.Data.Tier,
+                })
+            end
+        end
+    end
+
+    return rods
+end
+
+function _G.EquipBestRodForCurrentIsland()
+    if not _G.REEquipItem then
+        warn("[ROD] REEquipItem missing")
+        return false
+    end
+
+    local island = _G.GetCurrentIsland()
+    local priority =
+        _G.ISLAND_ROD_PRIORITY[island]
+        or _G.ISLAND_ROD_PRIORITY.Default
+
+    if type(priority) ~= "table" then
+        warn("[ROD] No priority list for island:", island)
+        return false
+    end
+
+    local rods = _G.GetPlayerRodInventory()
+    if #rods == 0 then
+        warn("[ROD] Inventory empty")
+        return false
+    end
+
+    -- 🔹 KUMPULKAN SEMUA ROD YANG VALID
+    local candidates = {}
+
+    for _, wantedName in ipairs(priority) do
+        for _, rod in ipairs(rods) do
+            if rod.Name == wantedName then
+                table.insert(candidates, rod)
+            end
+        end
+    end
+
+    if #candidates == 0 then
+        warn("[ROD] No matching rod for island:", island)
+        return false
+    end
+
+    -- 🔹 RANDOM JIKA LEBIH DARI SATU
+    local selectedRod
+    if #candidates == 1 then
+        selectedRod = candidates[1]
+    else
+        math.randomseed(tick() * 1000)
+        selectedRod = candidates[math.random(1, #candidates)]
+    end
+
+    warn("[ROD] Equipping:", selectedRod.Name, "| Tier:", selectedRod.Tier)
+
+    _G.REEquipItem:FireServer(selectedRod.UUID, "Fishing Rods")
+
+    _G.CURRENT_ROD_UUID = selectedRod.UUID
+    _G.CURRENT_ROD_NAME = selectedRod.Name
+    _G.CURRENT_ROD_TIER = selectedRod.Tier
+
+    return true
+end
+
+
+function InitialCast5X()
+    _G.StopFishing()
+    local getPowerFunction = Constants.GetPower
+    local perfectThreshold = 0.99
+    local chargeStartTime = workspace:GetServerTimeNow()
+    rodRemote:InvokeServer(chargeStartTime)
+    local calculationLoopStart = tick()
+
+    local timeoutDuration = 0.01
+
+    local lastPower = 0
+    while (tick() - calculationLoopStart < timeoutDuration) do
+        local currentPower = getPowerFunction(Constants, chargeStartTime)
+        if currentPower < lastPower and lastPower >= perfectThreshold then
+            break
+        end
+
+        lastPower = currentPower
+        task.wait(0.001)
+    end
+    miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
+end
+
+function _G.StopSpam()
+    if _G.rStopSpam then return end
+    _G.rStopSpam = true
+    _G.spamThread = task.spawn(function()
+        for i = 1, 5 do
+            task.wait(0.01) 
+            _G.StopFishing()
+        end
+    end)
+end
+
 
 function _G.RecastSpam()
     if _G.rSpamming then return end
     _G.rSpamming = true
+    
     _G.rspamThread = task.spawn(function()
         while _G.rSpamming do
-            local ok, err = pcall(StartCast5X)
-            if not ok then
-                warn("StartCast5X error:", err)
-                break
-            end
+            task.wait(0.01) 
+            InitialCast5X()
         end
     end)
 end
 
 function _G.StopRecastSpam()
     _G.rSpamming = false
+    if _G.rspamThread then
+        task.cancel(_G.rspamThread) -- Membunuh thread
+        _G.rspamThread = nil
+    end
 end
+
     
 
 function _G.startSpam()
@@ -569,17 +726,15 @@ function _G.stopSpam()
    _G.isSpamming = false
 end
 
+
 _G.REPlayFishingEffect.OnClientEvent:Connect(function(player, head, data)
     if player == Players.LocalPlayer and FuncAutoFish.autofish5x then
-        _G.StopRecastSpam()
+        _G.StopRecastSpam() -- Menghentikan spam cast (sudah di-fix)
+        _G.stopSpam()
     end
 end)
 
-local LowQualityColors = {
-    ["0 0.764706 1 0.333333 0 1 0.764706 1 0.333333 0"] = true,  -- UNCOMMON
-    ["0 0.333333 0.635294 1 0 1 0.333333 0.635294 1 0"] = true,  -- RARE
-    ["0 1 0.980392 0.964706 0 1 1 0.980392 0.964706 0"] = true,  -- COMMON
-}
+
 
 local lastEventTime = tick()
 
@@ -587,14 +742,29 @@ task.spawn(function()
     while task.wait(1) do
         if _G.AutoFishHighQuality and FuncAutoFish.autofish5x and FuncAutoFish.REReplicateTextEffect then
             if tick() - lastEventTime > 10 then
-                StopCast()
-                task.wait(0.5)
-                StartCast5X()
+                _G.StopSpam()
+								task.wait(0.1)
+								_G.RecastSpam()
                 lastEventTime = tick()
             end
         end
     end
 end)
+
+local function approx(a, b, tolerance)
+    return math.abs(a - b) <= (tolerance or 0.02)
+end
+
+local function isColor(r, g, b, R, G, B)
+    return approx(r, R) and approx(g, G) and approx(b, B)
+end
+
+local BAD_COLORS = {
+    COMMON    = {1,       0.980392, 0.964706},
+    UNCOMMON  = {0.764706, 1,        0.333333},
+    RARE      = {0.333333, 0.635294, 1},
+    EPIC      = {0.678431, 0.309804, 1},
+}
 
 FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
 
@@ -604,60 +774,48 @@ FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
     if not (data and data.TextData and data.TextData.TextColor and data.TextData.EffectType == "Exclaim" and myHead and data.Container == myHead) then
         return
     end
-    
-    lastEventTime = tick()
 
+    lastEventTime = tick()
     if _G.AutoFishHighQuality then
-        
         local colorValue = data.TextData.TextColor
         local r, g, b
-
+    
         if typeof(colorValue) == "Color3" then
             r, g, b = colorValue.R, colorValue.G, colorValue.B
         elseif typeof(colorValue) == "ColorSequence" and #colorValue.Keypoints > 0 then
             local c = colorValue.Keypoints[1].Value
             r, g, b = c.R, c.G, c.B
         end
-
+    
+        if not (r and g and b) then return end
+    
         local isBadFish = false
-
-        if r and g and b then
-            if r > 0.9 and g > 0.9 and b > 0.9 then
-                -- COMMON
+    
+        for _, col in pairs(BAD_COLORS) do
+            if isColor(r, g, b, col[1], col[2], col[3]) then
                 isBadFish = true
-            elseif b > 0.9 and r < 0.4 then
-                -- RARE
-                isBadFish = true
-            elseif g > 0.9 and b < 0.4 then
-                -- UNCOMMON
-                isBadFish = true
+                break
             end
-        else
-            warn("Skip Error, Please Rejoin")
         end
-
+    
         if isBadFish then
-            StopCast()
-            task.wait(0.3)
-            StartCast5X()
+            _G.StopFishing()
+            _G.RecastSpam()
         else
             _G.startSpam()
-            task.wait()
-            _G.RecastSpam()
         end
     else
         _G.startSpam()
-        task.wait()
-        _G.RecastSpam()
     end
 end)
 
 
+
 _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
     if FuncAutoFish.autofish5x then
-        _G.lastFishTime = tick()
         _G.stopSpam()
-        _G.StopFishing()
+        _G.lastFishTime = tick()
+        _G.RecastSpam()
     end
 end)
 
@@ -665,48 +823,27 @@ task.spawn(function()
 	while task.wait(1) do
 		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
 			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
-				StopAutoFish5X()
-				task.wait(0.5)
-				StartAutoFish5X()
+				_G.StopSpam()
+				task.wait(0.1)
+				_G.RecastSpam()
 				_G.lastFishTime = tick()
 			end
 		end
 	end
 end)
 
-function StartCast5X()
-    local getPowerFunction = Constants.GetPower
-    local perfectThreshold = 0.99
-    local chargeStartTime = workspace:GetServerTimeNow()
-    rodRemote:InvokeServer(chargeStartTime)
-    local calculationLoopStart = tick()
-    local timeoutDuration = 0.01
-    local lastPower = 0
-    while (tick() - calculationLoopStart < timeoutDuration) do
-        local currentPower = getPowerFunction(Constants, chargeStartTime)
-        if currentPower < lastPower and lastPower >= perfectThreshold then
-            break
-        end
-
-        lastPower = currentPower
-        task.wait(0)
-    end
-    miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
-end
-
-function StopCast()
-    _G.StopFishing()
-end
-
-
+-------------------------------------------
+-- START / STOP AUTO FISH
+-------------------------------------------
 function StartAutoFish5X()
     FuncAutoFish.autofish5x = true
-    _G.AntiStuckEnabled = true
-    lastEventTime = tick()
-    _G.lastFishTime = tick()
+    _G.EquipBestRodForCurrentIsland()
+    task.wait(0.2)
+    _G.ApplyDelayFromEquippedRod()
+    task.wait(0.5)
     _G.equipRemote:FireServer(1)
-    task.wait(0.05)
-    StartCast5X()
+    FuncAutoFish.LastFishTick = tick()
+    InitialCast5X()
 end
 
 function StopAutoFish5X()
@@ -1753,86 +1890,91 @@ local farmLocations = {
     }
 }
 
-local function startAutoFarmLoop()
-    NotifySuccess("Auto Farm Enabled", "Fishing started on island: " .. selectedIsland)
+-------------------------------------------
+-- AUTO FARM (GLOBAL FLAG BASED)
+-------------------------------------------
 
-    while isAutoFarmRunning do  
-        local islandSpots = farmLocations[selectedIsland]  
-        if type(islandSpots) == "table" and #islandSpots > 0 then  
-            location = islandSpots[math.random(1, #islandSpots)]  
-        else  
-            location = islandSpots  
-        end  
+_G.AUTO_FARM = _G.AUTO_FARM or false
+_G.FARM_ISLAND = _G.FARM_ISLAND or "Crater Islands"
+_G.__AUTO_FARM_THREAD = nil
 
-        if not location then  
-            NotifyError("Invalid Island", "Selected island name not found.")  
-            return  
-        end  
+local function teleportTo(cf)
+    local char = workspace:FindFirstChild("Characters")
+        and workspace.Characters:FindFirstChild(LocalPlayer.Name)
 
-        local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)  
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")  
-        if not hrp then  
-            NotifyError("Teleport Failed", "HumanoidRootPart not found.")  
-            return  
-        end  
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
 
-        hrp.CFrame = location  
-        task.wait(1.5)  
-
-        StartAutoFish5X()
-        
-        while isAutoFarmRunning do
-            if not isAutoFarmRunning then  
-                StopAutoFish5X()  
-                NotifyWarning("Auto Farm Stopped", "Auto Farm manually disabled. Auto Fish stopped.")  
-                break  
-            end  
-            task.wait(0.5)
-        end
-    end
-end      
-
-local nameList = {}
-local islandNamesToCode = {}
-
-for code, name in pairs(islandCodes) do
-    table.insert(nameList, name)
-    islandNamesToCode[name] = code
+    hrp.CFrame = cf
+    return true
 end
 
-table.sort(nameList)
+task.spawn(function()
+    while true do
+        task.wait(1)
 
-local CodeIsland = AutoFarmTab:Dropdown({
-    Title = "Farm Island",
-    Values = nameList,
-    Value = nameList[9],
-    Callback = function(selectedName)
-        local code = islandNamesToCode[selectedName]
-        local islandName = islandCodes[code]
-        if islandName and farmLocations[islandName] then
-            selectedIsland = islandName
-            NotifySuccess("Island Selected", "Farming location set to " .. islandName)
-        else
-            NotifyError("Invalid Selection", "The island name is not recognized.")
+        -- START
+        if _G.AUTO_FARM and not _G.__AUTO_FARM_THREAD then
+            warn("[AUTO FARM] Started on island:", _G.FARM_ISLAND)
+
+            _G.__AUTO_FARM_THREAD = task.spawn(function()
+                while _G.AUTO_FARM do
+                    local islandName = _G.FARM_ISLAND
+                    local islandSpots = farmLocations[islandName]
+
+                    if not islandSpots then
+                        warn("[AUTO FARM] Invalid island:", islandName)
+                        break
+                    end
+
+                    local location
+                    if type(islandSpots) == "table" then
+                        location = islandSpots[math.random(1, #islandSpots)]
+                    else
+                        location = islandSpots
+                    end
+
+                    if not teleportTo(location) then
+                        warn("[AUTO FARM] Teleport failed")
+                        break
+                    end
+
+                    task.wait(1.5)
+
+                    if StartAutoFish5X then
+                        StartAutoFish5X()
+                    end
+
+                    -- Stay fishing until disabled or island changed
+                    while _G.AUTO_FARM and _G.FARM_ISLAND == islandName do
+                        task.wait(0.5)
+                    end
+
+                    if StopAutoFish5X then
+                        StopAutoFish5X()
+                    end
+
+                    task.wait(1)
+                end
+
+                warn("[AUTO FARM] Stopped")
+                _G.__AUTO_FARM_THREAD = nil
+            end)
+        end
+
+        -- STOP
+        if not _G.AUTO_FARM and _G.__AUTO_FARM_THREAD then
+            task.cancel(_G.__AUTO_FARM_THREAD)
+            _G.__AUTO_FARM_THREAD = nil
+
+            if StopAutoFish5X then
+                StopAutoFish5X()
+            end
+
+            warn("[AUTO FARM] Force stopped")
         end
     end
-})
-
-myConfig:Register("IslCode", CodeIsland)
-
-local AutoFarm = AutoFarmTab:Toggle({
-	Title = "Start Auto Farm",
-	Callback = function(state)
-		isAutoFarmRunning = state
-		if state then
-			startAutoFarmLoop()
-		else
-			StopAutoFish()
-		end
-	end
-})
-
-myConfig:Register("AutoFarmStart", AutoFarm)
+end)
 
 local eventNamesForDropdown = {}
 for name in pairs(eventMap) do
@@ -3193,7 +3335,8 @@ Utils:Dropdown({
     end
 })
 
-local weatherActive = {}
+_G.weatherActive = {"Storm", "Cloudy", "Snow", "Wind", "Radiant"}
+
 local weatherData = {
     ["Storm"] = { duration = 900 },
     ["Cloudy"] = { duration = 900 },
@@ -3214,7 +3357,7 @@ local function autoBuyWeather(weatherType)
         :WaitForChild("RF/PurchaseWeatherEvent")
 
     task.spawn(function()
-        while weatherActive[weatherType] do
+        while _G.weatherActive[weatherType] do
             pcall(function()
                 purchaseRemote:InvokeServer(weatherType)
                 NotifySuccess("Weather Purchased", "Successfully activated " .. weatherType)
@@ -4035,8 +4178,6 @@ end
 
 startFishDetection()
 
-
-
 -------------------------------------------
 ----- =======[ SETTINGS TAB ]
 -------------------------------------------
@@ -4180,3 +4321,112 @@ SettingsTab:Button({
         NotifySuccess("Config Loaded", "Config has beed loaded!")
     end
 })
+
+-------------------------------------------
+-- AUTO POTION (FLAG BASED, NO FUNCTION CALL)
+-------------------------------------------
+
+_G.RFConsumePotion = ReplicatedStorage
+    .Packages._Index["sleitnick_net@0.2.0"]
+    .net["RF/ConsumePotion"]
+
+_G.POTION_DELAY_SECONDS = 60
+_G.POTION_AMOUNT = 1
+
+_G.__AUTO_POTION_THREAD = nil
+_G.AUTO_POTION = _G.AUTO_POTION or false
+
+------------------------------------------------
+-- GET ALL POTIONS FROM REPLION
+------------------------------------------------
+function _G.GetAllPotions()
+    if not _G.Replion or not _G.ItemUtility then
+        return {}
+    end
+
+    local Data = _G.Replion.Client:WaitReplion("Data")
+    if not Data then return {} end
+
+    local potions = Data:Get({ "Inventory", "Potions" })
+    if type(potions) ~= "table" then return {} end
+
+    local result = {}
+
+    for _, item in ipairs(potions) do
+        if item.UUID and item.Id and (item.Quantity or 0) > 0 then
+            local potionData = _G.ItemUtility:GetPotionData(item.Id)
+            if potionData and potionData.Data then
+                table.insert(result, {
+                    Name = potionData.Data.Name or "Unknown",
+                    UUID = item.UUID,
+                    Quantity = item.Quantity or 1,
+                })
+            end
+        end
+    end
+
+    return result
+end
+
+------------------------------------------------
+-- FLAG WATCHER LOOP (AUTO START / STOP)
+------------------------------------------------
+task.spawn(function()
+    while true do
+        task.wait(1)
+
+        -- START
+        if _G.AUTO_POTION and not _G.__AUTO_POTION_THREAD then
+            warn("[AUTO POTION] Started")
+
+            _G.__AUTO_POTION_THREAD = task.spawn(function()
+                while _G.AUTO_POTION do
+
+                    local potions = _G.GetAllPotions()
+
+                    if #potions == 0 then
+                        warn("[AUTO POTION] No potions available")
+                    end
+
+                    for _, potion in ipairs(potions) do
+                        if not _G.AUTO_POTION then break end
+                        if potion.Quantity <= 0 then continue end
+
+                        local ok, err = pcall(function()
+                            _G.RFConsumePotion:InvokeServer(
+                                potion.UUID,
+                                _G.POTION_AMOUNT
+                            )
+                        end)
+
+                        if ok then
+                            warn("[AUTO POTION] Used 1x", potion.Name)
+                        else
+                            warn("[AUTO POTION] Failed:", potion.Name, err)
+                        end
+
+                        task.wait(0.25)
+                    end
+
+                    -- Delay 15 menit
+                    local waited = 0
+                    while waited < _G.POTION_DELAY_SECONDS and _G.AUTO_POTION do
+                        local step = math.min(5, _G.POTION_DELAY_SECONDS - waited)
+                        task.wait(step)
+                        waited += step
+                    end
+                end
+
+                warn("[AUTO POTION] Stopped")
+                _G.__AUTO_POTION_THREAD = nil
+            end)
+        end
+
+        -- STOP
+        if not _G.AUTO_POTION and _G.__AUTO_POTION_THREAD then
+            task.cancel(_G.__AUTO_POTION_THREAD)
+            _G.__AUTO_POTION_THREAD = nil
+            warn("[AUTO POTION] Force stopped")
+        end
+    end
+end)
