@@ -505,15 +505,15 @@ _G.spamThread = nil
 _G.rspamThread = nil
 _G.stopThread = nil
 _G.lastRecastTime = 0
-_G.DELAY_ANTISTUCK = 10
+_G.DELAY_ANTISTUCK = 8
 _G.isRecasting5x = false
-_G.STUCK_TIMEOUT = 10
-_G.AntiStuckEnabled = false
+_G.STUCK_TIMEOUT = 8
+_G.AntiStuckEnabled = true
 _G.lastFishTime = tick()
 _G.FINISH_DELAY = 2
 _G.fishCounter = 0
-_G.sellThreshold = 5
-_G.sellActive = false
+_G.sellThreshold = 500
+_G.sellActive = true
 _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
@@ -4499,14 +4499,11 @@ function startFishDetection()
             return
         end
         
-        -- VALIDASI 2: Cek apakah Tier sesuai filter
         if not isTargetTier(currentItemId) then
-            -- Debug (hapus nanti)
-            -- print("⚠️ Ikan tidak masuk filter tier:", fishName, "| ID:", currentItemId)
             return
         end
         
-        -- VALIDASI 3: Cross-check Nama dengan ItemId
+   
         local expectedFishData = FishDataById[currentItemId]
         if expectedFishData then
             local expectedName = expectedFishData.Name
@@ -4944,7 +4941,7 @@ local Background = Instance.new("Frame")
 Background.Size = UDim2.new(1, 0, 1, 0)
 Background.Position = UDim2.new(0, 0, 0, 0)
 Background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Background.BackgroundTransparency = 0 -- FULL HITAM
+Background.BackgroundTransparency = 0.5 -- FULL HITAM
 Background.BorderSizePixel = 0
 Background.Parent = ScreenGui
 
