@@ -4229,31 +4229,148 @@ SettingsTab:Toggle({
     end
 })
 
-SettingsTab:Button({
-	Title = "Boost FPS (Maximize Performance)",
-	Callback = function()
-		for _, v in pairs(game:GetDescendants()) do
-			if v:IsA("BasePart") then
-				v.Material = Enum.Material.SmoothPlastic
-				v.Reflectance = 0
-			elseif v:IsA("Decal") or v:IsA("Texture") then
-				v.Transparency = 1
-			end
-		end
+-- ===============================
+-- INTERNAL STATE
+-- ===============================
+_G._FPS_APPLIED = _G._FPS_APPLIED or false
 
-		local Lighting = game:GetService("Lighting")
-		for _, effect in pairs(Lighting:GetChildren()) do
-			if effect:IsA("PostEffect") then
-				effect.Enabled = false
-			end
-		end
+-- ===============================
+-- BOOST FPS FUNCTION
+-- ===============================
+local function ApplyBoostFPS()
+    if _G._FPS_APPLIED then return end
+    _G._FPS_APPLIED = true
 
-		Lighting.GlobalShadows = false
-		Lighting.FogEnd = 1e10
+    local Lighting = game:GetService("Lighting")
+    local Terrain = workspace:FindFirstChildOfClass("Terrain")
 
-		settings().Rendering.QualityLevel = "Level01"
-	end
-})
+    -- ===============================
+    -- WORLD OBJECT OPTIMIZATION
+    -- ===============================
+    for _, v in ipairs(game:GetDescendants()) do
+        pcall(function()
+            if v:IsA("BasePart") then
+                v.Material = Enum.Material.SmoothPlastic
+                v.Reflectance = 0
+                v.CastShadow = false
+                if v.Transparency > 0.5 then
+                    v.Transparency = 1
+                end
+
+            elseif v:IsA("Decal") or v:IsA("Texture") then
+                v.Transparency = 1
+
+            elseif v:IsA("ParticleEmitter")
+                or v:IsA("Trail") then
+                v.Lifetime = NumberRange.new(0)
+
+            elseif v:IsA("Smoke")
+                or v:IsA("Fire")
+                or v:IsA("Explosion")
+                or v:IsA("ForceField")
+                or v:IsA("Sparkles")
+                or v:IsA("Beam")
+                or v:IsA("SpotLight")
+                or v:IsA("PointLight")
+                or v:IsA("SurfaceLight") then
+                v.Enabled = false
+
+            elseif v:IsA("Shirt")
+                or v:IsA("Pants")
+                or v:IsA("ShirtGraphic") then
+                v:Destroy()
+            end
+        end)
+    end
+
+    -- ===============================
+    -- LIGHTING OPTIMIZATION
+    -- ===============================
+    for _, effect in ipairs(Lighting:GetChildren()) do
+        if effect:IsA("PostEffect") then
+            effect.Enabled = false
+        end
+    end
+
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+    Lighting.Brightness = 1
+    Lighting.EnvironmentDiffuseScale = 0
+    Lighting.EnvironmentSpecularScale = 0
+    Lighting.ClockTime = 12
+    Lighting.Ambient = Color3.new(1, 1, 1)
+    Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+
+    -- ===============================
+    -- TERRAIN OPTIMIZATION
+    -- ===============================
+    if Terrain then
+        Terrain.WaterWaveSize = 0
+        Terrain.WaterWaveSpeed = 0
+        Terrain.WaterReflectance = 0
+        Terrain.WaterTransparency = 1
+        Terrain.Decoration = false
+    end
+
+    -- ===============================
+    -- ENGINE SETTINGS
+    -- ===============================
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level01
+    settings().Rendering.TextureQuality = Enum.TextureQuality.Low
+
+    game:GetService("UserSettings").GameSettings.SavedQualityLevel =
+        Enum.SavedQualitySetting.QualityLevel1
+
+    -- ===============================
+    -- SOUND OPTIMIZATION
+    -- ===============================
+    for _, s in ipairs(workspace:GetDescendants()) do
+        if s:IsA("Sound") and s.Playing and s.Volume > 0.5 then
+            s.Volume = 0.1
+        end
+    end
+
+    -- ===============================
+    -- MEMORY CLEAN
+    -- ===============================
+    if collectgarbage then
+        collectgarbage("collect")
+    end
+
+    -- ===============================
+    -- OPTIONAL FULL WHITE SCREEN
+    -- ===============================
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "FPSBoost_WhiteScreen"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = game:GetService("CoreGui")
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundColor3 = Color3.new(1, 1, 1)
+    frame.BorderSizePixel = 0
+    frame.Parent = gui
+
+    print("[BOOST FPS] Ultra Low Graphics Applied")
+end
+
+-- ===============================
+-- AUTO EXECUTION WATCHER
+-- ===============================
+task.spawn(function()
+    while true do
+        task.wait(1)
+
+        if _G.BOOST_FPS then
+            ApplyBoostFPS()
+        else
+            _G._FPS_APPLIED = false
+        end
+    end
+end)
 
 SettingsTab:Button({
 	Title = "HDR Shader",
