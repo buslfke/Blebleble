@@ -4927,51 +4927,71 @@ end
 
 local CoreGui = game:GetService("CoreGui")
 
+-- HAPUS HUD LAMA JIKA ADA
+pcall(function()
+    CoreGui:FindFirstChild("FishCounterHUD"):Destroy()
+end)
+
+-- SCREEN GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "FishCounterHUD"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = CoreGui
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 360, 0, 120)
-Frame.Position = UDim2.new(0.5, -180, 0.5, -60)
-Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Frame.BackgroundTransparency = 0.25
-Frame.BorderSizePixel = 0
-Frame.Parent = ScreenGui
+-- FULL BLACK BACKGROUND
+local Background = Instance.new("Frame")
+Background.Size = UDim2.new(1, 0, 1, 0)
+Background.Position = UDim2.new(0, 0, 0, 0)
+Background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Background.BackgroundTransparency = 0 -- FULL HITAM
+Background.BorderSizePixel = 0
+Background.Parent = ScreenGui
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 14)
-Corner.Parent = Frame
+-- CONTAINER TENGAH
+local Container = Instance.new("Frame")
+Container.Size = UDim2.new(1, 0, 0, 160)
+Container.Position = UDim2.new(0, 0, 0.5, -80)
+Container.BackgroundTransparency = 1
+Container.Parent = Background
 
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Thickness = 1
-UIStroke.Color = Color3.fromRGB(60, 60, 60)
-UIStroke.Parent = Frame
+-- UI LIST LAYOUT (VERTIKAL CENTER)
+local Layout = Instance.new("UIListLayout")
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Layout.VerticalAlignment = Enum.VerticalAlignment.Center
+Layout.Padding = UDim.new(0, 10)
+Layout.Parent = Container
 
-function createLabel(y, text)
+-- LABEL CREATOR (CENTER)
+local function createCenterLabel(text, size)
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -20, 0, 28)
-    label.Position = UDim2.new(0, 10, 0, y)
+    label.Size = UDim2.new(1, 0, 0, size + 10)
     label.BackgroundTransparency = 1
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.Font = Enum.Font.GothamSemibold
-    label.TextSize = 14
-    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextSize = size
+    label.TextXAlignment = Enum.TextXAlignment.Center
+    label.TextYAlignment = Enum.TextYAlignment.Center
     label.Text = text
-    label.Parent = Frame
+    label.Parent = Container
     return label
 end
 
-_G.FishLabel = createLabel(10, "🎣 Total Fish Caught : 0")
-_G.InvLabel  = createLabel(42, "🎒 Inventory : N/A")
-_G.StuckLabel = createLabel(74, "⚠️ Last Stuck : Never")
+-- LABELS
+_G.FishLabel = createCenterLabel("🎣 Total Fish Caught : 0", 28)
+_G.InvLabel  = createCenterLabel("🎒 Inventory : N/A", 28)
+_G.StuckLabel = createCenterLabel("⚠️ Last Stuck : Never", 28)
 
+-- UPDATE FUNCTION
 function _G.updateHUD()
-    _G.FishLabel.Text = "🎣 Total Fish Caught : " .. tostring(_G.FISH_COUNTER)
-    _G.InvLabel.Text  = "🎒 Inventory : " .. tostring(getInventoryCount())
-    _G.StuckLabel.Text = "⚠️ Last Stuck : " .. tostring(_G.LAST_STUCK_TIME)
+    _G.FishLabel.Text =
+        "🎣 Total Fish Caught : " .. tostring(_G.FISH_COUNTER or 0)
+
+    _G.InvLabel.Text =
+        "🎒 Inventory : " .. tostring(getInventoryCount())
+
+    _G.StuckLabel.Text =
+        "⚠️ Last Stuck : " .. tostring(_G.LAST_STUCK_TIME or "Never")
 end
 
 _G.updateHUD()
