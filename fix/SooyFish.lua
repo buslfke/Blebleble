@@ -3335,67 +3335,96 @@ Utils:Dropdown({
     end
 })
 
-_G.weatherActive = {"Storm", "Cloudy", "Snow", "Wind", "Radiant"}
+-- ===============================
+-- CONFIG (USER CONTROL)
+-- ===============================
+_G.AUTO_WEATHER = true
 
-local weatherData = {
-    ["Storm"] = { duration = 900 },
-    ["Cloudy"] = { duration = 900 },
-    ["Snow"] = { duration = 900 },
-    ["Wind"] = { duration = 900 },
-    ["Radiant"] = { duration = 900 }
+-- ===============================
+-- WEATHER DATA
+-- ===============================
+local WEATHER_DATA = {
+    Storm    = { duration = 900 },
+    Cloudy  = { duration = 900 },
+    Snow    = { duration = 900 },
+    Wind    = { duration = 900 },
+    Radiant = { duration = 900 },
 }
 
-local function randomDelay(min, max)
-    return math.random(min * 100, max * 100) / 100
+-- ===============================
+-- REMOTE
+-- ===============================
+local PurchaseWeatherRemote = ReplicatedStorage
+    :WaitForChild("Packages")
+    :WaitForChild("_Index")
+    :WaitForChild("sleitnick_net@0.2.0")
+    :WaitForChild("net")
+    :WaitForChild("RF/PurchaseWeatherEvent")
+
+-- ===============================
+-- INTERNAL STATE (DO NOT TOUCH)
+-- ===============================
+_G._WEATHER_RUNNING = _G._WEATHER_RUNNING or {}
+
+local function weatherEnabled(name)
+    if not _G.AUTO_WEATHER then return false end
+    if type(_G.WEATHER_ACTIVE) ~= "table" then return false end
+    return table.find(_G.WEATHER_ACTIVE, name) ~= nil
 end
 
-local function autoBuyWeather(weatherType)
-    local purchaseRemote = ReplicatedStorage:WaitForChild("Packages")
-        :WaitForChild("_Index")
-        :WaitForChild("sleitnick_net@0.2.0")
-        :WaitForChild("net")
-        :WaitForChild("RF/PurchaseWeatherEvent")
+local function startWeatherLoop(weather)
+    if _G._WEATHER_RUNNING[weather] then
+        return -- sudah berjalan, jangan spawn ulang
+    end
+
+    _G._WEATHER_RUNNING[weather] = true
 
     task.spawn(function()
-        while _G.weatherActive[weatherType] do
-            pcall(function()
-                purchaseRemote:InvokeServer(weatherType)
-                NotifySuccess("Weather Purchased", "Successfully activated " .. weatherType)
+        local duration = WEATHER_DATA[weather].duration or 900
 
-                task.wait(weatherData[weatherType].duration)
-
-                local randomWait = randomDelay(1, 5)
-                NotifyInfo("Waiting...", "Delay before next purchase: " .. tostring(randomWait) .. "s")
-                task.wait(randomWait)
+        while weatherEnabled(weather) do
+            local ok, err = pcall(function()
+                PurchaseWeatherRemote:InvokeServer(weather)
             end)
+
+            if ok then
+                print("[AUTO WEATHER] Activated:", weather)
+            else
+                warn("[AUTO WEATHER] Failed:", weather, err)
+            end
+
+            local elapsed = 0
+            while elapsed < duration and weatherEnabled(weather) do
+                task.wait(1)
+                elapsed += 1
+            end
         end
+
+        _G._WEATHER_RUNNING[weather] = nil
     end)
 end
 
-local WeatherDropdown = Utils:Dropdown({
-    Title = "Auto Buy Weather",
-    Values = { "Storm", "Cloudy", "Snow", "Wind", "Radiant" },
-    Value = {},
-    Multi = true,
-    AllowNone = true,
-    Callback = function(selected)
-        for weatherType, active in pairs(weatherActive) do
-            if active and not table.find(selected, weatherType) then
-                weatherActive[weatherType] = false
-                NotifyWarning("Auto Weather", "Auto buying " .. weatherType .. " has been stopped.")
+-- ===============================
+-- MAIN WATCHER LOOP
+-- ===============================
+task.spawn(function()
+    while true do
+        task.wait(2)
+
+        if _G.AUTO_WEATHER then
+            for weather in pairs(WEATHER_DATA) do
+                if weatherEnabled(weather) then
+                    startWeatherLoop(weather)
+                end
             end
-        end
-        for _, weatherType in pairs(selected) do
-            if not weatherActive[weatherType] then
-                weatherActive[weatherType] = true
-                NotifyInfo("Auto Weather", "Auto buying " .. weatherType .. " has started!")
-                autoBuyWeather(weatherType)
+        else
+            -- AUTO_WEATHER OFF → stop all loops gracefully
+            for w in pairs(_G._WEATHER_RUNNING) do
+                _G._WEATHER_RUNNING[w] = nil
             end
         end
     end
-})
-
-myConfig:Register("WeatherDropdown", WeatherDropdown)
+end)
 
 
 local RodItemsPath = game:GetService("ReplicatedStorage"):WaitForChild("Items")
