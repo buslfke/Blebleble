@@ -5014,7 +5014,7 @@ task.spawn(function()
                 task.wait(0.1)
                 _G.RecastSpam()
                 _G.lastFishTime = tick()
-                updateHUD()
+                _G.updateHUD()
             end
         end
     end
