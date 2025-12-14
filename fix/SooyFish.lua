@@ -743,8 +743,8 @@ task.spawn(function()
         if _G.AutoFishHighQuality and FuncAutoFish.autofish5x and FuncAutoFish.REReplicateTextEffect then
             if tick() - lastEventTime > 10 then
                 _G.StopSpam()
-								task.wait(0.1)
-								_G.RecastSpam()
+			    task.wait(0.1)
+				_G.RecastSpam()
                 lastEventTime = tick()
             end
         end
@@ -811,26 +811,7 @@ end)
 
 
 
-_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
-    if FuncAutoFish.autofish5x then
-        _G.stopSpam()
-        _G.lastFishTime = tick()
-        _G.RecastSpam()
-    end
-end)
 
-task.spawn(function()
-	while task.wait(1) do
-		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
-			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
-				_G.StopSpam()
-				task.wait(0.1)
-				_G.RecastSpam()
-				_G.lastFishTime = tick()
-			end
-		end
-	end
-end)
 
 -------------------------------------------
 -- START / STOP AUTO FISH
@@ -3134,79 +3115,6 @@ local Jp = Player:Slider({
 myConfig:Register("JumpPower", Jp)
 
 -------------------------------------------
------ =======[ SKINS TAB ]
--------------------------------------------
-
-_G.RERollSkinCrate = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/RollSkinCrate"]
-_G.RFPurchaseSkinCrate = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/PurchaseSkinCrate"]
-
-_G.SkinCrates = {
-	  ["Luxury Crate"] = {"Cursed Soul", "Timeless", "Disco", "Abyssfire", "Planetary"},
-	  ["Enchanted Crate"] = {"Jelly", "Cursed", "Amber", "Flower Garden", "Aether Shard"},
-	  ["Ocean Crate"] = { "Monochrome", "Crystalized"},
-    ["Silver Crate"] = { "Polarized", "Forsaken", "Earthly", "Neptune's Trident" },
-    ["Energy Crate"] = { "Fiery", "Soulreaver", "Pirate Octopus", "Pinata", "Purple Saber" }
-}
-
-_G.SelectedCrate = "Silver Crate"
-_G.SelectedSkin = "Polarized"
-
-TabSkins:Dropdown({
-    Title = "Select Crate",
-    Values = { "Luxury Crate", "Enchanted Crate", "Ocean Crate", "Silver Crate", "Energy Crate" },
-    Value = _G.SelectedCrate,
-    Callback = function(option)
-        _G.SelectedCrate = option
-        NotifySuccess("Crate Selected", "Selected: " .. option)
-        
-        local skins = _G.SkinCrates[option]
-        if _G.SkinDropdown then
-            _G.SkinDropdown:Refresh(skins)
-            _G.SelectedSkin = skins[1]
-        end
-    end
-})
-
-_G.SkinDropdown = TabSkins:Dropdown({
-    Title = "Select Skin",
-    Values = _G.SkinCrates[_G.SelectedCrate],
-    Value = _G.SelectedSkin,
-    Callback = function(option)
-        _G.SelectedSkin = option
-        NotifySuccess("Skin Selected", "Selected: " .. option
-        )
-    end
-})
-
-TabSkins:Button({
-    Title = "Fake Roll Skin",
-    Callback = function()
-        if _G.RERollSkinCrate then
-            local crate = _G.SelectedCrate
-            local skin = _G.SelectedSkin
-            local data = string.format("[\"Fishing Rods\",\"!!! %s\",1]", skin)
-            firesignal(_G.RERollSkinCrate.OnClientEvent, crate, data)
-            
-            NotifySuccess("Fake Roll Sent", "Crate: " .. crate .. "\nSkin: " .. skin)
-        else
-            warn("RERollSkinCrate not found.")
-        end
-    end
-})
-
-TabSkins:Button({
-    Title = "Buy Selected Crate",
-    Callback = function()
-        if _G.RFPurchaseSkinCrate then
-            _G.RFPurchaseSkinCrate:InvokeServer(_G.SelectedCrate, 1)
-            NotifySuccess("Crate Purchased", "Successfully purchased " .. _G.SelectedCrate)
-        else
-            warn("RFPurchaseSkinCrate not found.")
-        end
-    end
-})
-
--------------------------------------------
 ----- =======[ DOUBLE ENCHANT STONES ]
 -------------------------------------------
 
@@ -4573,6 +4481,105 @@ task.spawn(function()
             task.cancel(_G.__AUTO_POTION_THREAD)
             _G.__AUTO_POTION_THREAD = nil
             warn("[AUTO POTION] Force stopped")
+        end
+    end
+end)
+
+
+_G.FISH_COUNTER = _G.FISH_COUNTER or 0
+_G.LAST_STUCK_TIME = _G.LAST_STUCK_TIME or "Never"
+
+function getInventoryCount()
+    local gui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not gui then return "N/A" end
+
+    local bagSize =
+        gui:FindFirstChild("Backpack")
+        and gui.Backpack:FindFirstChild("Display")
+        and gui.Backpack.Display:FindFirstChild("Inventory")
+        and gui.Backpack.Display.Inventory:FindFirstChild("BagSize")
+
+    if bagSize and bagSize:IsA("TextLabel") then
+        return bagSize.Text
+    end
+
+    return "N/A"
+end
+
+local CoreGui = game:GetService("CoreGui")
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "FishCounterHUD"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = CoreGui
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 360, 0, 120)
+Frame.Position = UDim2.new(0.5, -180, 0.5, -60)
+Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Frame.BackgroundTransparency = 0.25
+Frame.BorderSizePixel = 0
+Frame.Parent = ScreenGui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 14)
+Corner.Parent = Frame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 1
+UIStroke.Color = Color3.fromRGB(60, 60, 60)
+UIStroke.Parent = Frame
+
+function createLabel(y, text)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 28)
+    label.Position = UDim2.new(0, 10, 0, y)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = text
+    label.Parent = Frame
+    return label
+end
+
+local FishLabel = createLabel(10, "🎣 Total Fish Caught : 0")
+local InvLabel  = createLabel(42, "🎒 Inventory : N/A")
+local StuckLabel = createLabel(74, "⚠️ Last Stuck : Never")
+
+function _G.updateHUD()
+    FishLabel.Text = "🎣 Total Fish Caught : " .. tostring(_G.FISH_COUNTER)
+    InvLabel.Text  = "🎒 Inventory : " .. tostring(getInventoryCount())
+    StuckLabel.Text = "⚠️ Last Stuck : " .. tostring(_G.LAST_STUCK_TIME)
+end
+
+_G.updateHUD()
+
+_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
+    if FuncAutoFish.autofish5x then
+        _G.stopSpam()
+        _G.lastFishTime = tick()
+        _G.FISH_COUNTER += 1
+        _G.updateHUD()
+        _G.RecastSpam()
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        if _G.AntiStuckEnabled
+            and FuncAutoFish.autofish5x
+            and not _G.AutoFishHighQuality then
+            if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
+                _G.LAST_STUCK_TIME = os.date("%H:%M:%S")
+                _G.StopSpam()
+                task.wait(0.1)
+                _G.RecastSpam()
+                _G.lastFishTime = tick()
+                updateHUD()
+            end
         end
     end
 end)
