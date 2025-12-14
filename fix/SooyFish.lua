@@ -1,3 +1,6 @@
+
+
+
 ------------------------------------------
 ----- =======[ Load WindUI ]
 -------------------------------------------
@@ -3815,7 +3818,7 @@ local SelectedCategories = { "Secret", "Mythic" }
 -------------------------------------------
 
 -- FUNGSI UNTUK MENDAPATKAN NAMA EXECUTOR
-local function getExecutorName()
+function getExecutorName()
     if getgenv() and getgenv().syn then return "Synapse X" end
     if getgenv() and getgenv().fluxus then return "Fluxus" end
     if getgenv() and getgenv().krnl_load then return "Krnl" end
@@ -3824,7 +3827,7 @@ local function getExecutorName()
 end
 
 -- FUNGSI UNTUK MENDAPATKAN NAMA ROD YANG VALID (Sesuai Path Baru)
-local function getValidRodName()
+function getValidRodName()
     local player = Players.LocalPlayer
     local backpack = player.PlayerGui:WaitForChild("Backpack", 5)
     if not backpack then return "N/A (Backpack Missing)" end
@@ -3852,7 +3855,7 @@ local function getValidRodName()
 end
 
 -- FUNGSI UNTUK MENDAPATKAN JUMLAH INVENTORY
-local function getInventoryCount()
+function getInventoryCount()
     local player = Players.LocalPlayer
     -- Path: .PlayerGui.Backpack.Display.Inventory.BagSize
     local bagSizePath = player.PlayerGui:FindFirstChild("Backpack", 5)
@@ -3866,7 +3869,7 @@ local function getInventoryCount()
     return "N/A"
 end
 
-local function validateWebhook(path)
+function validateWebhook(path)
     local pasteUrl = "https://paste.monster/" .. path .. "/raw/"
     local success, response = pcall(function()
         return game:HttpGet(pasteUrl)
@@ -3902,7 +3905,7 @@ local function validateWebhook(path)
 end
 
 
-local function safeHttpRequest(data)
+function safeHttpRequest(data)
     local requestFunc = syn and syn.request or http and http.request or http_request or request or
     fluxus and fluxus.request
     
@@ -3946,7 +3949,7 @@ end
 
 
 
-local function extractAssetId(iconString)
+function extractAssetId(iconString)
     if type(iconString) ~= "string" then return nil end
 
     -- Format "rbxassetid://125463067542850"
@@ -3963,7 +3966,7 @@ end
 
 local ItemLookupCache = {}
 
-local function getIconIdFromItem(itemId)
+function getIconIdFromItem(itemId)
     if not itemId then return nil end
     if ItemLookupCache[itemId] then return ItemLookupCache[itemId] end
 
@@ -3982,7 +3985,7 @@ local function getIconIdFromItem(itemId)
     return nil
 end
 
-local function resolveImage(assetId)
+function resolveImage(assetId)
     local ok, response = pcall(function()
         local url =
             "https://thumbnails.roblox.com/v1/assets?assetIds=" ..
@@ -4038,7 +4041,7 @@ local FishCategories = {
     ["Legendary"] = {}
 }
 
-local function AutoPopulateCategories()
+function AutoPopulateCategories()
     local itemsFolder = ReplicatedStorage:WaitForChild("Items")
     local count = 0
     
@@ -4153,7 +4156,7 @@ end)
 -- [UPDATE] FUNGSI CEK TARGET BERDASARKAN TIER
 -- ==================================================================
 
-local function isTargetTier(itemId)
+function isTargetTier(itemId)
     if not itemId then return false end
     local tierNumber = _G.FishTierById[itemId]
     if not tierNumber then return false end
@@ -4171,7 +4174,7 @@ end
 
 
 _G.BNNotif = true
-local apiKey = FishNotif:Input({
+FishNotif:Input({
     Title = "Key Notification",
     Desc = "Input your private key!",
     Placeholder = "Enter Key....",
@@ -4200,8 +4203,6 @@ local apiKey = FishNotif:Input({
         end
     end
 })
-
-myConfig:Register("FishApiKey", apiKey)
 
 FishNotif:Toggle({
     Title = "Fish Notification",
@@ -4263,7 +4264,7 @@ FishNotif:Button({
 -------------------------------------------
 
 -- GANTI LAGI FUNGSI LAMA ANDA DENGAN VERSI FINAL INI
-local function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
+function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
 
     local WebhookURL = "https://discord.com/api/webhooks/1415211763091247155/oPwylc3-SPn35TcC7mZKmFPnbGSqGa6xOqRAD2FMkBOLb0PbGRpkfcT_jgF6kS0gNMpX"
     local username = LocalPlayer.DisplayName or LocalPlayer.Name
@@ -4416,7 +4417,7 @@ local function detectExecutor()
     return "Unknown Executor"
 end
 
-local function sendDisconnectWebhook(reason)
+function sendDisconnectWebhook(reason)
 
     local WebhookURL = "https://discord.com/api/webhooks/1415211763091247155/oPwylc3-SPn35TcC7mZKmFPnbGSqGa6xOqRAD2FMkBOLb0PbGRpkfcT_jgF6kS0gNMpX"
     local username = LocalPlayer.DisplayName or "Unknown Player"
@@ -4460,7 +4461,7 @@ REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, metadata)
     LastCatchData.VariantId = metadata and (metadata.Variant or metadata.VariantId)
 end)
 
-local function startFishDetection()
+function startFishDetection()
     local plr = LocalPlayer
     local guiNotif = plr.PlayerGui:WaitForChild("Small Notification", 10)
     if not guiNotif then
@@ -4707,14 +4708,14 @@ SettingsTab:Button({
 
 local TeleportService = game:GetService("TeleportService")
 
-local function Rejoin()
+function Rejoin()
 	local player = Players.LocalPlayer
 	if player then
 		TeleportService:Teleport(game.PlaceId, player)
 	end
 end
 
-local function ServerHop()
+function ServerHop()
 	local placeId = game.PlaceId
 	local servers = {}
 	local cursor = ""
@@ -4750,7 +4751,7 @@ local function ServerHop()
 	end
 end
 
-local Keybind = SettingsTab:Keybind({
+SettingsTab:Keybind({
     Title = "Keybind",
     Desc = "Keybind to open UI",
     Value = "G",
@@ -4963,14 +4964,14 @@ function createLabel(y, text)
     return label
 end
 
-local FishLabel = createLabel(10, "🎣 Total Fish Caught : 0")
-local InvLabel  = createLabel(42, "🎒 Inventory : N/A")
-local StuckLabel = createLabel(74, "⚠️ Last Stuck : Never")
+_G.FishLabel = createLabel(10, "🎣 Total Fish Caught : 0")
+_G.InvLabel  = createLabel(42, "🎒 Inventory : N/A")
+_G.StuckLabel = createLabel(74, "⚠️ Last Stuck : Never")
 
 function _G.updateHUD()
-    FishLabel.Text = "🎣 Total Fish Caught : " .. tostring(_G.FISH_COUNTER)
-    InvLabel.Text  = "🎒 Inventory : " .. tostring(getInventoryCount())
-    StuckLabel.Text = "⚠️ Last Stuck : " .. tostring(_G.LAST_STUCK_TIME)
+    _G.FishLabel.Text = "🎣 Total Fish Caught : " .. tostring(_G.FISH_COUNTER)
+    _G.InvLabel.Text  = "🎒 Inventory : " .. tostring(getInventoryCount())
+    _G.StuckLabel.Text = "⚠️ Last Stuck : " .. tostring(_G.LAST_STUCK_TIME)
 end
 
 _G.updateHUD()
