@@ -2497,7 +2497,22 @@ _G.ReplicatedStorage = game:GetService("ReplicatedStorage")
 _G.Players = game:GetService("Players")
 _G.LocalPlayer = _G.Players.LocalPlayer
 
-_G.QuestList = require(_G.ReplicatedStorage.Shared.Quests.QuestList)
+-- GANTI INI
+-- _G.QuestList = require(ReplicatedStorage.Shared.Quests.QuestList)
+
+-- JADI INI
+local RawQuests = require(ReplicatedStorage.Modules.Quests)
+
+_G.QuestList = {
+    DeepSea = {
+        ReplionPath = "DeepSea",
+        Objectives = RawQuests.Mainline["Deep Sea Quest"].Objectives
+    },
+    ElementJungle = {
+        ReplionPath = "Element",
+        Objectives = RawQuests.Mainline["Element Quest"].Objectives
+    }
+}
 
 _G.Locations = {
     TreasureRoom = CFrame.new(-3625.0708, -279.074219, -1594.57605, 0.918176472, -3.97606392e-09, -0.396171629, -1.12946204e-08, 1,
@@ -2553,85 +2568,60 @@ _G.AutoQuestState = {
 }
 
 
-function _G.GetUpdatedQuestProgress(questCategoryName)
+function _G.GetUpdatedQuestProgress(category)
     if not _G.DataReplion then return nil, false end
-    
-    -- 1. Dapatkan info statis dari QuestList
-    local staticInfo = _G.QuestList[questCategoryName]
-    local replionPath = staticInfo.ReplionPath -- e.g., "DeepSea"
-    
-    -- ===================================================================
-    -- == [PERBAIKAN REALTIME] MENGECEK FLAG "COMPLETED" TERLEBIH DAHULU ==
-    -- ===================================================================
-    
-    -- 2. Tentukan path data di Replion berdasarkan file Anda
-    
-    -- Path ini HANYA 'true' atau 'false'.
-    local completedPath = replionPath .. ".Completed" 
-    
-    -- Path ini berisi progress {10, 0, 1, ...}
-    local availablePath = replionPath .. ".Available.Forever" 
-    
-    -- 3. Cek data "Completed" dari server menggunakan Replion:Get()
-    local successCompleted, isCategoryComplete = pcall(_G.DataReplion.Get, _G.DataReplion, completedPath)
+
+    local staticInfo = _G.QuestList[category]
+    if not staticInfo then return nil, false end
+
+    local completedPath = staticInfo.ReplionPath .. ".Completed"
+    local questsPath    = staticInfo.ReplionPath .. ".Available.Forever.Quests"
+
+    local isCompleted = false
+    pcall(function()
+        isCompleted = _G.DataReplion:Get(completedPath)
+    end)
+
+    local replionQuests = {}
+    pcall(function()
+        replionQuests = _G.DataReplion:Get(questsPath) or {}
+    end)
 
     local progressTable = {}
-    local allComplete = false
+    local allComplete = true
 
-    if successCompleted and isCategoryComplete == true then
-        -- 
-        -- KASUS 1: QUEST SUDAH SELESAI (FIX UNTUK AKUN ANDA)
-        -- Path "DeepSea.Completed" adalah 'true'.
-        -- Kita isi progress secara manual ke nilai maksimum.
-        --
-        allComplete = true
-        for i, questData in ipairs(staticInfo.Forever) do
-            local totalNeeded = questData.Arguments.value
-            table.insert(progressTable, {
-                Index = i, DisplayName = questData.DisplayName,
-                Current = totalNeeded, Target = totalNeeded, -- << DIPAKSA PENUH
-                IsComplete = true, Key = questData.Arguments.key,
-                Def = questData
-            })
+    for i, objective in ipairs(staticInfo.Objectives) do
+        local target = objective.Goal or 0
+        local current = 0
+
+        if replionQuests[i] and replionQuests[i].Progress then
+            current = replionQuests[i].Progress
         end
-        
-    else
-        -- 
-        -- KASUS 2: QUEST MASIH AKTIF (ATAU 0)
-        -- Path "DeepSea.Completed" adalah 'false' atau 'nil'.
-        -- Sekarang kita aman membaca data "Available.Forever" menggunakan Replion:Get()
-        --
-        local successAvailable, dynamicData = pcall(_G.DataReplion.Get, _G.DataReplion, availablePath)
-        
-        local tempAllComplete = true
-        
-        for i, questData in ipairs(staticInfo.Forever) do
-            local totalNeeded = questData.Arguments.value
-            local currentProgress = 0 -- Default ke 0
-            
-            -- Hanya isi progress jika datanya ada (bukan 'nil' atau '{}')
-            if successAvailable and dynamicData and dynamicData.Quests and dynamicData.Quests[i] and dynamicData.Quests[i].Progress then
-                currentProgress = dynamicData.Quests[i].Progress
-            elseif successAvailable and (not dynamicData or not dynamicData.Quests or not dynamicData.Quests[i]) then
-                currentProgress = totalNeeded
-            end
-            
-            local isComplete = currentProgress >= totalNeeded
-            if not isComplete then
-                tempAllComplete = false
-            end
-            
-            table.insert(progressTable, {
-                Index = i, DisplayName = questData.DisplayName,
-                Current = currentProgress, Target = totalNeeded,
-                IsComplete = isComplete, Key = questData.Arguments.key,
-                Def = questData
-            })
+
+        local done = current >= target
+        if not done then
+            allComplete = false
         end
-        allComplete = tempAllComplete
+
+        table.insert(progressTable, {
+            Index = i,
+            DisplayName = objective.Name,
+            Current = current,
+            Target = target,
+            IsComplete = done,
+            Def = objective,
+            Key = objective.Type
+        })
     end
-    
-    -- Mengembalikan data yang sudah disinkronkan
+
+    if isCompleted then
+        for _, v in ipairs(progressTable) do
+            v.Current = v.Target
+            v.IsComplete = true
+        end
+        allComplete = true
+    end
+
     return progressTable, allComplete
 end
 
@@ -2722,18 +2712,19 @@ function _G.CheckAndRunAutoQuest()
 
     for _, objective in ipairs(progressCache) do
         if not objective.IsComplete and objective.Def then
-            local areaName
-            local conditions = objective.Def.Arguments.conditions
-            if conditions then
+            local areaName = nil
+    
+            local conditions = objective.Def.Conditions
+            if conditions and conditions.AreaName then
                 areaName = conditions.AreaName
             end
-
+    
             if currentQuestName == "DeepSea" and not areaName then
                 if objective.Key == "CatchRareTreasureRoom" then
                     areaName = "Treasure Room"
                 end
             end
-
+    
             if areaName and currentQuestConfig.locationMap[areaName] then
                 targetObjective = objective
                 targetLocationCFrame = currentQuestConfig.locationMap[areaName]
