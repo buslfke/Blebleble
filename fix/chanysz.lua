@@ -242,7 +242,7 @@ Window:EditOpenButton({
 })
 
 Window:Tag({
-    Title = "PREMIUM VERSION",
+    Title = "CUSTOM VERSION",
     Color = Color3.fromHex("#30ff6a")
 })
 
