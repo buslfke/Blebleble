@@ -5276,4 +5276,123 @@ task.spawn(function()
     _G.RefreshTotemInventory()
 end)
 
+
+--------------------------------------------------------------------
+-- ========== [ TRAVELING MERCHANT DISPLAY V1 (Clean UI) ] ==========
+--------------------------------------------------------------------
+
+_G.MarketItemData = require(ReplicatedStorage.Shared.MarketItemData)
+_G.MerchantReplion = _G.Replion.Client:WaitReplion("Merchant")
+_G.RFPurchaseMarketItem =
+    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/PurchaseMarketItem"]
+    
+_G.MarketById = {}
+for _, item in ipairs(_G.MarketItemData) do
+    _G.MarketById[item.Id] = item
+end
+
+_G.MerchantUIState = {
+    CurrentItemIds = {},      
+    SelectedItemId = nil,      
+}
+
+_G.MerchantStatus = _G.Cuki:Paragraph({
+    Title = "Merchant Status",
+    Desc = "Waiting merchant update..."
+})
+
+_G.MerchantDropdown = _G.Cuki:Dropdown({
+    Title = "Merchant Items",
+    Values = { "Waiting data..." },
+    AllowNone = true,
+    SearchBarEnabled = true,
+    Callback = function(str)
+        if not str or str == "" then
+            _G.MerchantUIState.SelectedItemId = nil
+            return
+        end
+
+        -- Ambil ID dari mapping internal
+        local id = _G.DropdownNameToId[str]
+        _G.MerchantUIState.SelectedItemId = id
+
+        if id then
+            local item = _G.MarketById[id]
+            _G.MerchantStatus:SetDesc("Selected: " .. (item.Identifier or "Unknown"))
+        end
+    end
+})
+
+_G.Cuki:Button({
+    Title = "Buy Selected Item",
+    Callback = function()
+        local id = _G.MerchantUIState.SelectedItemId
+        if not id then
+            return NotifyError("Merchant", "No item selected.")
+        end
+
+        local ok, result = pcall(
+            _G.RFPurchaseMarketItem.InvokeServer,
+            _G.RFPurchaseMarketItem,
+            id
+        )
+
+        if ok and result then
+            NotifySuccess("Merchant", "Purchase Success!")
+        else
+            NotifyError("Merchant", "Purchase Failed.")
+        end
+    end
+})
+
+function RefreshMerchantItems()
+    local data = _G.MerchantReplion:Get({"Items"})
+
+    if not data then
+        _G.MerchantDropdown:Refresh({"Empty"})
+        _G.MerchantStatus:SetDesc("Merchant empty.")
+        return
+    end
+
+    local dropdownList = {}
+    _G.DropdownNameToId = {} 
+
+    _G.MerchantUIState.CurrentItemIds = data
+
+    for _, id in ipairs(data) do
+        local item = _G.MarketById[id]
+
+        -- FILTER: Only Coins
+        if item and item.Currency == "Coins" then
+            local display = string.format(
+                "%s | %s Coins",
+                item.Identifier,
+                tostring(item.Price or "?")
+            )
+
+            table.insert(dropdownList, display)
+            _G.DropdownNameToId[display] = id
+        end
+    end
+
+    table.sort(dropdownList)
+
+    if #dropdownList == 0 then
+        table.insert(dropdownList, "No Coin Items")
+    end
+
+    _G.MerchantDropdown:Refresh(dropdownList)
+    _G.MerchantStatus:SetDesc("Merchant Updated. (" .. #dropdownList .. " items)")
+end
+
+_G.MerchantReplion:OnDataChange(function()
+    task.delay(0.2, RefreshMerchantItems)
+end)
+
+task.delay(0.5, RefreshMerchantItems)
+
+
+_G.Cuki:Space()
+
+
 BoostFPS()
