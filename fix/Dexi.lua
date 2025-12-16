@@ -2649,434 +2649,237 @@ AutoFarmArt:Button({
 
 -- ===================================================================
 -- 
--- AUTO QUEST ( GHOSFINN & ELEMENT ROD)
+-- FIXED AUTO QUEST (NO GOTO - UNIVERSAL SUPPORT)
 --
 -- ===================================================================
 
-
-_G.ReplicatedStorage = game:GetService("ReplicatedStorage")
-_G.Players = game:GetService("Players")
-_G.LocalPlayer = _G.Players.LocalPlayer
-
--- GANTI INI
--- _G.QuestList = require(ReplicatedStorage.Shared.Quests.QuestList)
-
--- JADI INI
-local RawQuests = require(ReplicatedStorage.Modules.Quests)
-
-_G.QuestList = {
-    DeepSea = {
-        ReplionPath = "DeepSea",
-        Objectives = RawQuests.Mainline["Deep Sea Quest"].Objectives
-    },
-    ElementJungle = {
-        ReplionPath = "Element",
-        Objectives = RawQuests.Mainline["Element Quest"].Objectives
+do
+    _G.AutoQuestState = {
+        enabled = false,
+        loopThread = nil,
+        selectedQuest = "Deep Sea Quest",
+        currentStepName = "Idle"
     }
-}
+    
+    local autoQuestToggle
+    local statusParagraph
+    local questDropdown
+    local Modules = {} 
 
-_G.Locations = {
-    TreasureRoom = CFrame.new(-3625.0708, -279.074219, -1594.57605, 0.918176472, -3.97606392e-09, -0.396171629, -1.12946204e-08, 1,
-            -3.62128851e-08, 0.396171629, 3.77244298e-08, 0.918176472),
-    Sisyphus = CFrame.new(-3697.77124, -135.074417, -886.946411, 0.979794085, -9.24526766e-09, 0.200008959, 1.35701708e-08, 1,
-            -2.02526174e-08, -0.200008959, 2.25575487e-08, 0.979794085),
-    AncientJungle = CFrame.new(1515.67676, 25.5616989, -306.595856, 0.763029754, -8.87780942e-08, 0.646363378, 5.24343307e-08, 1,
-            7.5451581e-08, -0.646363378, -2.36801707e-08, 0.763029754),
-    SacredTemple = CFrame.new(1470.30334, -12.2246475, -587.052612, -0.101084575, -9.68974163e-08, 0.994877815, -1.47451953e-08, 1,
-            9.5898109e-08, -0.994877815, -4.97584818e-09, -0.101084575)
-}
-
-_G.AutoQuestConfig = {
-    ["DeepSea"] = { 
-        name = "DeepSea", 
-        locationMap = { 
-            ["Sisyphus Statue"] = _G.Locations.Sisyphus, 
-            ["Treasure Room"] = _G.Locations.TreasureRoom 
-        } 
-    },
-    ["ElementJungle"] = { 
-        name = "ElementJungle", 
-        locationMap = { 
-            ["Sacred Temple"] = _G.Locations.SacredTemple, 
-            ["Ancient Jungle"] = _G.Locations.AncientJungle 
-        } 
+    _G.QuestLocations = {
+        ["Treasure Room"] = CFrame.new(-3600, -270, -1642),
+        ["Sisyphus Statue"] = CFrame.new(-3742, -136, -1033),
+        ["Ancient Jungle"] = CFrame.new(1508, 4, -298),
+        ["Underground Cellar"] = CFrame.new(2137, -91, -700),
+        ["Sacred Temple"] = CFrame.new(1499, -22, -641),
+        ["Altar"] = CFrame.new(1491.477, 127.5, -593.159),
+        ["Kohana"] = CFrame.new(-582, 48, 226),
+        ["Kohana Volcano"] = CFrame.new(-602, 54, 119)
     }
-}
 
-function _G.Teleport(targetCFrame)
-    local char = _G.LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if root then
-        NotifyInfo("Teleport", "Teleporting to quest location...")
-        root.CFrame = targetCFrame
-        task.wait(1)
-    else
-        NotifyError("Teleport", "Teleport failed, HumanoidRootPart not found.")
-    end
-end
+    local tierMapIndex = {
+        [1] = "Common", [2] = "Uncommon", [3] = "Rare", 
+        [4] = "Epic", [5] = "Legendary", [6] = "Mythic", [7] = "SECRET"
+    }
 
-_G.QuestProgressCache = {
-    DeepSea = {},
-    ElementJungle = {},
-    IsDeepSeaComplete = false
-}
-
-
-_G.AutoQuestState = {
-    IsRunning = false,
-    CurrentQuest = nil,
-    CurrentStep = "Idle"
-}
-
-
-function _G.GetUpdatedQuestProgress(category)
-    if not _G.DataReplion then return nil, false end
-
-    local staticInfo = _G.QuestList[category]
-    if not staticInfo then return nil, false end
-
-    local completedPath = staticInfo.ReplionPath .. ".Completed"
-    local questsPath    = staticInfo.ReplionPath .. ".Available.Forever.Quests"
-
-    local isCompleted = false
-    pcall(function()
-        isCompleted = _G.DataReplion:Get(completedPath)
-    end)
-
-    local replionQuests = {}
-    pcall(function()
-        replionQuests = _G.DataReplion:Get(questsPath) or {}
-    end)
-
-    local progressTable = {}
-    local allComplete = true
-
-    for i, objective in ipairs(staticInfo.Objectives) do
-        local target = objective.Goal or 0
-        local current = 0
-
-        if replionQuests[i] and replionQuests[i].Progress then
-            current = replionQuests[i].Progress
+    local function teleportTo(cframe)
+        local char = _G.LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            if StopAutoFish5X then StopAutoFish5X() end 
+            root.CFrame = cframe
+            task.wait(1) 
         end
-
-        local done = current >= target
-        if not done then
-            allComplete = false
-        end
-
-        table.insert(progressTable, {
-            Index = i,
-            DisplayName = objective.Name,
-            Current = current,
-            Target = target,
-            IsComplete = done,
-            Def = objective,
-            Key = objective.Type
-        })
     end
 
-    if isCompleted then
-        for _, v in ipairs(progressTable) do
-            v.Current = v.Target
-            v.IsComplete = true
+    local function getActiveQuestData(questName)
+        if not Modules.QuestDefinitions then 
+            local s, r = pcall(function() 
+                return require(game:GetService("ReplicatedStorage").Modules.Quests) 
+            end)
+            if s then Modules.QuestDefinitions = r end
         end
-        allComplete = true
-    end
 
-    return progressTable, allComplete
-end
+        if not Modules.Replion then
+            local s, r = pcall(function()
+                return require(game:GetService("ReplicatedStorage").Packages.Replion)
+            end)
+            if s then Modules.Replion = r end
+        end
 
-
-
-
-
-_G.DS_Paragraph = _G.AutoQuestTab:Paragraph({ Title = "Deep Sea Quest Progress", Desc = "Waiting for Server data..." })
-_G.EJ_Paragraph = _G.AutoQuestTab:Paragraph({ Title = "Element Jungle Quest Progress", Desc = "Waiting for Server data..." })
-
-
-function _G.UpdateProgressParagraphs()
-    if not _G.DataReplion then return end
-
-    -- Update DeepSea
-    local dsProgress, dsComplete = _G.GetUpdatedQuestProgress("DeepSea")
-    if dsProgress then
-        _G.QuestProgressCache.DeepSea = dsProgress
-        _G.QuestProgressCache.IsDeepSeaComplete = dsComplete
+        if not _G.DataReplion and Modules.Replion then 
+             _G.DataReplion = Modules.Replion.Client:WaitReplion("Data")
+        end
         
-        local dsText = ""
-        for _, v in ipairs(dsProgress) do
-            dsText = dsText .. string.format("- %s (%d / %d)\n", v.DisplayName, v.Current, v.Target)
-        end
-        if dsComplete then dsText = "== ALL QUESTS COMPLETE ==\n\n" .. dsText end
-        _G.DS_Paragraph:SetDesc(dsText)
-    end
-    
-    -- Update ElementJungle
-    local ejProgress, ejComplete = _G.GetUpdatedQuestProgress("ElementJungle")
-    if ejProgress then
-        _G.QuestProgressCache.ElementJungle = ejProgress
+        if not _G.DataReplion then return nil end
         
-        local ejText = ""
-        for _, v in ipairs(ejProgress) do
-            ejText = ejText .. string.format("- %s (%d / %d)\n", v.DisplayName, v.Current, v.Target)
-        end
-        if ejComplete then ejText = "== ALL QUESTS COMPLETE ==\n\n" .. ejText end
-        _G.EJ_Paragraph:SetDesc(ejText)
-    end
-end
+        local activeQuests = _G.DataReplion:Get({"Quests", "Mainline"}) 
+        if not activeQuests then return nil end
 
--- ===================================================================
--- 6. LOGIKA AUTO QUEST (The "Brain")
--- ===================================================================
+        local playerQuestData = activeQuests[questName]
+        local questDef = Modules.QuestDefinitions.Mainline and Modules.QuestDefinitions.Mainline[questName]
+        
+        if not (playerQuestData and questDef) then return nil end
 
-function _G.StopAutoQuest()
-    if _G.AutoQuestState.IsRunning then
-        NotifyWarning("Auto Quest", "Auto Quest Stopped.")
-        StopAutoFish5X()
-        _G.AutoQuestState.IsRunning = false
-        _G.AutoQuestState.CurrentQuest = nil
-        _G.AutoQuestState.CurrentStep = "Idle"
-    end
-end
-
-function _G.CheckAndRunAutoQuest()
-    if not _G.AutoQuestState.IsRunning then return end
-
-    local currentQuestName = _G.AutoQuestState.CurrentQuest
-    local currentQuestConfig = _G.AutoQuestConfig[currentQuestName]
-
-    if not currentQuestConfig then
-        NotifyError("Auto Quest", "Config not found for: " .. currentQuestName)
-        _G.StopAutoQuest()
-        return
+        return { def = questDef, progress = playerQuestData }
     end
 
-    local progressCache, isAllComplete
-    if currentQuestName == "DeepSea" then
-        progressCache = _G.QuestProgressCache.DeepSea
-        isAllComplete = _G.QuestProgressCache.IsDeepSeaComplete
-    elseif currentQuestName == "ElementJungle" then
-        if not _G.QuestProgressCache.IsDeepSeaComplete then
-            NotifyError("Auto Quest", "You must complete the Ghostfinn Rod quest first!")
-            _G.StopAutoQuest()
-            return
-        end
-        progressCache = _G.QuestProgressCache.ElementJungle
-        local allDone = true
-        for _, v in ipairs(progressCache) do if not v.IsComplete then allDone = false; break end end
-        isAllComplete = allDone
-    end
+    local function runAutoQuestLoop()
+        while _G.AutoQuestState.enabled do
+            task.wait(0.5) 
 
-    if not progressCache or #progressCache == 0 then return end
+            -- [FIX GOTO] Menggunakan IF block biasa
+            local char = _G.LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-    local targetObjective, targetLocationCFrame, locationName = nil, nil, nil
+            if hrp then
+                local questName = _G.AutoQuestState.selectedQuest
+                local questData = getActiveQuestData(questName)
 
-    for _, objective in ipairs(progressCache) do
-        if not objective.IsComplete and objective.Def then
-            local areaName = nil
-    
-            local conditions = objective.Def.Conditions
-            if conditions and conditions.AreaName then
-                areaName = conditions.AreaName
-            end
-    
-            if currentQuestName == "DeepSea" and not areaName then
-                if objective.Key == "CatchRareTreasureRoom" then
-                    areaName = "Treasure Room"
+                if questData then
+                    local objectives = questData.def.Objectives
+                    local progressData = questData.progress.Objectives
+                    
+                    local statusTextFull = ""
+                    local activeObjective = nil
+
+                    for i, objDef in ipairs(objectives) do
+                        local currentProg = 0
+                        if progressData and progressData[i] then
+                            currentProg = progressData[i].Progress or 0
+                        end
+                        local goal = objDef.Goal or 1 -- [FIX NIL CHECK] Tambahan or 1
+                        local name = objDef.Name
+
+                        if currentProg >= goal then
+                            statusTextFull = statusTextFull .. "✅ " .. name .. "\n"
+                        else
+                            if activeObjective == nil then
+                                activeObjective = objDef
+                                activeObjective._currentProgress = currentProg 
+                                statusTextFull = statusTextFull .. "🎣 " .. name .. " ("..currentProg.."/"..goal..") [Active]\n"
+                            else
+                                statusTextFull = statusTextFull .. "🔴 " .. name .. " ("..currentProg.."/"..goal..") [Wait]\n"
+                            end
+                        end
+                    end
+
+                    if statusParagraph then
+                        statusParagraph:SetDesc(statusTextFull)
+                    end
+
+                    if activeObjective then
+                        local objType = activeObjective.Type
+                        local reqs = activeObjective.Requirements
+                        
+                        if objType == "Catch" then
+                            local targetLocName = nil
+                            local targetTierName = nil
+
+                            if reqs then
+                                if reqs.Location then targetLocName = reqs.Location
+                                elseif reqs.Locations and #reqs.Locations > 0 then targetLocName = reqs.Locations[1] end
+                                
+                                if reqs.Tier then targetTierName = tierMapIndex[reqs.Tier] end
+                            end
+
+                            if targetLocName and _G.QuestLocations[targetLocName] then
+                                local targetCFrame = _G.QuestLocations[targetLocName]
+                                if (hrp.Position - targetCFrame.Position).Magnitude > 50 then
+                                    if StopAutoFish5X then StopAutoFish5X() end
+                                    teleportTo(targetCFrame)
+                                    task.wait(1.5)
+                                end
+                            end
+
+                            if StartAutoFish5X then
+                                -- Cek apakah perlu restart fishing
+                                if not FuncAutoFish.autofish5x then
+                                    StartAutoFish5X()
+                                end
+                            end
+
+                        elseif objType == "CreateTranscendedStone" then
+                            local altarPos = _G.QuestLocations["Altar"]
+                            if (hrp.Position - altarPos.Position).Magnitude > 30 then
+                                teleportTo(altarPos)
+                                task.wait(1)
+                            else
+                                -- Remote aktivasi altar bisa dipanggil di sini jika ada
+                                task.wait(2)
+                            end
+
+                        elseif objType == "EarnedCoins" then
+                             if StartAutoFish5X and (not FuncAutoFish.autofish5x) then
+                                StartAutoFish5X()
+                            end
+                        else
+                            task.wait(1)
+                        end
+                    else
+                        -- Quest Selesai
+                        if statusParagraph then statusParagraph:SetDesc("QUEST COMPLETED!\nAll objectives finished.") end
+                        
+                        _G.AutoQuestState.enabled = false
+                        if StopAutoFish5X then StopAutoFish5X() end
+                        
+                        pcall(function() 
+                            if autoQuestToggle then autoQuestToggle:SetValue(false) end 
+                        end)
+                    end
+                else
+                    if statusParagraph then statusParagraph:SetDesc("Quest not active/found.\nPlease talk to NPC.") end
                 end
             end
-    
-            if areaName and currentQuestConfig.locationMap[areaName] then
-                targetObjective = objective
-                targetLocationCFrame = currentQuestConfig.locationMap[areaName]
-                locationName = areaName
-                break
+        end
+    end
+
+    local function startOrStopAutoQuest(shouldStart)
+        _G.AutoQuestState.enabled = shouldStart
+
+        if _G.AutoQuestState.loopThread then
+            task.cancel(_G.AutoQuestState.loopThread)
+            _G.AutoQuestState.loopThread = nil
+        end
+
+        if shouldStart then
+            if statusParagraph then statusParagraph:SetDesc("Starting...") end
+            _G.AutoQuestState.loopThread = task.spawn(runAutoQuestLoop)
+        else
+            if statusParagraph then statusParagraph:SetDesc("Idle (Stopped).") end
+            if StopAutoFish5X then StopAutoFish5X() end
+            
+            local char = _G.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.Anchored = false
             end
         end
     end
 
-    if targetObjective then
-        local statusText = string.format("Running: %s (%d/%d)", 
-            targetObjective.DisplayName, targetObjective.Current, targetObjective.Target)
+    if _G.AutoQuestTab then
+        local questSection = _G.AutoQuestTab:Section({ Title = "Mainline Auto Quest", TextXAlignment = "Center", Opened = true })
+        
+        statusParagraph = questSection:Paragraph({ Title = "Quest Status", Desc = "Idle." })
 
-        if _G.AutoQuestState.CurrentStep ~= locationName then
-            NotifyInfo("Auto Quest", statusText .. " | Teleporting to: " .. locationName)
-            _G.AutoQuestState.CurrentStep = locationName
-            StopAutoFish5X()
-            _G.Teleport(targetLocationCFrame)
-            StartAutoFish5X()
-        else
-            if not _G.IsAutoFishRunning() then
-                StartAutoFish5X()
+        questDropdown = questSection:Dropdown({
+            Title = "Select Quest Line",
+            Values = { "Deep Sea Quest", "Element Quest", "Aura Quest" }, 
+            Value = "Deep Sea Quest",
+            Callback = function(v)
+                _G.AutoQuestState.selectedQuest = v
+                if statusParagraph then statusParagraph:SetDesc("Selected: " .. v) end
             end
-        end
+        })
+
+        autoQuestToggle = questSection:Toggle({
+            Title = "Enable Auto Quest",
+            Value = false,
+            Callback = startOrStopAutoQuest
+        })
     else
-        if isAllComplete then
-            NotifySuccess("Auto Quest", "All " .. currentQuestName .. " quests are complete!")
-            _G.StopAutoQuest()
-        else
-            NotifyError("Auto Quest", "Cannot find location for next quest. Stopping.")
-            _G.StopAutoQuest()
-        end
+        warn("UI Tab '_G.AutoQuestTab' not found.")
     end
 end
-
--- ===================================================================
--- 7. UI TOGGLES & FUNGSI INISIALISASI (FIXED LISTENERS)
--- ===================================================================
-
-_G.AutoQuestTab:Toggle({
-    Title = "Auto Quest - Ghosfinn Rod",
-    Desc = "Automatically farm the Ghostfinn Rod quest.",
-    Value = false,
-    Callback = function(state)
-        if state then
-            if _G.AutoQuestState.IsRunning then
-                NotifyWarning("Auto Quest", "One auto quest is already running.")
-                return false
-            end
-            NotifySuccess("Auto Quest", "Starting Auto Quest DeepSea...")
-            _G.AutoQuestState.IsRunning = true
-            _G.AutoQuestState.CurrentQuest = "DeepSea"
-            _G.CheckAndRunAutoQuest()
-        else
-            _G.StopAutoQuest()
-        end
-    end
-})
-
-_G.AutoQuestTab:Toggle({
-    Title = "Auto Quest - Element Rod",
-    Desc = "Automatically farm the Element Rod quest. (Requires Ghostfinn Rod).",
-    Value = false,
-    Callback = function(state)
-        if state then
-            if _G.AutoQuestState.IsRunning then
-                NotifyWarning("Auto Quest", "One auto quest is already running.")
-                return false
-            end
-            NotifySuccess("Auto Quest", "Starting Auto Quest Element Rod...")
-            _G.AutoQuestState.IsRunning = true
-            _G.AutoQuestState.CurrentQuest = "ElementJungle"
-            _G.CheckAndRunAutoQuest()
-        else
-            _G.StopAutoQuest()
-        end
-    end
-})
-
-task.spawn(function()
-    while not _G.Replion do 
-        task.wait(2) 
-    end
-    
-    _G.DataReplion = _G.Replion.Client:WaitReplion("Data")
-    if not _G.DataReplion then
-        _G.EJ_Paragraph:SetDesc("Error: Failed to connect to Server.")
-        _G.DS_Paragraph:SetDesc("Error: Failed to connect to Server.")
-        return
-    end
-
-    _G.UpdateProgressParagraphs() -- Panggil sekali saat start
-
-    -- ===================================================================
-    -- == [PERBAIKAN REALTIME]
-    -- == Kita sekarang mendengarkan SEMUA path data yang 
-    -- == digunakan oleh _G.GetUpdatedQuestProgress
-    -- ===================================================================
-
-    -- 1. Tentukan SEMUA path yang perlu dipantau
-    local ejAvailablePath = _G.QuestList.ElementJungle.ReplionPath .. ".Available.Forever.Quests"
-    local dsAvailablePath = _G.QuestList.DeepSea.ReplionPath .. ".Available.Forever.Quests"
-    local ejCompletedPath = _G.QuestList.ElementJungle.ReplionPath .. ".Completed"
-    local dsCompletedPath = _G.QuestList.DeepSea.ReplionPath .. ".Completed"
-
-    -- 2. Buat listener untuk SEMUA path
-    
-    -- Listener untuk quest aktif (logika lama Anda, sudah benar)
-    _G.DataReplion:OnChange(ejAvailablePath, function()
-        _G.UpdateProgressParagraphs()
-        _G.CheckAndRunAutoQuest()
-    end)
-    
-    _G.DataReplion:OnChange(dsAvailablePath, function()
-        _G.UpdateProgressParagraphs()
-        _G.CheckAndRunAutoQuest()
-    end)
-    
-    -- [BARU] Listener untuk status "Completed"
-    -- Ini akan memicu update paragraf saat quest selesai
-    _G.DataReplion:OnChange(ejCompletedPath, function()
-        _G.UpdateProgressParagraphs()
-        _G.CheckAndRunAutoQuest()
-    end)
-    
-    _G.DataReplion:OnChange(dsCompletedPath, function()
-        _G.UpdateProgressParagraphs()
-        _G.CheckAndRunAutoQuest()
-    end)
-end)
-
-
-task.spawn(function()
-    -- wait minimal sampai everything loaded
-    for i = 1, 40 do
-        if _G.UpdateProgressParagraphs and _G.QuestList then break end
-        task.wait(0.1)
-    end
-
-    -- Safety: ensure paragraphs exist, otherwise bail quietly
-    if not _G.DS_Paragraph or not _G.EJ_Paragraph then
-        -- try to wait a bit more
-        for i = 1, 20 do
-            if _G.DS_Paragraph and _G.EJ_Paragraph then break end
-            task.wait(0.1)
-        end
-    end
-
-    if not _G.UpdateProgressParagraphs then
-        warn("[AutoQuest Sync] _G.UpdateProgressParagraphs not found; realtime sync cancelled.")
-        return
-    end
-
-    local watchPaths = {}
-    pcall(function()
-        for key, info in pairs(_G.QuestList or {}) do
-            if info and info.ReplionPath then
-                table.insert(watchPaths, info.ReplionPath .. ".Available.Forever.Quests")
-                table.insert(watchPaths, info.ReplionPath .. ".Completed")
-            end
-        end
-    end)
-
-    pcall(function()
-        if _G.DataReplion and type(_G.DataReplion.OnChange) == "function" then
-            for _, p in ipairs(watchPaths) do
-                -- wrap in pcall to avoid duplicate errors
-                pcall(function()
-                    _G.DataReplion:OnChange(p, function()
-                        -- quick, reactive update
-                        pcall(function()
-                            _G.UpdateProgressParagraphs()
-                            _G.CheckAndRunAutoQuest()
-                        end)
-                    end)
-                end)
-            end
-        end
-    end)
-
-    while task.wait(0.5) do
-        pcall(function()
-            _G.UpdateProgressParagraphs()
-        end)
-        pcall(function()
-            if _G.AutoQuestState and _G.AutoQuestState.IsRunning then
-                _G.CheckAndRunAutoQuest()
-            end
-        end)
-    end
-end)
 
 
 
