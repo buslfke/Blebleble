@@ -3697,9 +3697,9 @@ local rodOptions = {}
 local rodData = {}
 
 for _, rod in ipairs(Items:GetChildren()) do
-	if rod:IsA("ModuleScript") and rod.Name:find("!!!") then
+	if rod:IsA("ModuleScript") then
 		local success, module = pcall(require, rod)
-		if success and module and module.Data then
+		if success and module and module.Data and module.Data.Type == "Fishing Rods" then
 			local id = module.Data.Id
 			local name = module.Data.Name or rod.Name
 			local price = module.Price or module.Data.Price
