@@ -463,6 +463,11 @@ _G.sellThreshold = 5
 _G.sellActive = false
 _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
+function RandomFloat()
+    return 0.01 + math.random() * 0.99
+end
+_G.CastingMode = RandomFloat()
+
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
 _G.RemoteSell = _G.RemotePackage["RF/SellAllItems"]
@@ -494,7 +499,7 @@ function InitialCast5X()
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
     local calculationLoopStart = tick()
-    local timeoutDuration = 1 -- Loop 1 detik ini TETAP DI SINI
+    local timeoutDuration = tonumber(_G.CastingMode) -- Loop 1 detik ini TETAP DI SINI
     local lastPower = 0
     while (tick() - calculationLoopStart < timeoutDuration) do
         local currentPower = getPowerFunction(Constants, chargeStartTime)
@@ -503,7 +508,7 @@ function InitialCast5X()
         end
 
         lastPower = currentPower
-        task.wait(0) -- task.wait(0) diganti dari task.wait() agar lebih cepat
+        task.wait(0.001) -- task.wait(0) diganti dari task.wait() agar lebih cepat
     end
     miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
 end
