@@ -4575,7 +4575,7 @@ SettingsTab:Toggle({
 
 SettingsTab:Space()
 
-local function BoostFPS()
+function BoostFPS()
 	for _, v in pairs(game:GetDescendants()) do
 		if v:IsA("BasePart") then
 			v.Material = Enum.Material.SmoothPlastic
@@ -4758,8 +4758,6 @@ SettingsTab:Button({
         myConfig:Load()
     end
 })
-
-BoostFPS()
 
 
 -- =================================================================
@@ -5277,3 +5275,5 @@ task.spawn(function()
 
     _G.RefreshTotemInventory()
 end)
+
+BoostFPS()
