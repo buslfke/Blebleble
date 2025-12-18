@@ -2026,7 +2026,7 @@ AutoFarmArt:Button({
 
 -- [Trade State Baru]
 local tradeState = { 
-    mode = "V1",
+    mode = "V3",
     selectedPlayerName = nil, 
     selectedPlayerId = nil, 
     tradeAmount = 0, 
@@ -2287,11 +2287,6 @@ Trade:Toggle({
 })
 
 _G.TradeQuietElements = {}
-
--- Sembunyikan elemen GLua secara default, kecuali tombol refresh dan dropdown mode
-for _, element in ipairs(_G.TradeV2Elements) do
-    if element.Element then element.Element.Visible = false end
-end
 
 -- Pastikan elemen Quiet terlihat
 for _, element in ipairs(_G.TradeQuietElements) do
