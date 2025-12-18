@@ -274,6 +274,47 @@ local SettingsTab = AllMenu:Tab({
 ----- =======[ AUTO FISH TAB ]
 -------------------------------------------
 
+_G.DisableAnimations = true
+
+task.spawn(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    
+    local success, AnimController = pcall(require, ReplicatedStorage:WaitForChild("Controllers"):WaitForChild("AnimationController"))
+    
+    if success and AnimController then
+        local originalPlayAnimation = AnimController.PlayAnimation
+        
+        AnimController.PlayAnimation = function(self, ...)
+            if _G.DisableAnimations then
+                if self.DestroyActiveAnimationTracks then
+                    self:DestroyActiveAnimationTracks()
+                end
+                return nil 
+            end
+            return originalPlayAnimation(self, ...)
+        end
+        
+        task.spawn(function()
+            while task.wait(1) do
+                if _G.DisableAnimations then
+                    pcall(function()
+                        local char = Players.LocalPlayer.Character
+                        local hum = char and char:FindFirstChild("Humanoid")
+                        local animator = hum and hum:FindFirstChild("Animator")
+                        if animator then
+                            for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                                track:Stop()
+                            end
+                        end
+                    end)
+                end
+            end
+        end)
+    end
+end)
+
 _G.REFishingStopped = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishingStopped"]
 _G.RFCancelFishingInputs = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/CancelFishingInputs"]
 _G.REUpdateChargeState = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/UpdateChargeState"]
