@@ -2286,6 +2286,8 @@ Trade:Toggle({
     end
 })
 
+Trade:Button({ Title = "Refresh Inventory & Players", Icon = "refresh-cw", Callback = refreshInventory })
+
 _G.TradeQuietElements = {}
 
 -- Pastikan elemen Quiet terlihat
