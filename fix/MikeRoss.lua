@@ -315,6 +315,26 @@ task.spawn(function()
     end
 end)
 
+_G.__UIReady = false
+_G.__ProtectedCallbacks = setmetatable({}, { __mode = "k" })
+
+function _G.ProtectCallback(callback)
+    if type(callback) ~= "function" then return callback end
+
+    local wrapper = function(...)
+        if not _G.__UIReady then
+            -- abaikan eksekusi pertama
+            return
+        end
+
+        return callback(...)
+    end
+
+    -- simpan biar GC tidak makan wrapper
+    _G.__ProtectedCallbacks[wrapper] = callback
+    return wrapper
+end
+
 _G.REFishingStopped = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishingStopped"]
 _G.RFCancelFishingInputs = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/CancelFishingInputs"]
 _G.REUpdateChargeState = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/UpdateChargeState"]
@@ -2478,6 +2498,63 @@ end)
 ----- =======[ SETTINGS TAB ]
 -------------------------------------------
 
+local islandCoords = {
+    ["01"] = { name = "Weather Machine", position = Vector3.new(-1471, -3, 1929) },
+    ["02"] = { name = "Esoteric Depths", position = Vector3.new(3157, -1303, 1439) },
+    ["03"] = { name = "Tropical Grove", position = Vector3.new(-2038, 3, 3650) },
+    ["04"] = { name = "Stingray Shores", position = Vector3.new(-32, 4, 2773) },
+    ["05"] = { name = "Kohana Volcano", position = Vector3.new(-519, 24, 189) },
+    ["06"] = { name = "Coral Reefs", position = Vector3.new(-3095, 1, 2177) },
+    ["07"] = { name = "Crater Island", position = Vector3.new(968, 1, 4854) },
+    ["08"] = { name = "Kohana", position = Vector3.new(-658, 3, 719) },
+    ["09"] = { name = "Winter Fest", position = Vector3.new(1611, 4, 3280) },
+    ["10"] = { name = "Isoteric Island", position = Vector3.new(1987, 4, 1400) },
+    ["11"] = { name = "Treasure Hall", position = Vector3.new(-3600, -267, -1558) },
+    ["12"] = { name = "Lost Shore", position = Vector3.new(-3663, 38, -989) },
+    ["13"] = { name = "Sishypus Statue", position = Vector3.new(-3792, -135, -986) },
+    ["14"] = { name = "Ancient Jungle", position = Vector3.new(1478, 131, -613) },
+    ["15"] = { name = "The Temple", position = Vector3.new(1477, -22, -631) },
+    ["16"] = { name = "Underground Cellar", position = Vector3.new(2133, -91, -674) },
+    ["17"] = {name = "Ancient Ruin", position = Vector3.new(6052, -546, 4427) },
+    ["18"] = {name = "Iron Cavern", position = Vector3.new(-8873, -582, 157) },
+    ["19"] = {name = "Iron Cafe", position = Vector3.new(-8668, -549, 161) },
+    ["20"] = {name = "Classic Island", position = Vector3.new(1259, 10, 2824) },
+    ["21"] = {name = "Christmas Island", position = Vector3.new(873, 26, 1564)}
+}
+
+local islandNames = {}
+for _, data in pairs(islandCoords) do
+    table.insert(islandNames, data.name)
+end
+
+SettingsTab:Dropdown({
+    Title = "Island Selector",
+    Desc = "Select island to teleport",
+    Values = islandNames,
+    SearchBarEnabled = true,
+    Callback = _G.ProtectCallback(function(selectedName)
+        for code, data in pairs(islandCoords) do
+            if data.name == selectedName then
+                local success, err = pcall(function()
+                    local charFolder = workspace:WaitForChild("Characters", 5)
+                    local char = charFolder:FindFirstChild(LocalPlayer.Name)
+                    if not char then error("Character not found") end
+                    local hrp = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 3)
+                    if not hrp then error("HumanoidRootPart not found") end
+                    hrp.CFrame = CFrame.new(data.position + Vector3.new(0, 5, 0))
+                end)
+
+                if success then
+                    NotifySuccess("Teleported!", "You are now at " .. selectedName)
+                else
+                    NotifyError("Teleport Failed", tostring(err))
+                end
+                break
+            end
+        end
+    end)
+})
+
 function _G.savePosition()
     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local root = char:FindFirstChild("HumanoidRootPart")
@@ -2917,6 +2994,11 @@ task.spawn(function()
             end
         end
     end
+end)
+
+task.defer(function()
+    task.wait(0.5) -- buffer sedikit untuk memuat element UI
+    _G.__UIReady = true
 end)
 
 _G.loadPosition()
