@@ -6089,7 +6089,7 @@ SettingsTab:Toggle({
     end
 })
 
-SettingsTab:Button({
+_G.BoostFPS = SettingsTab:Button({
     Title = "Boost FPS (Ultra Low Graphics)",
     Callback = function()
         for _, v in pairs(game:GetDescendants()) do
@@ -6289,19 +6289,12 @@ SettingsTab:Button({
 
 SettingsTab:Space()
 
-SettingsTab:Button({
-    Title = "Load",
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        myConfig:Load()
-        NotifySuccess("Config Loaded", "Config has beed loaded!")
-    end
-})
+_G.loadPosition()
+myConfig:Load()
+_G.BoostFPS()
+
 
 task.defer(function()
     task.wait(0.5) -- buffer sedikit untuk memuat element UI
     _G.__UIReady = true
 end)
-
-_G.loadPosition
