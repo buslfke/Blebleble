@@ -652,6 +652,27 @@ function _G.stopSpam()
    _G.isSpamming = false
 end
 
+_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
+    if FuncAutoFish.autofish5x then
+        _G.stopSpam()
+        _G.lastFishTime = tick()
+        _G.RecastSpam()
+    end
+end)
+
+task.spawn(function()
+	while task.wait(1) do
+		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
+			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
+				StopAutoFish5X()
+				task.wait(1)
+				StartAutoFish5X()
+				_G.lastFishTime = tick()
+			end
+		end
+	end
+end)
+
 
 _G.REPlayFishingEffect.OnClientEvent:Connect(function(player, head, data)
     if player == Players.LocalPlayer and FuncAutoFish.autofish5x then
@@ -3048,30 +3069,6 @@ task.spawn(function()
             task.cancel(_G.__AUTO_POTION_THREAD)
             _G.__AUTO_POTION_THREAD = nil
             warn("[AUTO POTION] Force stopped")
-        end
-    end
-end)
-
-
-_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
-    if FuncAutoFish.autofish5x then
-        _G.stopSpam()
-        _G.lastFishTime = tick()
-        _G.RecastSpam()
-    end
-end)
-
-task.spawn(function()
-    while task.wait(1) do
-        if _G.AntiStuckEnabled
-            and FuncAutoFish.autofish5x
-            and not _G.AutoFishHighQuality then
-            if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
-                _G.StopSpam()
-                task.wait(0.1)
-                _G.RecastSpam()
-                _G.lastFishTime = tick()
-            end
         end
     end
 end)
