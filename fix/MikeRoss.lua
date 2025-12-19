@@ -335,13 +335,17 @@ function _G.ProtectCallback(callback)
     return wrapper
 end
 
+-------------------------------------------
+----- =======[ AUTO FISH TAB ]
+-------------------------------------------
+
 _G.REFishingStopped = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishingStopped"]
 _G.RFCancelFishingInputs = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/CancelFishingInputs"]
 _G.REUpdateChargeState = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/UpdateChargeState"]
 
 
 _G.StopFishing = function()
-	  _G.RFCancelFishingInputs:InvokeServer()
+    _G.RFCancelFishingInputs:InvokeServer()
     firesignal(_G.REFishingStopped.OnClientEvent)
 end
 
@@ -364,8 +368,8 @@ _G.REObtainedNewFishNotification = ReplicatedStorage
     .Packages._Index["sleitnick_net@0.2.0"]
     .net["RE/ObtainedNewFishNotification"]
 
-_G.FishBlatant = true
-_G.SettingBlatant = 1 -- delay default (detik)
+_G.FishBlatant = false
+_G.SettingBlatant = 1.9
 
 _G.BlatantState = {
     Running = false,
@@ -381,19 +385,28 @@ _G.spamThread = nil
 _G.rspamThread = nil
 _G.stopThread = nil
 _G.lastRecastTime = 0
-_G.DELAY_ANTISTUCK = 8
+_G.DELAY_ANTISTUCK = 10
 _G.isRecasting5x = false
-_G.STUCK_TIMEOUT = 8
-_G.AntiStuckEnabled = true
+_G.STUCK_TIMEOUT = 10
+_G.AntiStuckEnabled = false
 _G.lastFishTime = tick()
-_G.FINISH_DELAY = 2
+_G.FINISH_DELAY = 1
 _G.fishCounter = 0
-_G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
+_G.sellThreshold = 30
+_G.sellActive = false
+_G.AutoFishHighQuality = false
+_G.CastTimeoutMode = "Fast"
+_G.CastTimeoutValue = 0.01
+
+function RandomFloat()
+    return 0.01 + math.random() * 0.99
+end
+
+-- [[ KONFIGURASI DELAY ]] --
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
 _G.RemoteSell = _G.RemotePackage["RF/SellAllItems"]
-_G.REEquipItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
 
 _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
     if _G.sellActive and data then
@@ -411,7 +424,7 @@ _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
 
     if _G.BlatantState.FishCount >= _G.BlatantState.Target then
         _G.BlatantState.FishCount = 0
-        _G.BlatantState.Target = 25
+        _G.BlatantState.Target = math.random(5, 10)
 
         _G.RunBlatantBurst()
     end
@@ -419,14 +432,14 @@ end)
 
 function _G.RunBlatantBurst()
     if _G.BlatantState.Running then return end
-    if not _G.FishBlatant then return end
     if not FuncAutoFish.autofish5x then return end
+    if not _G.FishBlatant then return end
 
     _G.BlatantState.Running = true
 
     task.spawn(function()
         _G.StopFishing()
-        task.wait(tonumber(_G.SettingBlatant) or 1)
+        task.wait(tonumber(_G.SettingBlatant))
         InitialCast5X()
 
         _G.BlatantState.Running = false
@@ -441,12 +454,13 @@ task.spawn(function()
         then
             _G.BlatantState.Initialized = true
             _G.BlatantState.FishCount = 0
-            _G.BlatantState.Target = 25
+            _G.BlatantState.Target = math.random(5, 10)
 
-            -- 🚀 cast pertama langsung
+            -- 🚀 BURST PERTAMA TANPA NUNGGU IKAN
             _G.RunBlatantBurst()
         end
 
+        -- reset jika dimatikan
         if not _G.FishBlatant then
             _G.BlatantState.Initialized = false
             _G.BlatantState.FishCount = 0
@@ -454,133 +468,16 @@ task.spawn(function()
     end
 end)
 
--------------------------------------------
--- STOP FISHING
--------------------------------------------
-_G.StopFishing = function()
-    _G.RFCancelFishingInputs:InvokeServer()
-    firesignal(_G.REFishingStopped.OnClientEvent)
+_G.LastSellTick = 0
+
+function _G.TrySellNow()
+    local now = tick()
+    if now - _G.LastSellTick < 1 then 
+        return 
+    end
+    _G.LastSellTick = now
+    _G.RemoteSell:InvokeServer()
 end
-
--------------------------------------------
--- APPLY DELAY FROM EQUIPPED ROD (ATTRIBUTE)
--------------------------------------------
-function _G.ApplyDelayFromEquippedRod()
-    local rodName = LocalPlayer:GetAttribute("FishingRod")
-
-    if type(rodName) ~= "string" then
-        _G.FINISH_DELAY = _G.ROD_PROFILE.Default.FinishDelay
-        return
-    end
-
-    local profile = _G.ROD_PROFILE[rodName] or _G.ROD_PROFILE.Default
-    _G.FINISH_DELAY = profile.FinishDelay
-end
-
--- LISTEN ATTRIBUTE CHANGE (SYNC POINT)
-LocalPlayer:GetAttributeChangedSignal("FishingRod"):Connect(function()
-    _G.ApplyDelayFromEquippedRod()
-end)
-
--------------------------------------------
--- GET CURRENT ISLAND
--------------------------------------------
-function _G.GetCurrentIsland()
-    -- 1️⃣ SOURCE OF TRUTH: PLAYER ATTRIBUTE
-    local attrIsland = LocalPlayer:GetAttribute("LocationName")
-    if type(attrIsland) == "string" and attrIsland ~= "" then
-        return attrIsland
-    end
-end
-
--------------------------------------------
--- GET PLAYER RODS FROM REPLION (FIXED)
--------------------------------------------
-function _G.GetPlayerRodInventory()
-    local Data = _G.Replion.Client:WaitReplion("Data")
-    if not Data then return {} end
-
-    local rodsData = Data:Get({ "Inventory", "Fishing Rods" })
-    if type(rodsData) ~= "table" then return {} end
-
-    local ItemUtility = require(game.ReplicatedStorage.Shared.ItemUtility)
-    local rods = {}
-
-    for _, rod in ipairs(rodsData) do
-        if rod.UUID and rod.Id then
-            local base = ItemUtility:GetItemData(rod.Id)
-            if base and base.Data and base.Data.Type == "Fishing Rods" then
-                table.insert(rods, {
-                    UUID = rod.UUID,
-                    Id = rod.Id,
-                    Name = base.Data.Name,
-                    Tier = base.Data.Tier,
-                })
-            end
-        end
-    end
-
-    return rods
-end
-
-function _G.EquipBestRodForCurrentIsland()
-    if not _G.REEquipItem then
-        warn("[ROD] REEquipItem missing")
-        return false
-    end
-
-    local island = _G.GetCurrentIsland()
-    local priority =
-        _G.ISLAND_ROD_PRIORITY[island]
-        or _G.ISLAND_ROD_PRIORITY.Default
-
-    if type(priority) ~= "table" then
-        warn("[ROD] No priority list for island:", island)
-        return false
-    end
-
-    local rods = _G.GetPlayerRodInventory()
-    if #rods == 0 then
-        warn("[ROD] Inventory empty")
-        return false
-    end
-
-    -- 🔹 KUMPULKAN SEMUA ROD YANG VALID
-    local candidates = {}
-
-    for _, wantedName in ipairs(priority) do
-        for _, rod in ipairs(rods) do
-            if rod.Name == wantedName then
-                table.insert(candidates, rod)
-            end
-        end
-    end
-
-    if #candidates == 0 then
-        warn("[ROD] No matching rod for island:", island)
-        return false
-    end
-
-    -- 🔹 RANDOM JIKA LEBIH DARI SATU
-    local selectedRod
-    if #candidates == 1 then
-        selectedRod = candidates[1]
-    else
-        math.randomseed(tick() * 1000)
-        selectedRod = candidates[math.random(1, #candidates)]
-    end
-
-    warn("[ROD] Equipping:", selectedRod.Name, "| Tier:", selectedRod.Tier)
-
-    _G.REEquipItem:FireServer(selectedRod.UUID, "Fishing Rods")
-
-    _G.CURRENT_ROD_UUID = selectedRod.UUID
-    _G.CURRENT_ROD_NAME = selectedRod.Name
-    _G.CURRENT_ROD_TIER = selectedRod.Tier
-
-    return true
-end
-
 
 function InitialCast5X()
     _G.StopFishing()
@@ -590,7 +487,7 @@ function InitialCast5X()
     rodRemote:InvokeServer(chargeStartTime)
     local calculationLoopStart = tick()
 
-    local timeoutDuration = 0.01
+    local timeoutDuration = tonumber(_G.CastTimeoutValue)
 
     local lastPower = 0
     while (tick() - calculationLoopStart < timeoutDuration) do
@@ -652,27 +549,6 @@ function _G.stopSpam()
    _G.isSpamming = false
 end
 
-_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
-    if FuncAutoFish.autofish5x then
-        _G.stopSpam()
-        _G.lastFishTime = tick()
-        _G.RecastSpam()
-    end
-end)
-
-task.spawn(function()
-	while task.wait(1) do
-		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
-			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
-				StopAutoFish5X()
-				task.wait(1)
-				StartAutoFish5X()
-				_G.lastFishTime = tick()
-			end
-		end
-	end
-end)
-
 
 _G.REPlayFishingEffect.OnClientEvent:Connect(function(player, head, data)
     if player == Players.LocalPlayer and FuncAutoFish.autofish5x then
@@ -690,7 +566,7 @@ task.spawn(function()
         if _G.AutoFishHighQuality and FuncAutoFish.autofish5x and FuncAutoFish.REReplicateTextEffect then
             if tick() - lastEventTime > 10 then
                 _G.StopSpam()
-			    task.wait(0.1)
+				task.wait(0.1)
 				_G.RecastSpam()
                 lastEventTime = tick()
             end
@@ -714,6 +590,7 @@ local BAD_COLORS = {
 }
 
 FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
+
     if not FuncAutoFish.autofish5x then return end
 
     local myHead = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Head")
@@ -755,30 +632,50 @@ FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
     end
 end)
 
--------------------------------------------
--- START / STOP AUTO FISH
--------------------------------------------
+
+
+_G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
+    if FuncAutoFish.autofish5x then
+        _G.stopSpam()
+        _G.lastFishTime = tick()
+        _G.RecastSpam()
+    end
+end)
+
+task.spawn(function()
+	while task.wait(1) do
+		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
+			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
+				StopAutoFish5X()
+				task.wait(1)
+				StartAutoFish5X()
+				_G.lastFishTime = tick()
+			end
+		end
+	end
+end)
+
+
 function StartAutoFish5X()
-    FuncAutoFish.autofish5x = true
-    _G.EquipBestRodForCurrentIsland()
-    task.wait(0.2)
-    _G.ApplyDelayFromEquippedRod()
-    task.wait(0.5)
     _G.equipRemote:FireServer(1)
-    FuncAutoFish.LastFishTick = tick()
+    FuncAutoFish.autofish5x = true
+    _G.AntiStuckEnabled = true
+    lastEventTime = tick()
+    _G.lastFishTime = tick()
+    task.wait(0.5)
     InitialCast5X()
 end
+
 
 function StopAutoFish5X()
     FuncAutoFish.autofish5x = false
     _G.AntiStuckEnabled = false
-    FuncAutoFish.delayInitialized = false
     _G.StopFishing()
     _G.isRecasting5x = false
+    _G.StopSpam()
     _G.stopSpam()
     _G.StopRecastSpam()
 end
-
 
 --[[
 
