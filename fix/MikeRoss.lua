@@ -920,11 +920,14 @@ Low Rod = 2 - 3
 
 _G.FishAdvenc:Input({
     Title = "Blatant Delay",
+    Value = _G.SettingBlatant,
     Callback = function(value)
         local num = tonumber(value)
-        if num and num >= 0 then
-            _G.SettingBlatant = num
+        if not num then
+            NotifyWarning("Please Input Valid Number")
         end
+        _G.SettingBlatant = num
+    end
     end
 })
 
