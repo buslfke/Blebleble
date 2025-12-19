@@ -982,7 +982,7 @@ _G.FishSec:Toggle({
         _G.FishBlatant = state
         if state then
             StartAutoFish5X()
-        if not state then
+        else
             _G.BlatantState.Initialized = false
             _G.BlatantState.Running = false
             _G.BlatantState.FishCount = 0
