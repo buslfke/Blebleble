@@ -411,7 +411,7 @@ _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
 
     if _G.BlatantState.FishCount >= _G.BlatantState.Target then
         _G.BlatantState.FishCount = 0
-        _G.BlatantState.Target = math.random(5, 10)
+        _G.BlatantState.Target = 25
 
         _G.RunBlatantBurst()
     end
@@ -441,7 +441,7 @@ task.spawn(function()
         then
             _G.BlatantState.Initialized = true
             _G.BlatantState.FishCount = 0
-            _G.BlatantState.Target = math.random(5, 10)
+            _G.BlatantState.Target = 25
 
             -- 🚀 BURST PERTAMA TANPA NUNGGU IKAN
             _G.RunBlatantBurst()
