@@ -364,6 +364,9 @@ _G.REObtainedNewFishNotification = ReplicatedStorage
     .Packages._Index["sleitnick_net@0.2.0"]
     .net["RE/ObtainedNewFishNotification"]
 
+_G.FishBlatant = false
+_G.SettingBlatant = 1 -- delay default (detik)
+
 _G.BlatantState = {
     Running = false,
     FishCount = 0,
