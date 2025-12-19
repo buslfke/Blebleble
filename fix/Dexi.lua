@@ -3770,13 +3770,37 @@ local npcFolder = game:GetService("ReplicatedStorage"):WaitForChild("NPC")
 
 local npcList = {}
 for _, npc in pairs(npcFolder:GetChildren()) do
-	if npc:IsA("Model") then
-		local hrp = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
-		if hrp then
-			table.insert(npcList, npc.Name)
-		end
-	end
+    if npc:IsA("Model") then
+        local hrp = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+        if hrp then
+            table.insert(npcList, npc.Name)
+        end
+    end
 end
+
+
+_G.Misc:Dropdown({
+    Title = "NPC",
+    Desc = "Select NPC to Teleport",
+    Values = npcList,
+    SearchBarEnabled = true,
+    Callback = function(selectedName)
+        local npc = npcFolder:FindFirstChild(selectedName)
+        if npc and npc:IsA("Model") then
+            local hrp = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+            if hrp then
+                local charFolder = workspace:FindFirstChild("Characters", 5)
+                local char = charFolder and charFolder:FindFirstChild(LocalPlayer.Name)
+                if not char then return end
+                local myHRP = char:FindFirstChild("HumanoidRootPart")
+                if myHRP then
+                    myHRP.CFrame = hrp.CFrame + Vector3.new(0, 3, 0)
+                    NotifySuccess("Teleported!", "You are now near: " .. selectedName)
+                end
+            end
+        end
+    end
+})
 
 --[[
     =====================================================================
@@ -4430,7 +4454,7 @@ end
 
 local function sendDisconnectWebhook(reason)
 
-    local WebhookURL = "https://discord.com/api/webhooks/1421679836652507156/2I1ePe2GQhbn7AawB7MSnAol_I7XBC06FuGqORPcTzvxjS8qY5xuGn9kx43q91o5szcY"
+    local WebhookURL = ""
     local username = LocalPlayer.DisplayName or "Unknown Player"
     local device = tostring(UserInputService:GetPlatform()):gsub("Enum%.Platform%.", "")
     local timeStr = os.date("%d %B %Y, %H:%M:%S")
