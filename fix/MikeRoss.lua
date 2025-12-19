@@ -364,6 +364,13 @@ _G.REObtainedNewFishNotification = ReplicatedStorage
     .Packages._Index["sleitnick_net@0.2.0"]
     .net["RE/ObtainedNewFishNotification"]
 
+_G.BlatantState = {
+    Running = false,
+    FishCount = 0,
+    Target = 25,
+    Initialized = false
+}
+
 _G.isSpamming = false
 _G.rSpamming = false
 _G.rStopSpam = false
@@ -391,6 +398,56 @@ _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
         if _G.fishCounter >= _G.sellThreshold then
             _G.TrySellNow()
             _G.fishCounter = 0
+        end
+    end
+    
+    if not _G.FishBlatant then return end
+    if not FuncAutoFish.autofish5x then return end
+
+    _G.BlatantState.FishCount += 1
+
+    if _G.BlatantState.FishCount >= _G.BlatantState.Target then
+        _G.BlatantState.FishCount = 0
+        _G.BlatantState.Target = math.random(5, 10)
+
+        _G.RunBlatantBurst()
+    end
+end)
+
+function _G.RunBlatantBurst()
+    if _G.BlatantState.Running then return end
+    if not FuncAutoFish.autofish5x then return end
+    if not _G.FishBlatant then return end
+
+    _G.BlatantState.Running = true
+
+    task.spawn(function()
+        _G.StopFishing()
+        task.wait(tonumber(_G.SettingBlatant))
+        InitialCast5X()
+
+        _G.BlatantState.Running = false
+    end)
+end
+
+task.spawn(function()
+    while task.wait(0.2) do
+        if _G.FishBlatant
+            and FuncAutoFish.autofish5x
+            and not _G.BlatantState.Initialized
+        then
+            _G.BlatantState.Initialized = true
+            _G.BlatantState.FishCount = 0
+            _G.BlatantState.Target = math.random(5, 10)
+
+            -- 🚀 BURST PERTAMA TANPA NUNGGU IKAN
+            _G.RunBlatantBurst()
+        end
+
+        -- reset jika dimatikan
+        if not _G.FishBlatant then
+            _G.BlatantState.Initialized = false
+            _G.BlatantState.FishCount = 0
         end
     end
 end)
@@ -634,7 +691,6 @@ local BAD_COLORS = {
 }
 
 FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
-
     if not FuncAutoFish.autofish5x then return end
 
     local myHead = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Head")
@@ -675,10 +731,6 @@ FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
         _G.startSpam()
     end
 end)
-
-
-
-
 
 -------------------------------------------
 -- START / STOP AUTO FISH
