@@ -3779,7 +3779,7 @@ for _, npc in pairs(npcFolder:GetChildren()) do
 end
 
 
-_G.Misc:Dropdown({
+_G.Cuki:Dropdown({
     Title = "NPC",
     Desc = "Select NPC to Teleport",
     Values = npcList,
