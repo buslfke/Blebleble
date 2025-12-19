@@ -928,7 +928,6 @@ _G.FishAdvenc:Input({
         end
         _G.SettingBlatant = num
     end
-    end
 })
 
 _G.FishAdvenc:Input({
