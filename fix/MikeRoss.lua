@@ -274,7 +274,7 @@ local SettingsTab = AllMenu:Tab({
 ----- =======[ AUTO FISH TAB ]
 -------------------------------------------
 
-_G.DisableAnimations = true
+_G.DisableAnimations = false
 
 task.spawn(function()
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
