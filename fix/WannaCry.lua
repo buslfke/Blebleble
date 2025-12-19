@@ -518,6 +518,26 @@ function _G.loadPosition()
 end
 
 _G.loadPosition()
+
+_G.__UIReady = false
+_G.__ProtectedCallbacks = setmetatable({}, { __mode = "k" })
+
+function _G.ProtectCallback(callback)
+    if type(callback) ~= "function" then return callback end
+
+    local wrapper = function(...)
+        if not _G.__UIReady then
+            -- abaikan eksekusi pertama
+            return
+        end
+
+        return callback(...)
+    end
+
+    -- simpan biar GC tidak makan wrapper
+    _G.__ProtectedCallbacks[wrapper] = callback
+    return wrapper
+end
 -------------------------------------------
 ----- =======[ AUTO FISH TAB ]
 -------------------------------------------
@@ -5820,3 +5840,7 @@ SettingsTab:Button({
     end
 })
 
+task.defer(function()
+    task.wait(0.5) -- buffer sedikit untuk memuat element UI
+    _G.__UIReady = true
+end)
