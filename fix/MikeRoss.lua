@@ -896,6 +896,17 @@ Low Rod = 2 - 3
 })
 
 _G.FishAdvenc:Input({
+    Title = "Blatant Delay",
+    Default = tostring(_G.SettingBlatant),
+    Callback = function(value)
+        local num = tonumber(value)
+        if num and num >= 0 then
+            _G.SettingBlatant = num
+        end
+    end
+})
+
+_G.FishAdvenc:Input({
     Title = "Speed Legit",
     Desc = "Speed Click for Auto Fish Legit",
     Value = _G.SPEED_LEGIT,
@@ -961,6 +972,22 @@ _G.AutoFishes = _G.FishSec:Toggle({
             StopAutoFish5X()
         end
     end
+})
+
+
+_G.FishSec:Toggle({
+    Title = "Fish Blatant Mode",
+    Value = false,
+    Callback = _G.ProtectCallback(function(state)
+        _G.FishBlatant = state
+
+        if not state then
+            -- reset total state saat OFF
+            _G.BlatantState.Initialized = false
+            _G.BlatantState.Running = false
+            _G.BlatantState.FishCount = 0
+        end
+    end)
 })
 
 _G.FishSec:Toggle({
