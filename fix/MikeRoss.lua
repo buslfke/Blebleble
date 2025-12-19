@@ -364,7 +364,7 @@ _G.REObtainedNewFishNotification = ReplicatedStorage
     .Packages._Index["sleitnick_net@0.2.0"]
     .net["RE/ObtainedNewFishNotification"]
 
-_G.FishBlatant = false
+_G.FishBlatant = true
 _G.SettingBlatant = 1 -- delay default (detik)
 
 _G.BlatantState = {
@@ -419,14 +419,14 @@ end)
 
 function _G.RunBlatantBurst()
     if _G.BlatantState.Running then return end
-    if not FuncAutoFish.autofish5x then return end
     if not _G.FishBlatant then return end
+    if not FuncAutoFish.autofish5x then return end
 
     _G.BlatantState.Running = true
 
     task.spawn(function()
         _G.StopFishing()
-        task.wait(tonumber(_G.SettingBlatant))
+        task.wait(tonumber(_G.SettingBlatant) or 1)
         InitialCast5X()
 
         _G.BlatantState.Running = false
@@ -443,11 +443,10 @@ task.spawn(function()
             _G.BlatantState.FishCount = 0
             _G.BlatantState.Target = 25
 
-            -- 🚀 BURST PERTAMA TANPA NUNGGU IKAN
+            -- 🚀 cast pertama langsung
             _G.RunBlatantBurst()
         end
 
-        -- reset jika dimatikan
         if not _G.FishBlatant then
             _G.BlatantState.Initialized = false
             _G.BlatantState.FishCount = 0
@@ -900,7 +899,6 @@ Low Rod = 2 - 3
 
 _G.FishAdvenc:Input({
     Title = "Blatant Delay",
-    Default = tostring(_G.SettingBlatant),
     Callback = function(value)
         local num = tonumber(value)
         if num and num >= 0 then
@@ -980,15 +978,15 @@ _G.AutoFishes = _G.FishSec:Toggle({
 
 _G.FishSec:Toggle({
     Title = "Fish Blatant Mode",
-    Value = false,
     Callback = _G.ProtectCallback(function(state)
         _G.FishBlatant = state
-
+        if state then
+            StartAutoFish5X()
         if not state then
-            -- reset total state saat OFF
             _G.BlatantState.Initialized = false
             _G.BlatantState.Running = false
             _G.BlatantState.FishCount = 0
+            StopAutoFish5X()
         end
     end)
 })
