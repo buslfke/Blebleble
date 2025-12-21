@@ -2316,7 +2316,7 @@ _G.CaveState = {
 -------------------------------------------------
 -- UI
 -------------------------------------------------
-_G.EventParagraph = _G.FarmSec:Paragraph({
+_G.EventParagraph = AutoFarmTab:Paragraph({
     Title = "Event Status Monitor",
     Desc = "Loading...",
 })
@@ -2333,7 +2333,7 @@ end
 -------------------------------------------------
 -- TOGGLES
 -------------------------------------------------
-_G.FarmSec:Toggle({
+AutoFarmTab:Toggle({
     Title = "Auto Lochness Monster",
     Callback = function(v)
         _G.AutoLochNess = v
@@ -2342,7 +2342,7 @@ _G.FarmSec:Toggle({
     end
 })
 
-_G.FarmSec:Toggle({
+AutoFarmTab:Toggle({
     Title = "Auto Christmas Cave",
     Callback = function(v)
         _G.AutoChristmasCave = v
