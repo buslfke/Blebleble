@@ -2636,284 +2636,235 @@ _G.RuinSec = AutoFarmTab:Section({
     Opened = false
 })
 
-_G.CavernSec = AutoFarmTab:Section({
-    Title = "Farming The Iron Cafe",
-    TextSize = 22,
-    TextXAlignment = "Center",
-    Opened = false
-})
-
 -- =======================================================
--- == AUTO EVENT MANAGER (LOCHNESS & DISCO MUSIC)
+-- == AUTO EVENT MANAGER (LOCHNESS + CHRISTMAS CAVE FINAL)
 -- =======================================================
 
--- [GLOBAL VARIABLES]
+-------------------------------------------------
+-- GLOBAL FLAGS
+-------------------------------------------------
 _G.AutoLochNess = false
-_G.AutoDisco = false
+_G.AutoChristmasCave = false
 
 _G.LochStatus = "Idle"
-_G.DiscoStatus = "Waiting Music..."
-_G.OriginalCFrame = nil
-_G.EventEndTime = nil
-_G.DiscoCooldown = false
+_G.CaveStatus = "Waiting Event..."
 
--- Path & Config
-_G.countdownPath = workspace["!!! MENU RINGS"]["Event Tracker"].Main.Gui.Content.Items.Countdown.Label
+-------------------------------------------------
+-- SERVICES
+-------------------------------------------------
 
+-------------------------------------------------
+-- PATHS
+-------------------------------------------------
+_G.CountdownLabel =
+    workspace["!!! MENU RINGS"]["Event Tracker"]
+        .Main.Gui.Content.Items.Countdown.Label
+
+_G.CaveLabel =
+    workspace.Map.CavernTeleporter
+        .StartTeleport.Gui.Frame.NewLabel
+
+-------------------------------------------------
+-- CFRAMES
+-------------------------------------------------
 local LOCHNESS_CFRAME = CFrame.new(
     6003.8374, -585.924683, 4661.7334,
-    0.0215646587, -8.31839486e-08, -0.999767482,
-    -5.35441309e-08, 1, -8.43582271e-08,
-    0.999767482, 5.5350835e-08, 0.0215646587
+    0.0215646587, 0, -0.999767482,
+    0, 1, 0,
+    0.999767482, 0, 0.0215646587
 )
 
--- =======================================================
--- 1. UI: SHARED PARAGRAPH & TOGGLES
--- =======================================================
+_G.ChristmasCaveCFrames = {
+    CFrame.new(605.692871, -580.58136, 8887.51074, 0.0267926417, -8.79793234e-08, 0.999641001, -2.50977159e-08, 1, 8.8683592e-08, -0.999641001, -2.74647753e-08, 0.0267926417),
+    CFrame.new(576.37677, -580.58136, 8931.45312, 0.968435466, -5.87835451e-08, -0.249264464, 4.9410648e-08, 1, -4.38591208e-08, 0.249264464, 3.01584109e-08, 0.968435466),
+    CFrame.new(694.887695, -487.111328, 8913.8877, 0.991148233, 3.50480462e-08, -0.132759795, -3.17826441e-08, 1, 2.67154086e-08, 0.132759795, -2.22594725e-08, 0.991148233),
+    CFrame.new(746.483093, -487.112, 8926.44238, 0.689154983, -5.98709349e-09, -0.724613965, -4.31799663e-09, 1, -1.23691546e-08, 0.724613965, 1.16531451e-08, 0.689154983),
+    CFrame.new(743.71759, -487.110687, 8862.72656, -0.911057472, 1.73095618e-08, -0.412279397, 1.06622533e-08, 1, 1.84235134e-08, 0.412279397, 1.23890525e-08, -0.911057472),
+}
 
+-------------------------------------------------
+-- STATE
+-------------------------------------------------
+_G.OriginalCFrame_Loch = nil
+_G.OriginalCFrame_Cave = nil
+_G.LochEventEndTime = nil
+_G.CaveState = {
+    HasTeleported = false
+}
+
+-------------------------------------------------
+-- UI
+-------------------------------------------------
 _G.EventParagraph = _G.FarmSec:Paragraph({
     Title = "Event Status Monitor",
-    Desc = "Loading Data...",
-    Locked = false
+    Desc = "Loading...",
 })
 
 function _G.UpdateEventUI()
-    if not _G.EventParagraph then return end
-    
-    local lochTime = (_G.countdownPath and _G.countdownPath.Text) or "N/A"
-    
-    local text = string.format(
-        "LochNess Status: %s\nCountdown: %s\n\nDisco Status: %s",
-        _G.LochStatus, 
-        lochTime, 
-        _G.DiscoStatus
-    )
-    
-    _G.EventParagraph:SetDesc(text)
+    _G.EventParagraph:SetDesc(string.format(
+        "LochNess : %s\nCountdown: %s\nChristmas Cave : %s",
+        _G.LochStatus,
+        _G.CountdownLabel.Text or "N/A",
+        _G.CaveStatus
+    ))
 end
 
--- Toggle LochNess
+-------------------------------------------------
+-- TOGGLES
+-------------------------------------------------
 _G.FarmSec:Toggle({
-    Title = "Auto Teleport LochNess",
-    Value = false,
-    Callback = function(state)
-        _G.AutoLochNess = state
-        if state then
-            if not _G.OriginalCFrame and LocalPlayer.Character then
-                local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if root then _G.OriginalCFrame = root.CFrame end
+    Title = "Auto Lochness Monster",
+    Callback = function(v)
+        _G.AutoLochNess = v
+        _G.LochStatus = v and "Monitoring..." or "Idle"
+        _G.UpdateEventUI()
+    end
+})
+
+_G.FarmSec:Toggle({
+    Title = "Auto Christmas Cave",
+    Callback = function(v)
+        _G.AutoChristmasCave = v
+
+        if not v then
+            -- 🔁 PAKSA BALIK SAAT DIMATIKAN
+            if _G.CaveState.HasTeleported and _G.OriginalCFrame_Cave then
+                SafeTeleport(_G.OriginalCFrame_Cave)
             end
-            _G.updateLochStatus("Monitoring...")
+
+            _G.CaveState.HasTeleported = false
+            _G.CaveStatus = "Disabled"
         else
-            _G.updateLochStatus("Idle")
+            _G.CaveStatus = "Monitoring..."
+            _G.__ForceCaveRecheck = true
         end
+        _G.UpdateEventUI()
     end
 })
 
--- Toggle Disco
-_G.FarmSec:Toggle({
-    Title = "Auto Teleport Disco",
-    Desc = "Teleport saat musik Disco dimulai.",
-    Value = false,
-    Callback = function(state)
-        _G.AutoDisco = state
-        if state then
-            -- Cek manual saat dinyalakan
-            task.spawn(_G.CheckDiscoMusic)
-        end
-    end
-})
+-------------------------------------------------
+-- SAFE TELEPORT (ANTI TERCEBUR / ANTI RENDER)
+-------------------------------------------------
+function SafeTeleport(cf)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
--- =======================================================
--- 2. LOGIKA LOCHNESS (Original Code Adapted)
--- =======================================================
-
--- Wrapper function agar kompatibel dengan kode lama
-function _G.updateStatus(text, currentCountdown)
-    _G.LochStatus = text
-    _G.UpdateEventUI()
+    hrp.Anchored = true
+    hrp.CFrame = cf + Vector3.new(0, 8, 0)
+    task.wait(0.15)
+    hrp.CFrame = cf
+    task.wait(0.1)
+    hrp.Anchored = false
 end
 
-_G.updateLochStatus = _G.updateStatus
-
-function _G.OnCountdownChanged()
-    local newText = _G.countdownPath.Text
-
+-------------------------------------------------
+-- LOCHNESS LOGIC (STABLE)
+-------------------------------------------------
+function OnCountdownChanged()
     if not _G.AutoLochNess then return end
 
+    local txt = _G.CountdownLabel.Text
     _G.UpdateEventUI()
-    
-    if _G.EventEndTime then
-        if tick() >= _G.EventEndTime then
-            _G.updateLochStatus("Returning...")
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") and _G.OriginalCFrame then
-                char.HumanoidRootPart.CFrame = _G.OriginalCFrame
+
+    if _G.LochEventEndTime then
+        if tick() >= _G.LochEventEndTime then
+            _G.LochStatus = "Returning..."
+            if _G.OriginalCFrame_Loch then
+                SafeTeleport(_G.OriginalCFrame_Loch)
             end
-            _G.EventEndTime = nil
-            _G.updateLochStatus("Done — Monitoring...")
+            _G.LochEventEndTime = nil
+            _G.LochStatus = "Monitoring..."
         end
         return
     end
 
-    local h = tonumber(newText:match("(%d+)H")) or 0
-    local m = tonumber(newText:match("(%d+)M")) or 0
-    local s = tonumber(newText:match("(%d+)S")) or 0
+    local h = tonumber(txt:match("(%d+)H")) or 0
+    local m = tonumber(txt:match("(%d+)M")) or 0
+    local s = tonumber(txt:match("(%d+)S")) or 0
 
-    local shouldTeleport = false
-    
-    if newText == "0H 0M 10S" then
-        shouldTeleport = true
-    elseif h == 0 and m == 0 and s <= 10 and s >= 1 then
-        shouldTeleport = true
-    end
+    if h == 0 and m == 0 and s <= 10 and s >= 1 then
+        local hrp = LocalPlayer.Character
+            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
-    if shouldTeleport then
-        _G.updateLochStatus("Teleporting...")
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = LOCHNESS_CFRAME
-        end
-        _G.EventEndTime = tick() + (12 * 60)
-        _G.updateLochStatus("Waiting Event End...")
+        _G.OriginalCFrame_Loch = hrp.CFrame
+        _G.LochStatus = "Teleporting..."
+        SafeTeleport(LOCHNESS_CFRAME)
+
+        _G.LochEventEndTime = tick() + (12 * 60)
+        _G.LochStatus = "Waiting Event End..."
     end
 end
 
-if _G.countdownPath then
-    _G.countdownPath:GetPropertyChangedSignal("Text"):Connect(_G.OnCountdownChanged)
-end
+_G.CountdownLabel:GetPropertyChangedSignal("Text"):Connect(OnCountdownChanged)
 
-
-_G.IsAtDisco = false
-_G.OriginalPosDisco = nil
-
-_G.DiscoCF1 = CFrame.new(
-    -8607.80371, -547.500183, 163.406143,
-    -0.0462620407, 5.0948568e-08, 0.998929322,
-    -8.16116064e-09, 1, -5.13811322e-08,
-    -0.998929322, -1.05294191e-08, -0.0462620407
-)
-
-_G.DiscoCF2 = CFrame.new(
-    -8624.56934, -547.500183, 143.245453,
-    -0.99118042, -3.94022166e-08, -0.13251923,
-    -3.34171197e-08, 1, -4.7387978e-08,
-    0.13251923, -4.25416253e-08, -0.99118042
-)
-
--- =======================================================
--- LOGIKA UTAMA DISCO (PERBAIKAN)
--- =======================================================
-
-function _G.GetDiscoSound()
-    local classic = Workspace:FindFirstChild("ClassicEvent")
-    if not classic then return nil end
-    local discoEvent = classic:FindFirstChild("DiscoEvent")
-    if not discoEvent then return nil end
-    local ballModel = discoEvent:FindFirstChild("DiscoBall")
-    if not ballModel then return nil end
-    local ballPart = ballModel:FindFirstChild("DiscoBall")
-    if not ballPart then return nil end
-    return ballPart:FindFirstChild("Sound")
-end
-
-function _G.CheckDiscoMusic()
-    if not _G.AutoDisco then return end
-
-    local sound = _G.GetDiscoSound()
-    local char = game.Players.LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-    if not (sound and hrp) then
-        _G.DiscoStatus = "Searching Event Object..."
-        _G.UpdateEventUI()
-        return
-    end
-
-    if sound.Playing and not _G.IsAtDisco then
-        _G.DiscoStatus = "MUSIC START! OTW..."
-        _G.UpdateEventUI()
-
-        _G.OriginalPosDisco = hrp.CFrame
-        _G.IsAtDisco = true
-
-
-        hrp.Anchored = true
-
-
-        local targetCF = (math.random(1,2) == 1) and _G.DiscoCF1 or _G.DiscoCF2
-        hrp.CFrame = targetCF
-
-        task.wait(0.25)
-        hrp.Anchored = false
-
-        if _G.WasAutoFishing then
-            ToggleFish(true)
-        end
-
-        _G.DiscoStatus = "DANCING & FISHING!"
-        _G.UpdateEventUI()
-
-        return
-    end
-
-
-    if not sound.Playing and _G.IsAtDisco then
-        _G.DiscoStatus = "MUSIC STOP! GOING HOME..."
-        _G.UpdateEventUI()
-
- 
-        if _G.OriginalPosDisco then
-            hrp.Anchored = true
-            hrp.CFrame = _G.OriginalPosDisco
-            task.wait(0.25)
-            hrp.Anchored = false
-        end
-
-        _G.IsAtDisco = false
-
-
-        _G.DiscoStatus = "Waiting Music..."
-        _G.UpdateEventUI()
-
-        return
-    end
-
-    if sound.Playing then
-        _G.DiscoStatus = "Active (You are here)"
-    else
-        _G.DiscoStatus = "Waiting Music..."
-    end
-
-    _G.UpdateEventUI()
-end
-
+-------------------------------------------------
+-- CHRISTMAS CAVE LOGIC (FINAL & SAFE)
+-------------------------------------------------
 task.spawn(function()
-    while true do
-        local sound = _G.GetDiscoSound()
-        if sound then
-            _G.CheckDiscoMusic()
-            
-            local conn
-            conn = sound:GetPropertyChangedSignal("Playing"):Connect(function()
-                _G.CheckDiscoMusic()
-            end)
-            
-            repeat task.wait(1) until not sound or not sound.Parent
-            
-            if conn then conn:Disconnect() end
+    local lastText = ""
+
+    while task.wait(0.5) do
+        if _G.__ForceCaveRecheck then
+            lastText = ""
+            _G.__ForceCaveRecheck = false
         end
-        task.wait(2)
+
+        if not _G.CaveLabel then continue end
+
+        local text = _G.CaveLabel.Text
+        if text == lastText then continue end
+        lastText = text
+
+        -- ===============================
+        -- EVENT CLOSED (SELALU DIMONITOR)
+        -- ===============================
+        if text:upper():find("CAVE CLOSED") then
+            _G.CaveStatus = "Waiting Event..."
+
+            if _G.CaveState.HasTeleported and _G.OriginalCFrame_Cave then
+                SafeTeleport(_G.OriginalCFrame_Cave)
+            end
+
+            _G.CaveState.HasTeleported = false
+            _G.UpdateEventUI()
+            continue
+        end
+
+        -- ===============================
+        -- EVENT OPEN (HANYA JIKA TOGGLE ON)
+        -- ===============================
+        if _G.AutoChristmasCave and not _G.CaveState.HasTeleported then
+            local hrp = LocalPlayer.Character
+                and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+
+            _G.OriginalCFrame_Cave = hrp.CFrame
+            _G.CaveStatus = "Teleporting..."
+            _G.UpdateEventUI()
+
+            SafeTeleport(
+                _G.ChristmasCaveCFrames[
+                    math.random(#_G.ChristmasCaveCFrames)
+                ]
+            )
+
+            _G.CaveState.HasTeleported = true
+            _G.CaveStatus = "Farming..."
+            _G.UpdateEventUI()
+        end
     end
 end)
 
--- Loop Update UI Backup
+-------------------------------------------------
+-- UI REFRESH FAILSAFE
+-------------------------------------------------
 task.spawn(function()
     while task.wait(1) do
-        if _G.EventParagraph then _G.UpdateEventUI() end
+        _G.UpdateEventUI()
     end
 end)
-
 
 
 _G.FarmSec:Space()
@@ -3382,197 +3333,6 @@ _G.RuinSec:Button({
     Icon = "",
     Callback = function()
         _G.UnlockRuin()
-    end
-})
-
-
--------------------------------------------
------ =======[ IRON CAVERN FARMING (SMART) ]
--------------------------------------------
-
--- 1. Remote Unlock
-_G.REPlaceItems2 = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/PlaceCavernTotemItem"]
-_G.REFishCaught = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FishCaught"]
-
--- 2. Daftar Ikan Target
-_G.TargetGuppies = {
-    ["Guest Guppy"] = false,
-    ["Builderman Guppy"] = false,
-    ["Brighteyes Guppy"] = false,
-    ["Shedletsky Guppy"] = false
-}
-
--- 3. Lokasi Farming (Satu Spot Saja)
-_G.IronCafeSpot = CFrame.new(-8797.98438, -585.000061, 81.8659973, 0.621304512, 7.69412338e-08, -0.783569217, -8.01423212e-08, 1, 3.4647158e-08, 0.783569217, 4.12706207e-08, 0.621304512) 
-
--- 4. State & Save File
-_G.CavernFarmEnabled = false
-_G.username = game:GetService("Players").LocalPlayer.Name
-_G.saveFileCafe = _G.username .. "_IronCafe_Progress.json"
-
--- Fungsi Load Progress
-local function loadCafeProgress()
-    if isfile(_G.saveFileCafe) then
-        local success, data = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(readfile(_G.saveFileCafe))
-        end)
-        if success and type(data) == "table" then
-            -- Update status ikan yang sudah didapat
-            for fish, status in pairs(data) do
-                if _G.TargetGuppies[fish] ~= nil then
-                    _G.TargetGuppies[fish] = status
-                end
-            end
-        end
-    end
-end
-
--- Fungsi Save Progress
-local function saveCafeProgress()
-    writefile(_G.saveFileCafe, game:GetService("HttpService"):JSONEncode(_G.TargetGuppies))
-end
-
--- Helper: Hitung berapa ikan yang sudah didapat
-local function countCollectedGuppies()
-    local count = 0
-    for _, caught in pairs(_G.TargetGuppies) do
-        if caught then count = count + 1 end
-    end
-    return count
-end
-
--- Helper: Update Paragraph UI
-local function updateCafeUI()
-    if _G.CavernParagraph then
-        local statusText = ""
-        for fish, caught in pairs(_G.TargetGuppies) do
-            local check = caught and "✅" or "❌"
-            statusText = statusText .. check .. " " .. fish .. "\n"
-        end
-        
-        local total = countCollectedGuppies()
-        _G.CavernParagraph:SetDesc(string.format("Status (%d/4 Found):\n%s", total, statusText))
-    end
-end
-
--- 5. Fungsi Unlock (Dijalankan saat semua ikan terkumpul)
-_G.UnlockCafe = function()
-    task.spawn(function()
-        NotifyInfo("The Iron Cafe", "All Guppies found! Unlocking door...")
-        
-        -- Loop kirim semua ikan ke totem
-        for fishName, _ in pairs(_G.TargetGuppies) do
-            _G.REPlaceItems2:FireServer(fishName)
-            task.wait(2.1) -- Delay aman agar server memproses
-        end
-
-        NotifySuccess("The Iron Cafe", "Door Unlocked! Farming Stopped.")
-        _G.StopCavernFarm()
-        
-        -- Hapus file save karena misi selesai
-        if isfile(_G.saveFileCafe) then delfile(_G.saveFileCafe) end
-    end)
-end
-
--- 6. Fungsi Utama START
-_G.StartCavernFarm = function()
-    if _G.CavernFarmEnabled then return end
-    _G.CavernFarmEnabled = true
-
-    -- Load data lama
-    loadCafeProgress()
-    updateCafeUI()
-
-    -- Cek jika sudah selesai dari awal
-    if countCollectedGuppies() >= 4 then
-        _G.UnlockCafe()
-        return
-    end
-
-    -- Teleport ke Spot
-    local Player = game.Players.LocalPlayer
-    if Player.Character then
-        Player.Character:PivotTo(_G.IronCafeSpot)
-    end
-    
-    -- Mulai Auto Fish (Pilih metode terbaik Anda, misal 5X)
-    if StartAutoFish5X then
-        StartAutoFish5X()
-    elseif _G.ToggleAutoClick then
-        _G.ToggleAutoClick(true)
-    end
-
-    NotifySuccess("Iron Cafe", "Farming started at Spot 1...")
-
-    -- Listener Ikan
-    if _G.CavernConnection then _G.CavernConnection:Disconnect() end
-    _G.CavernConnection = _G.REFishCaught.OnClientEvent:Connect(function(fishName)
-        -- Cek apakah ikan yang ditangkap adalah salah satu Guppy target
-        if _G.TargetGuppies[fishName] == false then
-            _G.TargetGuppies[fishName] = true -- Tandai sudah dapat
-            saveCafeProgress()
-            updateCafeUI()
-            
-            NotifySuccess("Iron Cafe", "Caught: " .. fishName)
-
-            -- Cek apakah semua sudah terkumpul
-            if countCollectedGuppies() >= 4 then
-                if StopAutoFish5X then StopAutoFish5X() end
-                if StopCast then StopCast() end
-                _G.UnlockCafe()
-            end
-        end
-    end)
-end
-
--- 7. Fungsi Utama STOP
-_G.StopCavernFarm = function()
-    _G.CavernFarmEnabled = false
-    
-    -- Matikan Auto Fish
-    if StopAutoFish5X then StopAutoFish5X() end
-    if _G.ToggleAutoClick then _G.ToggleAutoClick(false) end
-    
-    -- Matikan Listener
-    if _G.CavernConnection then
-        _G.CavernConnection:Disconnect()
-        _G.CavernConnection = nil
-    end
-    
-    updateCafeUI()
-    if _G.CavernParagraph then
-        _G.CavernParagraph:SetTitle("Auto Iron Cafe (Stopped)")
-    end
-end
-
--- ================= UI ELEMENTS =================
-
-_G.CavernParagraph = _G.CavernSec:Paragraph({
-    Title = "Auto The Iron Cafe",
-    Desc = "Waiting for activation...",
-    Color = "Green",
-})
-
-_G.CavernSec:Space()
-
-_G.CavernSec:Toggle({
-    Title = "Auto Farm Iron Cafe",
-    Desc = "collect 4 Guppies, unlock door.",
-    Default = false,
-    Callback = function(state)
-        if state then
-            _G.StartCavernFarm()
-        else
-            _G.StopCavernFarm()
-        end
-    end
-})
-
-_G.CavernSec:Button({
-    Title = "Manual Unlock",
-    Desc = "Click if you already have all fishes",
-    Callback = function()
-        _G.UnlockCafe()
     end
 })
 
