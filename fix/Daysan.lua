@@ -1799,6 +1799,7 @@ task.spawn(function()
             _G.CaveStatus = "Waiting Event..."
 
             if _G.CaveState.HasTeleported and _G.OriginalCFrame_Cave then
+                task.wait(5)
                 SafeTeleport(_G.OriginalCFrame_Cave)
             end
 

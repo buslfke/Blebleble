@@ -2375,7 +2375,7 @@ function SafeTeleport(cf)
     hrp.CFrame = cf + Vector3.new(0, 8, 0)
     task.wait(0.15)
     hrp.CFrame = cf
-    task.wait(0.1)
+    task.wait(1)
     hrp.Anchored = false
 end
 
@@ -2445,6 +2445,7 @@ task.spawn(function()
             _G.CaveStatus = "Waiting Event..."
 
             if _G.CaveState.HasTeleported and _G.OriginalCFrame_Cave then
+                task.wait(5)
                 SafeTeleport(_G.OriginalCFrame_Cave)
             end
 
