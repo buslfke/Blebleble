@@ -2083,10 +2083,29 @@ function SafeTeleport(cf)
     if not hrp then return end
 
     hrp.Anchored = true
-    hrp.CFrame = cf + Vector3.new(0, 8, 0)
+    hrp.CFrame = cf
     task.wait(0.15)
     hrp.CFrame = cf
-    task.wait(1)
+    task.wait(5)
+    hrp.Anchored = false
+end
+
+function ForceReturnToOriginal(cf)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- tunggu server selesai teleport
+    task.wait(2)
+
+    hrp.Anchored = true
+
+    -- paksa posisi berulang agar menang dari server
+    for i = 1, 5 do
+        hrp.CFrame = cf
+        task.wait(0.1)
+    end
+
     hrp.Anchored = false
 end
 
@@ -2156,11 +2175,11 @@ task.spawn(function()
             _G.CaveStatus = "Waiting Event..."
 
             if _G.CaveState.HasTeleported and _G.OriginalCFrame_Cave then
-                task.wait(5)
-                SafeTeleport(_G.OriginalCFrame_Cave)
+                ForceReturnToOriginal(_G.OriginalCFrame_Cave)
             end
 
             _G.CaveState.HasTeleported = false
+            _G.OriginalCFrame_Cave = nil
             _G.UpdateEventUI()
             continue
         end
@@ -2173,7 +2192,9 @@ task.spawn(function()
                 and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if not hrp then continue end
 
-            _G.OriginalCFrame_Cave = hrp.CFrame
+            if not _G.OriginalCFrame_Cave then
+                _G.OriginalCFrame_Cave = hrp.CFrame
+            end
             _G.CaveStatus = "Teleporting..."
             _G.UpdateEventUI()
 
