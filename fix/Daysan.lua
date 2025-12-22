@@ -1666,6 +1666,7 @@ _G.LochEventEndTime = nil
 _G.CaveState = {
     HasTeleported = false
 }
+_G.CaveReturnScheduled = false
 
 -------------------------------------------------
 -- UI
@@ -1701,18 +1702,29 @@ _G.FarmSec:Toggle({
     Callback = function(v)
         _G.AutoChristmasCave = v
 
-        if not v then
-            -- 🔁 PAKSA BALIK SAAT DIMATIKAN
-            if _G.CaveState.HasTeleported and _G.OriginalCFrame_Cave then
-                SafeTeleport(_G.OriginalCFrame_Cave)
+        local hrp = LocalPlayer.Character
+            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+        if v then
+            -- SIMPAN PAKSA POSISI AWAL (SATU-SATUNYA SUMBER KEBENARAN)
+            if hrp then
+                _G.OriginalCFrame_Cave = hrp.CFrame
+            end
+
+            _G.CaveStatus = "Monitoring..."
+            _G.__ForceCaveRecheck = true
+        else
+            -- JIKA DIMATIKAN, KEMBALI KE POSISI AWAL
+            if _G.OriginalCFrame_Cave then
+                ForceReturnToOriginal(_G.OriginalCFrame_Cave)
             end
 
             _G.CaveState.HasTeleported = false
+            _G.OriginalCFrame_Cave = nil
+            _G.CaveReturnScheduled = false
             _G.CaveStatus = "Disabled"
-        else
-            _G.CaveStatus = "Monitoring..."
-            _G.__ForceCaveRecheck = true
         end
+
         _G.UpdateEventUI()
     end
 })
@@ -1729,7 +1741,7 @@ function SafeTeleport(cf)
     hrp.CFrame = cf
     task.wait(0.15)
     hrp.CFrame = cf
-    task.wait(5)
+    task.wait(1)
     hrp.Anchored = false
 end
 
@@ -1743,8 +1755,7 @@ function ForceReturnToOriginal(cf)
 
     hrp.Anchored = true
 
-    -- paksa posisi berulang agar menang dari server
-    for i = 1, 5 do
+    for i = 1, 3 do
         hrp.CFrame = cf
         task.wait(0.1)
     end
@@ -1816,14 +1827,26 @@ task.spawn(function()
         -- ===============================
         if text:upper():find("CAVE CLOSED") then
             _G.CaveStatus = "Waiting Event..."
-
-            if _G.CaveState.HasTeleported and _G.OriginalCFrame_Cave then
-                ForceReturnToOriginal(_G.OriginalCFrame_Cave)
-            end
-
-            _G.CaveState.HasTeleported = false
-            _G.OriginalCFrame_Cave = nil
             _G.UpdateEventUI()
+        
+            if _G.CaveState.HasTeleported
+                and _G.OriginalCFrame_Cave
+                and not _G.CaveReturnScheduled
+            then
+                _G.CaveReturnScheduled = true
+        
+                task.spawn(function()
+                    -- BIARKAN SERVER MENYELESAIKAN TELEPORT & ALIGNMENT
+                    task.wait(10)
+        
+                    -- FORCE RETURN KE POSISI MURNI
+                    ForceReturnToOriginal(_G.OriginalCFrame_Cave)
+        
+                    _G.CaveState.HasTeleported = false
+                    _G.CaveReturnScheduled = false
+                end)
+            end
+        
             continue
         end
 
@@ -1835,9 +1858,6 @@ task.spawn(function()
                 and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if not hrp then continue end
 
-            if not _G.OriginalCFrame_Cave then
-                _G.OriginalCFrame_Cave = hrp.CFrame
-            end
             _G.CaveStatus = "Teleporting..."
             _G.UpdateEventUI()
 
