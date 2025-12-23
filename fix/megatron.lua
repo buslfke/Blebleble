@@ -412,6 +412,11 @@ local Home = Window:Tab({
 	Icon = "hard-drive"
 })
 
+_G.CEvent = Window:Tab({
+    Title = "Christmas Event",
+    Icon = "candy-cane",
+})
+
 local AllMenu = Window:Section({
 	Title = "All Menu Here",
 	Icon = "tally-3",
@@ -625,6 +630,243 @@ end
 
 
 _G.loadPosition()
+
+-------------------------------------------
+-- =======[ CHRISTMAS EVENT - FINAL ]
+-------------------------------------------
+
+_G.CEvent:Divider()
+
+_G.CEvent:Section({
+    Title = "Christmas Event Menu",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = true
+})
+
+_G.CEvent:Divider()
+
+_G.PresentParagraph = _G.CEvent:Paragraph({
+    Title = "Auto Christmas Event",
+    Desc = "Idle",
+    Thumbnail = "https://i.ibb.co.com/DP3Rx9Kt/Pngtree-free-christmas-tree-with-gift-15824230.jpg",
+    ThumbnailSize = 80
+})
+
+function setUI(text)
+    if _G.PresentParagraph then
+        _G.PresentParagraph:SetDesc(text)
+    end
+end
+
+-------------------------------------------------
+-- LIBRARIES
+-------------------------------------------------
+_G.Replion = require(
+    ReplicatedStorage.Packages._Index["ytrev_replion@2.0.0-rc.3"].replion
+)
+
+_G.ItemUtility = require(
+    ReplicatedStorage.Shared.ItemUtility
+)
+
+_G.ItemStringUtility = require(
+    ReplicatedStorage.Modules.ItemStringUtility
+)
+
+-------------------------------------------------
+-- REMOTES
+-------------------------------------------------
+_G.RFSpecialDialogueEvent =
+    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
+        .net["RF/SpecialDialogueEvent"]
+
+_G.REEquipItem =
+    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
+        .net["RE/EquipItem"]
+
+_G.REEquipToolFromHotbar =
+    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
+        .net["RE/EquipToolFromHotbar"]
+
+_G.RFRedeemGift =
+    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
+        .net["RF/RedeemGift"]
+
+-------------------------------------------------
+-- GLOBAL STATE
+-------------------------------------------------
+_G.AutoChristmasEvent = false
+_G.__ChristmasThread = nil
+_G.RedeemDelay = 2
+
+-------------------------------------------------
+-- INVENTORY SCAN (GEARS PRESENT ONLY)
+-------------------------------------------------
+_G.GetPresentItems = function()
+    local DataReplion = _G.Replion.Client:WaitReplion("Data")
+    if not DataReplion then return {} end
+
+    local items = DataReplion:Get({ "Inventory", "Items" }) or {}
+    local result = {}
+
+    for _, item in ipairs(items) do
+        if not item or not item.Id then continue end
+
+        local base = _G.ItemUtility:GetItemData(item.Id)
+        if not base or not base.Data then continue end
+        if base.Data.Type ~= "Gears" then continue end
+
+        local name = _G.ItemStringUtility.GetItemName(item, base)
+        if not name then continue end
+
+        if string.find(string.lower(name), "present") then
+            table.insert(result, {
+                Name = name,
+                UUID = item.UUID
+            })
+        end
+    end
+
+    return result
+end
+
+-------------------------------------------------
+-- CLAIM ALL CHRISTMAS DOORS
+-------------------------------------------------
+_G.ClaimDoors = function()
+    local folder = workspace:FindFirstChild("ChristmasDoors")
+    if not folder then return end
+
+    for _, door in ipairs(folder:GetChildren()) do
+        pcall(function()
+            _G.RFSpecialDialogueEvent:InvokeServer(
+                door.Name,
+                "PresentChristmasDoor"
+            )
+        end)
+        task.wait(0.4)
+    end
+end
+
+-------------------------------------------------
+-- REDEEM PRESENTS
+-------------------------------------------------
+_G.RedeemAllPresents = function()
+    local presents = _G.GetPresentItems()
+
+    if #presents == 0 then
+        setUI("No Present found in inventory.")
+        return false
+    end
+
+    for i, item in ipairs(presents) do
+        if not _G.AutoChristmasEvent then return false end
+
+        setUI(string.format(
+            "[%d/%d]\nRedeeming %s",
+            i, #presents, item.Name
+        ))
+
+        pcall(function()
+            _G.REEquipItem:FireServer(item.UUID, "Gears")
+        end)
+
+        task.wait(0.6)
+
+        pcall(function()
+            _G.REEquipToolFromHotbar:FireServer(6)
+        end)
+
+        task.wait(0.6)
+
+        pcall(function()
+            _G.RFRedeemGift:InvokeServer()
+        end)
+
+        task.wait(_G.RedeemDelay)
+    end
+
+    return true
+end
+
+-------------------------------------------------
+-- MAIN LOOP
+-------------------------------------------------
+_G.StartChristmasLoop = function()
+    if _G.__ChristmasThread then return end
+
+    _G.__ChristmasThread = task.spawn(function()
+        while _G.AutoChristmasEvent do
+            -- =========================
+            -- STEP 1: CLAIM DOORS
+            -- =========================
+            setUI("Claiming Christmas Presents...")
+            pcall(_G.ClaimDoors)
+
+            -- =========================
+            -- STEP 2: WAIT SERVER SYNC
+            -- =========================
+            setUI("Syncing inventory...")
+            for i = 1, 6 do
+                if not _G.AutoChristmasEvent then break end
+                task.wait(1)
+            end
+
+            -- =========================
+            -- STEP 3: SCAN & REDEEM
+            -- =========================
+            local count = #_G.GetPresentItems()
+
+            if count > 0 then
+                setUI(("Found %d Present(s).\nRedeeming..."):format(count))
+                _G.RedeemAllPresents()
+                setUI("Redeem finished.")
+            else
+                setUI("No Present available this cycle.")
+            end
+            
+            task.wait(1)
+
+            -- =========================
+            -- STEP 4: COOLDOWN
+            -- =========================
+            
+            setUI("Cooldown... Next check in 1 hour.")
+            local start = tick()
+            while _G.AutoChristmasEvent and (tick() - start) < 3600 do
+                task.wait(1)
+            end
+        end
+
+        _G.__ChristmasThread = nil
+    end)
+end
+
+_G.StopChristmasLoop = function()
+    _G.AutoChristmasEvent = false
+end
+
+-------------------------------------------------
+-- TOGGLE
+-------------------------------------------------
+_G.CEvent:Toggle({
+    Title = "Auto Christmas Event (Claim + Redeem)",
+    Value = false,
+    Callback = function(state)
+        _G.AutoChristmasEvent = state
+
+        if state then
+            setUI("Starting...")
+            _G.StartChristmasLoop()
+        else
+            setUI("Disabled.")
+            _G.StopChristmasLoop()
+        end
+    end
+})
+
+
 
 -------------------------------------------
 ----- =======[ AUTO FISH TAB ]
@@ -2567,6 +2809,278 @@ _G.CavernSec = AutoFarmTab:Section({
     TextXAlignment = "Center",
     Opened = false
 })
+
+-- =======================================================
+-- == AUTO EVENT MANAGER (LOCHNESS + CHRISTMAS CAVE FINAL)
+-- =======================================================
+
+-------------------------------------------------
+-- GLOBAL FLAGS
+-------------------------------------------------
+_G.AutoLochNess = false
+_G.AutoChristmasCave = false
+
+_G.LochStatus = "Idle"
+_G.CaveStatus = "Waiting Event..."
+
+-------------------------------------------------
+-- SERVICES
+-------------------------------------------------
+
+-------------------------------------------------
+-- PATHS
+-------------------------------------------------
+_G.CountdownLabel =
+    workspace["!!! MENU RINGS"]["Event Tracker"]
+        .Main.Gui.Content.Items.Countdown.Label
+
+_G.CaveLabel =
+    workspace.Map.CavernTeleporter
+        .StartTeleport.Gui.Frame.NewLabel
+
+-------------------------------------------------
+-- CFRAMES
+-------------------------------------------------
+local LOCHNESS_CFRAME = CFrame.new(
+    6003.8374, -585.924683, 4661.7334,
+    0.0215646587, 0, -0.999767482,
+    0, 1, 0,
+    0.999767482, 0, 0.0215646587
+)
+
+_G.ChristmasCaveCFrames = {
+    CFrame.new(605.692871, -580.58136, 8887.51074, 0.0267926417, -8.79793234e-08, 0.999641001, -2.50977159e-08, 1, 8.8683592e-08, -0.999641001, -2.74647753e-08, 0.0267926417),
+    CFrame.new(576.37677, -580.58136, 8931.45312, 0.968435466, -5.87835451e-08, -0.249264464, 4.9410648e-08, 1, -4.38591208e-08, 0.249264464, 3.01584109e-08, 0.968435466),
+    CFrame.new(694.887695, -487.111328, 8913.8877, 0.991148233, 3.50480462e-08, -0.132759795, -3.17826441e-08, 1, 2.67154086e-08, 0.132759795, -2.22594725e-08, 0.991148233),
+    CFrame.new(746.483093, -487.112, 8926.44238, 0.689154983, -5.98709349e-09, -0.724613965, -4.31799663e-09, 1, -1.23691546e-08, 0.724613965, 1.16531451e-08, 0.689154983),
+    CFrame.new(743.71759, -487.110687, 8862.72656, -0.911057472, 1.73095618e-08, -0.412279397, 1.06622533e-08, 1, 1.84235134e-08, 0.412279397, 1.23890525e-08, -0.911057472),
+}
+
+-------------------------------------------------
+-- STATE
+-------------------------------------------------
+_G.OriginalCFrame_Loch = nil
+_G.OriginalCFrame_Cave = nil
+_G.LochEventEndTime = nil
+_G.CaveState = {
+    HasTeleported = false
+}
+_G.CaveReturnScheduled = false
+
+-------------------------------------------------
+-- UI
+-------------------------------------------------
+_G.EventParagraph = _G.FarmSec:Paragraph({
+    Title = "Event Status Monitor",
+    Desc = "Loading...",
+})
+
+function _G.UpdateEventUI()
+    _G.EventParagraph:SetDesc(string.format(
+        "LochNess : %s\nCountdown: %s\nChristmas Cave : %s",
+        _G.LochStatus,
+        _G.CountdownLabel.Text or "N/A",
+        _G.CaveStatus
+    ))
+end
+
+-------------------------------------------------
+-- TOGGLES
+-------------------------------------------------
+_G.FarmSec:Toggle({
+    Title = "Auto Lochness Monster",
+    Callback = function(v)
+        _G.AutoLochNess = v
+        _G.LochStatus = v and "Monitoring..." or "Idle"
+        _G.UpdateEventUI()
+    end
+})
+
+_G.FarmSec:Toggle({
+    Title = "Auto Christmas Cave",
+    Callback = function(v)
+        _G.AutoChristmasCave = v
+
+        local hrp = LocalPlayer.Character
+            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+        if v then
+            -- SIMPAN PAKSA POSISI AWAL (SATU-SATUNYA SUMBER KEBENARAN)
+            if hrp then
+                _G.OriginalCFrame_Cave = hrp.CFrame
+            end
+
+            _G.CaveStatus = "Monitoring..."
+            _G.__ForceCaveRecheck = true
+        else
+            -- JIKA DIMATIKAN, KEMBALI KE POSISI AWAL
+            if _G.OriginalCFrame_Cave then
+                ForceReturnToOriginal(_G.OriginalCFrame_Cave)
+            end
+
+            _G.CaveState.HasTeleported = false
+            _G.OriginalCFrame_Cave = nil
+            _G.CaveReturnScheduled = false
+            _G.CaveStatus = "Disabled"
+        end
+
+        _G.UpdateEventUI()
+    end
+})
+
+-------------------------------------------------
+-- SAFE TELEPORT (ANTI TERCEBUR / ANTI RENDER)
+-------------------------------------------------
+function SafeTeleport(cf)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    hrp.Anchored = true
+    hrp.CFrame = cf
+    task.wait(0.15)
+    hrp.CFrame = cf
+    task.wait(1)
+    hrp.Anchored = false
+end
+
+function ForceReturnToOriginal(cf)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- tunggu server selesai teleport
+    task.wait(2)
+
+    hrp.Anchored = true
+
+    for i = 1, 3 do
+        hrp.CFrame = cf
+        task.wait(0.1)
+    end
+
+    hrp.Anchored = false
+end
+
+-------------------------------------------------
+-- LOCHNESS LOGIC (STABLE)
+-------------------------------------------------
+function OnCountdownChanged()
+    if not _G.AutoLochNess then return end
+
+    local txt = _G.CountdownLabel.Text
+    _G.UpdateEventUI()
+
+    if _G.LochEventEndTime then
+        if tick() >= _G.LochEventEndTime then
+            _G.LochStatus = "Returning..."
+            if _G.OriginalCFrame_Loch then
+                SafeTeleport(_G.OriginalCFrame_Loch)
+            end
+            _G.LochEventEndTime = nil
+            _G.LochStatus = "Monitoring..."
+        end
+        return
+    end
+
+    local h = tonumber(txt:match("(%d+)H")) or 0
+    local m = tonumber(txt:match("(%d+)M")) or 0
+    local s = tonumber(txt:match("(%d+)S")) or 0
+
+    if h == 0 and m == 0 and s <= 10 and s >= 1 then
+        local hrp = LocalPlayer.Character
+            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        _G.OriginalCFrame_Loch = hrp.CFrame
+        _G.LochStatus = "Teleporting..."
+        SafeTeleport(LOCHNESS_CFRAME)
+
+        _G.LochEventEndTime = tick() + (12 * 60)
+        _G.LochStatus = "Waiting Event End..."
+    end
+end
+
+_G.CountdownLabel:GetPropertyChangedSignal("Text"):Connect(OnCountdownChanged)
+
+-------------------------------------------------
+-- CHRISTMAS CAVE LOGIC (FINAL & SAFE)
+-------------------------------------------------
+task.spawn(function()
+    local lastText = ""
+
+    while task.wait(0.5) do
+        if _G.__ForceCaveRecheck then
+            lastText = ""
+            _G.__ForceCaveRecheck = false
+        end
+
+        if not _G.CaveLabel then continue end
+
+        local text = _G.CaveLabel.Text
+        if text == lastText then continue end
+        lastText = text
+
+        -- ===============================
+        -- EVENT CLOSED (SELALU DIMONITOR)
+        -- ===============================
+        if text:upper():find("CAVE CLOSED") then
+            _G.CaveStatus = "Waiting Event..."
+            _G.UpdateEventUI()
+        
+            if _G.CaveState.HasTeleported
+                and _G.OriginalCFrame_Cave
+                and not _G.CaveReturnScheduled
+            then
+                _G.CaveReturnScheduled = true
+        
+                task.spawn(function()
+                    -- BIARKAN SERVER MENYELESAIKAN TELEPORT & ALIGNMENT
+                    task.wait(10)
+        
+                    -- FORCE RETURN KE POSISI MURNI
+                    ForceReturnToOriginal(_G.OriginalCFrame_Cave)
+        
+                    _G.CaveState.HasTeleported = false
+                    _G.CaveReturnScheduled = false
+                end)
+            end
+        
+            continue
+        end
+
+        -- ===============================
+        -- EVENT OPEN (HANYA JIKA TOGGLE ON)
+        -- ===============================
+        if _G.AutoChristmasCave and not _G.CaveState.HasTeleported then
+            local hrp = LocalPlayer.Character
+                and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+
+            _G.CaveStatus = "Teleporting..."
+            _G.UpdateEventUI()
+
+            SafeTeleport(
+                _G.ChristmasCaveCFrames[
+                    math.random(#_G.ChristmasCaveCFrames)
+                ]
+            )
+
+            _G.CaveState.HasTeleported = true
+            _G.CaveStatus = "Farming..."
+            _G.UpdateEventUI()
+        end
+    end
+end)
+
+-------------------------------------------------
+-- UI REFRESH FAILSAFE
+-------------------------------------------------
+task.spawn(function()
+    while task.wait(1) do
+        _G.UpdateEventUI()
+    end
+end)
 
 local CodeIsland = _G.FarmSec:Dropdown({
     Title = "Farm Island",
