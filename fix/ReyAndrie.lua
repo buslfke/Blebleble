@@ -248,6 +248,11 @@ _G.ServerPage = Window:Tab({
     Icon = "server"
 })
 
+_G.CEvent = Window:Tab({
+    Title = "Christmas Event",
+    Icon = "candy-cane",
+})
+
 local AllMenu = Window:Section({
     Title = "All Menu Here",
     Icon = "tally-3",
@@ -465,6 +470,242 @@ _G.ShowServersButton = _G.ServerListAll:Button({
         end
     end
 })
+
+-------------------------------------------
+-- =======[ CHRISTMAS EVENT - FINAL ]
+-------------------------------------------
+
+_G.CEvent:Divider()
+
+_G.CEvent:Section({
+    Title = "Christmas Event Menu",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = true
+})
+
+_G.CEvent:Divider()
+
+_G.PresentParagraph = _G.CEvent:Paragraph({
+    Title = "Auto Christmas Event",
+    Desc = "Idle",
+    Thumbnail = "https://i.ibb.co.com/DP3Rx9Kt/Pngtree-free-christmas-tree-with-gift-15824230.jpg",
+    ThumbnailSize = 80
+})
+
+function setUI(text)
+    if _G.PresentParagraph then
+        _G.PresentParagraph:SetDesc(text)
+    end
+end
+
+-------------------------------------------------
+-- LIBRARIES
+-------------------------------------------------
+_G.Replion = require(
+    ReplicatedStorage.Packages._Index["ytrev_replion@2.0.0-rc.3"].replion
+)
+
+_G.ItemUtility = require(
+    ReplicatedStorage.Shared.ItemUtility
+)
+
+_G.ItemStringUtility = require(
+    ReplicatedStorage.Modules.ItemStringUtility
+)
+
+-------------------------------------------------
+-- REMOTES
+-------------------------------------------------
+_G.RFSpecialDialogueEvent =
+    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
+        .net["RF/SpecialDialogueEvent"]
+
+_G.REEquipItem =
+    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
+        .net["RE/EquipItem"]
+
+_G.REEquipToolFromHotbar =
+    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
+        .net["RE/EquipToolFromHotbar"]
+
+_G.RFRedeemGift =
+    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
+        .net["RF/RedeemGift"]
+
+-------------------------------------------------
+-- GLOBAL STATE
+-------------------------------------------------
+_G.AutoChristmasEvent = false
+_G.__ChristmasThread = nil
+_G.RedeemDelay = 2
+
+-------------------------------------------------
+-- INVENTORY SCAN (GEARS PRESENT ONLY)
+-------------------------------------------------
+_G.GetPresentItems = function()
+    local DataReplion = _G.Replion.Client:WaitReplion("Data")
+    if not DataReplion then return {} end
+
+    local items = DataReplion:Get({ "Inventory", "Items" }) or {}
+    local result = {}
+
+    for _, item in ipairs(items) do
+        if not item or not item.Id then continue end
+
+        local base = _G.ItemUtility:GetItemData(item.Id)
+        if not base or not base.Data then continue end
+        if base.Data.Type ~= "Gears" then continue end
+
+        local name = _G.ItemStringUtility.GetItemName(item, base)
+        if not name then continue end
+
+        if string.find(string.lower(name), "present") then
+            table.insert(result, {
+                Name = name,
+                UUID = item.UUID
+            })
+        end
+    end
+
+    return result
+end
+
+-------------------------------------------------
+-- CLAIM ALL CHRISTMAS DOORS
+-------------------------------------------------
+_G.ClaimDoors = function()
+    local folder = workspace:FindFirstChild("ChristmasDoors")
+    if not folder then return end
+
+    for _, door in ipairs(folder:GetChildren()) do
+        pcall(function()
+            _G.RFSpecialDialogueEvent:InvokeServer(
+                door.Name,
+                "PresentChristmasDoor"
+            )
+        end)
+        task.wait(0.4)
+    end
+end
+
+-------------------------------------------------
+-- REDEEM PRESENTS
+-------------------------------------------------
+_G.RedeemAllPresents = function()
+    local presents = _G.GetPresentItems()
+
+    if #presents == 0 then
+        setUI("No Present found in inventory.")
+        return false
+    end
+
+    for i, item in ipairs(presents) do
+        if not _G.AutoChristmasEvent then return false end
+
+        setUI(string.format(
+            "[%d/%d]\nRedeeming %s",
+            i, #presents, item.Name
+        ))
+
+        pcall(function()
+            _G.REEquipItem:FireServer(item.UUID, "Gears")
+        end)
+
+        task.wait(0.6)
+
+        pcall(function()
+            _G.REEquipToolFromHotbar:FireServer(6)
+        end)
+
+        task.wait(0.6)
+
+        pcall(function()
+            _G.RFRedeemGift:InvokeServer()
+        end)
+
+        task.wait(_G.RedeemDelay)
+    end
+
+    return true
+end
+
+-------------------------------------------------
+-- MAIN LOOP
+-------------------------------------------------
+_G.StartChristmasLoop = function()
+    if _G.__ChristmasThread then return end
+
+    _G.__ChristmasThread = task.spawn(function()
+        while _G.AutoChristmasEvent do
+            -- =========================
+            -- STEP 1: CLAIM DOORS
+            -- =========================
+            setUI("Claiming Christmas Presents...")
+            pcall(_G.ClaimDoors)
+
+            -- =========================
+            -- STEP 2: WAIT SERVER SYNC
+            -- =========================
+            setUI("Syncing inventory...")
+            for i = 1, 6 do
+                if not _G.AutoChristmasEvent then break end
+                task.wait(1)
+            end
+
+            -- =========================
+            -- STEP 3: SCAN & REDEEM
+            -- =========================
+            local count = #_G.GetPresentItems()
+
+            if count > 0 then
+                setUI(("Found %d Present(s).\nRedeeming..."):format(count))
+                _G.RedeemAllPresents()
+                setUI("Redeem finished.")
+            else
+                setUI("No Present available this cycle.")
+            end
+            
+            task.wait(1)
+
+            -- =========================
+            -- STEP 4: COOLDOWN
+            -- =========================
+            
+            setUI("Cooldown... Next check in 1 hour.")
+            local start = tick()
+            while _G.AutoChristmasEvent and (tick() - start) < 3600 do
+                task.wait(1)
+            end
+        end
+
+        _G.__ChristmasThread = nil
+    end)
+end
+
+_G.StopChristmasLoop = function()
+    _G.AutoChristmasEvent = false
+end
+
+-------------------------------------------------
+-- TOGGLE
+-------------------------------------------------
+_G.CEvent:Toggle({
+    Title = "Auto Christmas Event (Claim + Redeem)",
+    Value = false,
+    Callback = function(state)
+        _G.AutoChristmasEvent = state
+
+        if state then
+            setUI("Starting...")
+            _G.StartChristmasLoop()
+        else
+            setUI("Disabled.")
+            _G.StopChristmasLoop()
+        end
+    end
+})
+
 
 -------------------------------------------
 ----- =======[ AUTO FISH TAB ]
