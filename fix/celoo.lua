@@ -2261,13 +2261,14 @@ _G.ChristmasCaveCFrames = {
 -------------------------------------------------
 -- STATE
 -------------------------------------------------
-_G.OriginalCFrame_Loch = nil
 _G.OriginalCFrame_Cave = nil
-_G.LochEventEndTime = nil
 _G.CaveState = {
     HasTeleported = false
 }
 _G.CaveReturnScheduled = false
+_G.LochEventRunning = false
+_G.LochEventEndTime = nil
+_G.OriginalCFrame_Loch = nil
 
 -------------------------------------------------
 -- UI
@@ -2367,39 +2368,70 @@ end
 -------------------------------------------------
 -- LOCHNESS LOGIC (STABLE)
 -------------------------------------------------
+-------------------------------------------------
+-- LOCHNESS LOGIC (FIXED & DETERMINISTIC)
+-------------------------------------------------
+
 function OnCountdownChanged()
     if not _G.AutoLochNess then return end
+    if _G.LochEventRunning then return end
 
-    local txt = _G.CountdownLabel.Text
+    local label = _G.CountdownLabel
+    if not label or not label.Text then return end
+
     _G.UpdateEventUI()
 
-    if _G.LochEventEndTime then
-        if tick() >= _G.LochEventEndTime then
-            _G.LochStatus = "Returning..."
-            if _G.OriginalCFrame_Loch then
-                SafeTeleport(_G.OriginalCFrame_Loch)
-            end
-            _G.LochEventEndTime = nil
-            _G.LochStatus = "Monitoring..."
-        end
-        return
-    end
+    local txt = label.Text
 
     local h = tonumber(txt:match("(%d+)H")) or 0
     local m = tonumber(txt:match("(%d+)M")) or 0
     local s = tonumber(txt:match("(%d+)S")) or 0
 
+    -- Trigger hanya SEKALI saat mendekati 0
     if h == 0 and m == 0 and s <= 10 and s >= 1 then
-        local hrp = LocalPlayer.Character
-            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
 
+        -- Simpan posisi awal
         _G.OriginalCFrame_Loch = hrp.CFrame
+
+        _G.LochEventRunning = true
         _G.LochStatus = "Teleporting..."
+        _G.UpdateEventUI()
+
         SafeTeleport(LOCHNESS_CFRAME)
 
-        _G.LochEventEndTime = tick() + (12 * 60)
-        _G.LochStatus = "Waiting Event End..."
+        -- FIX: 11 MENIT TEPAT
+        _G.LochEventEndTime = tick() + (11 * 60)
+        _G.LochStatus = "Event Active (11 min)"
+        _G.UpdateEventUI()
+
+        -- Countdown return (thread terpisah, aman)
+        task.spawn(function()
+            while _G.LochEventRunning do
+                if tick() >= _G.LochEventEndTime then
+                    break
+                end
+                task.wait(1)
+            end
+
+            -- Return ke posisi awal
+            _G.LochStatus = "Returning..."
+            _G.UpdateEventUI()
+
+            if _G.OriginalCFrame_Loch then
+                SafeTeleport(_G.OriginalCFrame_Loch)
+            end
+
+            -- Reset state
+            _G.LochEventRunning = false
+            _G.LochEventEndTime = nil
+            _G.OriginalCFrame_Loch = nil
+
+            _G.LochStatus = "Monitoring..."
+            _G.UpdateEventUI()
+        end)
     end
 end
 
