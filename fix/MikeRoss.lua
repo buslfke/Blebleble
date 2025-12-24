@@ -368,16 +368,6 @@ _G.REObtainedNewFishNotification = ReplicatedStorage
     .Packages._Index["sleitnick_net@0.2.0"]
     .net["RE/ObtainedNewFishNotification"]
 
-_G.FishBlatant = false
-_G.SettingBlatant = 1.9
-
-_G.BlatantState = {
-    Running = false,
-    FishCount = 0,
-    Target = 17,
-    Initialized = false
-}
-
 _G.isSpamming = false
 _G.rSpamming = false
 _G.rStopSpam = false
@@ -417,55 +407,6 @@ _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
         end
     end
     
-    if not _G.FishBlatant then return end
-    if not FuncAutoFish.autofish5x then return end
-
-    _G.BlatantState.FishCount += 1
-
-    if _G.BlatantState.FishCount >= _G.BlatantState.Target then
-        _G.BlatantState.FishCount = 0
-        _G.BlatantState.Target = 17
-
-        _G.RunBlatantBurst()
-    end
-end)
-
-function _G.RunBlatantBurst()
-    if _G.BlatantState.Running then return end
-    if not FuncAutoFish.autofish5x then return end
-    if not _G.FishBlatant then return end
-
-    _G.BlatantState.Running = true
-
-    task.spawn(function()
-        _G.StopFishing()
-        task.wait(tonumber(_G.SettingBlatant))
-        InitialCast5X()
-
-        _G.BlatantState.Running = false
-    end)
-end
-
-task.spawn(function()
-    while task.wait(0.2) do
-        if _G.FishBlatant
-            and FuncAutoFish.autofish5x
-            and not _G.BlatantState.Initialized
-        then
-            _G.BlatantState.Initialized = true
-            _G.BlatantState.FishCount = 0
-            _G.BlatantState.Target = 17
-
-            -- 🚀 BURST PERTAMA TANPA NUNGGU IKAN
-            _G.RunBlatantBurst()
-        end
-
-        -- reset jika dimatikan
-        if not _G.FishBlatant then
-            _G.BlatantState.Initialized = false
-            _G.BlatantState.FishCount = 0
-        end
-    end
 end)
 
 _G.LastSellTick = 0
@@ -782,6 +723,74 @@ function _G.ToggleAutoClick(shouldActivate)
     end
 end
 
+local v5 = {
+    Net = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net,
+    FishingController = require(ReplicatedStorage.Controllers.FishingController),
+}
+
+-------------------------------------------------
+-- FORCE EQUIP SLOT 1 (AUTO)
+-------------------------------------------------
+
+local v6 = {
+    Events = {
+        REFishDone = v5.Net["RE/FishingCompleted"],
+        REEquip = v5.Net["RE/EquipToolFromHotbar"],
+    },
+    Functions = {
+        ChargeRod = v5.Net["RF/ChargeFishingRod"],
+        StartMini = v5.Net["RF/RequestFishingMinigameStarted"],
+        Cancel = v5.Net["RF/CancelFishingInputs"],
+    }
+}
+
+_G.BlatantState = {
+    enabled = false,
+    mode = "Fast",
+    fishingDelay = 1.0,
+    reelDelay = 1.9
+}
+
+_G.ForceEquipRod = function()
+    pcall(function()
+        v6.Events.REEquip:FireServer(1)
+    end)
+    task.wait(0.25)
+end
+
+function Fastest()
+    task.spawn(function()
+        _G.ForceEquipRod()
+        pcall(function()
+            v6.Functions.Cancel:InvokeServer()
+        end)
+        local l_workspace_ServerTimeNow_0 = workspace:GetServerTimeNow()
+        pcall(function()
+            v6.Functions.ChargeRod:InvokeServer(l_workspace_ServerTimeNow_0)
+        end)
+        pcall(function()
+            v6.Functions.StartMini:InvokeServer(-1, 0.999)
+        end)
+        task.wait(_G.BlatantState.fishingDelay)
+        pcall(function()
+            v6.Events.REFishDone:FireServer()
+        end)
+    end)
+end
+
+task.spawn(function()
+    while true do
+        if _G.BlatantState.enabled then
+            if _G.BlatantState.mode == "Fast" then
+                Fastest()
+            end
+            task.wait(_G.BlatantState.reelDelay)
+        else
+            task.wait(0.2)
+        end
+    end
+end)
+
 _G.FishAdvenc = AutoFish:Section({
     Title = "Adcenced Settings",
     TextSize = 22,
@@ -794,6 +803,43 @@ _G.FishSec = AutoFish:Section({
     TextSize = 22,
     TextXAlignment = "Center",
     Opened = true
+})
+
+_G.BlatantSec = AutoFish:Section({
+    Title = "Blatant Fishing",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
+_G.BlatantSec:Input({
+    Title = "Delay Reel",
+    Value = tostring(_G.BlatantState.reelDelay),
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            _G.BlatantState.reelDelay = num
+        end
+    end
+})
+
+_G.BlatantSec:Input({
+    Title = "Delay Fishing",
+    Value = tostring(_G.BlatantState.fishingDelay),
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            _G.BlatantState.fishingDelay = num
+        end
+    end
+})
+
+_G.BlatantSec:Toggle({
+    Title = "Enable Blatant",
+    Value = false,
+    Callback = function(state)
+        _G.BlatantState.enabled = state
+    end
 })
 
 _G.FishAdvenc:Input({
@@ -812,18 +858,6 @@ Low Rod = 2 - 3
             NotifyWarning("Please Input Valid Number")
         end
         _G.FINISH_DELAY = fDelays
-    end
-})
-
-_G.FishAdvenc:Input({
-    Title = "Blatant Delay",
-    Value = _G.SettingBlatant,
-    Callback = function(value)
-        local num = tonumber(value)
-        if not num then
-            NotifyWarning("Please Input Valid Number")
-        end
-        _G.SettingBlatant = num
     end
 })
 
@@ -893,22 +927,6 @@ _G.AutoFishes = _G.FishSec:Toggle({
             StopAutoFish5X()
         end
     end
-})
-
-
-_G.FishSec:Toggle({
-    Title = "Fish Blatant Mode",
-    Callback = _G.ProtectCallback(function(state)
-        _G.FishBlatant = state
-        if state then
-            StartAutoFish5X()
-        else
-            _G.BlatantState.Initialized = false
-            _G.BlatantState.Running = false
-            _G.BlatantState.FishCount = 0
-            StopAutoFish5X()
-        end
-    end)
 })
 
 _G.FishSec:Toggle({
