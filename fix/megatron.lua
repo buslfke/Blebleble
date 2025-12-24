@@ -61,7 +61,7 @@ end)
 local TeleportService = game:GetService("TeleportService")
 local PlaceId = game.PlaceId
 
-local function AutoReconnect()
+function AutoReconnect()
     while task.wait(5) do
         if not Players.LocalPlayer or not Players.LocalPlayer:IsDescendantOf(game) then
             TeleportService:Teleport(PlaceId)
@@ -292,7 +292,7 @@ end
 ----- =======[ NOTIFY FUNCTION ]
 -------------------------------------------
 
-local function NotifySuccess(title, message, duration)
+function NotifySuccess(title, message, duration)
     WindUI:Notify({
         Title = title,
         Content = message,
@@ -301,7 +301,7 @@ local function NotifySuccess(title, message, duration)
     })
 end
 
-local function NotifyError(title, message, duration)
+function NotifyError(title, message, duration)
     WindUI:Notify({
         Title = title,
         Content = message,
@@ -310,7 +310,7 @@ local function NotifyError(title, message, duration)
     })
 end
 
-local function NotifyInfo(title, message, duration)
+function NotifyInfo(title, message, duration)
     WindUI:Notify({
         Title = title,
         Content = message,
@@ -319,7 +319,7 @@ local function NotifyInfo(title, message, duration)
     })
 end
 
-local function NotifyWarning(title, message, duration)
+function NotifyWarning(title, message, duration)
     WindUI:Notify({
         Title = title,
         Content = message,
@@ -484,7 +484,7 @@ local SettingsTab = AllMenu:Tab({
 
 local	InviteAPI = "https://discord.com/api/v10/invites/"
 
-local function LookupDiscordInvite(inviteCode)
+function LookupDiscordInvite(inviteCode)
     local url = InviteAPI .. inviteCode .. "?with_counts=true"
     local success, response = pcall(function()
         return game:HttpGet(url)
@@ -524,7 +524,7 @@ end
 
 local GitHubAPI = "https://api.github.com/users/"
 
-local function LookupGitHubUser(username)
+function LookupGitHubUser(username)
     local url = GitHubAPI .. username
     local success, response = pcall(function()
         return game:HttpGet(url)
@@ -1022,11 +1022,11 @@ task.spawn(function()
     end
 end)
 
-local function approx(a, b, tolerance)
+function approx(a, b, tolerance)
     return math.abs(a - b) <= (tolerance or 0.02)
 end
 
-local function isColor(r, g, b, R, G, B)
+function isColor(r, g, b, R, G, B)
     return approx(r, R) and approx(g, G) and approx(b, B)
 end
 
@@ -1632,7 +1632,7 @@ _G.GetSmartFish = function()
     local validFishList = {}
     local globalFallbackList = {}
 
-    local function isTierMatch(fishTier)
+    function isTierMatch(fishTier)
         if #_G.FakeFishingState.SelectedRarities == 0 then return true end
         for _, selected in ipairs(_G.FakeFishingState.SelectedRarities) do
             if selected == fishTier then return true end
@@ -2348,7 +2348,7 @@ end)
 
 local floatPlatform = nil
 
-local function floatingPlat(enabled)
+function floatingPlat(enabled)
 	if enabled then
 			local charFolder = workspace:WaitForChild("Characters", 5)
 			local char = charFolder:FindFirstChild(LocalPlayer.Name)
@@ -2390,7 +2390,7 @@ local workspace = game:GetService("Workspace")
 
 local BlockEnabled = false
 
-local function createLocalBlock(size, position, color)
+function createLocalBlock(size, position, color)
     local part = Instance.new("Part")
     part.Size = size or Vector3.new(5, 1, 5)
     part.Position = position or
@@ -2406,7 +2406,7 @@ local function createLocalBlock(size, position, color)
 end
 
 
-local function createBlockUnderPlayer()
+function createBlockUnderPlayer()
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = LocalPlayer.Character.HumanoidRootPart
         if workspace:FindFirstChild("LocalBlock") then
@@ -2417,7 +2417,7 @@ local function createBlockUnderPlayer()
 end
 
 
-local function ToggleBlockOnce(state)
+function ToggleBlockOnce(state)
     BlockEnabled = state
     if state then
         createBlockUnderPlayer()
@@ -2428,7 +2428,7 @@ local function ToggleBlockOnce(state)
     end
 end
 
-local function getPartRecursive(o)
+function getPartRecursive(o)
     if o:IsA("BasePart") then return o end
     for _, c in ipairs(o:GetChildren()) do
         local p = getPartRecursive(c)
@@ -2464,7 +2464,7 @@ local teleportTime = nil
 local selectedEvent = nil
 local wasAutoFishing = false
 
-local function teleportTo(position)
+function teleportTo(position)
     _G.isTeleporting = true
     local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -2484,14 +2484,14 @@ local function teleportTo(position)
     _G.isTeleporting = false
 end
 
-local function saveOriginalPosition()
+function saveOriginalPosition()
     local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
     if char and char:FindFirstChild("HumanoidRootPart") then
         savedCFrame = char.HumanoidRootPart.CFrame
     end
 end
 
-local function returnToOriginalPosition()
+function returnToOriginalPosition()
     if savedCFrame then
         local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
         if char and char:FindFirstChild("HumanoidRootPart") then
@@ -2500,7 +2500,7 @@ local function returnToOriginalPosition()
     end
 end
 
-local function findEventPart(eventName)
+function findEventPart(eventName)
     local menuRings = workspace:FindFirstChild("!!! MENU RINGS")
     if not menuRings then return nil end
 
