@@ -1513,7 +1513,7 @@ local function createBlockUnderPlayer()
 end
 
 
-local function ToggleBlockOnce(state)
+function _G.ToggleBlockOnce(state)
     BlockEnabled = state
     if state then
         createBlockUnderPlayer()
@@ -1572,7 +1572,7 @@ local function teleportTo(position)
 
         -- Teleport
         hrp.CFrame = CFrame.new(position + Vector3.new(0, 15, 0))
-        ToggleBlockOnce(true)
+        _G.ToggleBlockOnce(true)
 
         task.wait(0.5)
         if wasLocked then hrp.Anchored = true end
