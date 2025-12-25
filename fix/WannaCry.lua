@@ -2090,7 +2090,7 @@ local function returnToOriginalPosition()
 end
 
 local function findEventPart(eventName)
-    local menuRings = workspace:FindFirstChild("!!! MENU RINGS")
+    local menuRings = workspace:FindFirstChild("!!! DEPENDENCIES")
     if not menuRings then return nil end
 
     local props = menuRings:FindFirstChild("Props")
@@ -2383,7 +2383,7 @@ _G.CaveStatus = "Waiting Event..."
 -- PATHS
 -------------------------------------------------
 _G.CountdownLabel =
-    workspace["!!! MENU RINGS"]["Event Tracker"]
+    workspace["!!! DEPENDENCIES"]["Event Tracker"]
         .Main.Gui.Content.Items.Countdown.Label
 
 _G.CaveLabel =

@@ -2197,7 +2197,7 @@ local function returnToOriginalPosition()
 end
 
 local function findEventPart(eventName)
-    local menuRings = workspace:FindFirstChild("!!! MENU RINGS")
+    local menuRings = workspace:FindFirstChild("!!! DEPENDENCIES")
     if not menuRings then return nil end
 
     local props = menuRings:FindFirstChild("Props")
@@ -2567,7 +2567,7 @@ _G.EventEndTime = nil
 _G.DiscoCooldown = false
 
 -- Path & Config
-_G.countdownPath = workspace["!!! MENU RINGS"]["Event Tracker"].Main.Gui.Content.Items.Countdown.Label
+_G.countdownPath = workspace["!!! DEPENDENCIES"]["Event Tracker"].Main.Gui.Content.Items.Countdown.Label
 
 local LOCHNESS_CFRAME = CFrame.new(
     6003.8374, -585.924683, 4661.7334,
