@@ -812,7 +812,7 @@ _G.BlatantSec = AutoFish:Section({
     Opened = false
 })
 
-_G.BlatantSec:Input({
+_G.DelayReel = _G.BlatantSec:Input({
     Title = "Delay Reel",
     Value = tostring(_G.BlatantState.reelDelay),
     Callback = function(v)
@@ -823,7 +823,9 @@ _G.BlatantSec:Input({
     end
 })
 
-_G.BlatantSec:Input({
+myConfig:Register("DelayReel", _G.DelayReel)
+
+_G.BlatantDelay = _G.BlatantSec:Input({
     Title = "Delay Fishing",
     Value = tostring(_G.BlatantState.fishingDelay),
     Callback = function(v)
@@ -834,13 +836,17 @@ _G.BlatantSec:Input({
     end
 })
 
-_G.BlatantSec:Toggle({
+myConfig:Register("DelayBlat", _G.BlatanDelay)
+
+_G.BlatanToggle = _G.BlatantSec:Toggle({
     Title = "Enable Blatant",
     Value = false,
     Callback = function(state)
         _G.BlatantState.enabled = state
     end
 })
+
+myConfig:Register("EnableBlatant", _G.BlatanToggle)
 
 _G.FishAdvenc:Input({
     Title = "Delay Finish",
@@ -2572,6 +2578,9 @@ SettingsTab:Dropdown({
         end
     end)
 })
+
+local username = LocalPlayer.Name
+_G.saveFileName = username .. "_savedPos.json"
 
 function _G.savePosition()
     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
