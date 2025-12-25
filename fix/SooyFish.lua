@@ -748,6 +748,8 @@ do
         local pivot = bh:GetPivot()
         hrp.CFrame = pivot
         _G.AutoBlackHole.lastPivot = pivot
+        
+        tas.wait(0.8)
 
         -- Aktifkan OnceBlock jika ada
         if _G.ToggleBlockOnce then
