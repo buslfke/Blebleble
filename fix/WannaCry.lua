@@ -908,6 +908,74 @@ function _G.ToggleAutoClick(shouldActivate)
     end
 end
 
+local v5 = {
+    Net = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net,
+    FishingController = require(ReplicatedStorage.Controllers.FishingController),
+}
+
+-------------------------------------------------
+-- FORCE EQUIP SLOT 1 (AUTO)
+-------------------------------------------------
+
+local v6 = {
+    Events = {
+        REFishDone = v5.Net["RE/FishingCompleted"],
+        REEquip = v5.Net["RE/EquipToolFromHotbar"],
+    },
+    Functions = {
+        ChargeRod = v5.Net["RF/ChargeFishingRod"],
+        StartMini = v5.Net["RF/RequestFishingMinigameStarted"],
+        Cancel = v5.Net["RF/CancelFishingInputs"],
+    }
+}
+
+_G.BlatantState = {
+    enabled = false,
+    mode = "Fast",
+    fishingDelay = 1.0,
+    reelDelay = 1.9
+}
+
+_G.ForceEquipRod = function()
+    pcall(function()
+        v6.Events.REEquip:FireServer(1)
+    end)
+    task.wait(0.25)
+end
+
+function Fastest()
+    task.spawn(function()
+        _G.ForceEquipRod()
+        pcall(function()
+            v6.Functions.Cancel:InvokeServer()
+        end)
+        local l_workspace_ServerTimeNow_0 = workspace:GetServerTimeNow()
+        pcall(function()
+            v6.Functions.ChargeRod:InvokeServer(l_workspace_ServerTimeNow_0)
+        end)
+        pcall(function()
+            v6.Functions.StartMini:InvokeServer(-1, 0.999)
+        end)
+        task.wait(_G.BlatantState.fishingDelay)
+        pcall(function()
+            v6.Events.REFishDone:FireServer()
+        end)
+    end)
+end
+
+task.spawn(function()
+    while true do
+        if _G.BlatantState.enabled then
+            if _G.BlatantState.mode == "Fast" then
+                Fastest()
+            end
+            task.wait(_G.BlatantState.reelDelay)
+        else
+            task.wait(0.2)
+        end
+    end
+end)
+
 _G.FishAdvenc = AutoFish:Section({
     Title = "Adcenced Settings",
     TextSize = 22,
@@ -920,6 +988,43 @@ _G.FishSec = AutoFish:Section({
     TextSize = 22,
     TextXAlignment = "Center",
     Opened = true
+})
+
+_G.BlatantSec = AutoFish:Section({
+    Title = "Blatant Fishing",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
+_G.BlatantSec:Input({
+    Title = "Delay Reel",
+    Value = tostring(_G.BlatantState.reelDelay),
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            _G.BlatantState.reelDelay = num
+        end
+    end
+})
+
+_G.BlatantSec:Input({
+    Title = "Delay Fishing",
+    Value = tostring(_G.BlatantState.fishingDelay),
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            _G.BlatantState.fishingDelay = num
+        end
+    end
+})
+
+_G.BlatantSec:Toggle({
+    Title = "Enable Blatant",
+    Value = false,
+    Callback = function(state)
+        _G.BlatantState.enabled = state
+    end
 })
 
 _G.FishAdvenc:Input({
@@ -1832,7 +1937,7 @@ AutoFav:Button({
 
 local floatPlatform = nil
 
-local function floatingPlat(enabled)
+function floatingPlat(enabled)
 	if enabled then
 			local charFolder = workspace:WaitForChild("Characters", 5)
 			local char = charFolder:FindFirstChild(LocalPlayer.Name)
@@ -1874,7 +1979,7 @@ local workspace = game:GetService("Workspace")
 
 local BlockEnabled = false
 
-local function createLocalBlock(size, position, color)
+function createLocalBlock(size, position, color)
     local part = Instance.new("Part")
     part.Size = size or Vector3.new(5, 1, 5)
     part.Position = position or
@@ -1890,7 +1995,7 @@ local function createLocalBlock(size, position, color)
 end
 
 
-local function createBlockUnderPlayer()
+function createBlockUnderPlayer()
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = LocalPlayer.Character.HumanoidRootPart
         if workspace:FindFirstChild("LocalBlock") then
@@ -1901,7 +2006,7 @@ local function createBlockUnderPlayer()
 end
 
 
-local function ToggleBlockOnce(state)
+function ToggleBlockOnce(state)
     BlockEnabled = state
     if state then
         createBlockUnderPlayer()
@@ -1912,7 +2017,7 @@ local function ToggleBlockOnce(state)
     end
 end
 
-local function getPartRecursive(o)
+function getPartRecursive(o)
     if o:IsA("BasePart") then return o end
     for _, c in ipairs(o:GetChildren()) do
         local p = getPartRecursive(c)
@@ -1948,7 +2053,7 @@ local teleportTime = nil
 local selectedEvent = nil
 local wasAutoFishing = false
 
-local function teleportTo(position)
+function teleportTo(position)
     _G.isTeleporting = true
     local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -1968,7 +2073,7 @@ local function teleportTo(position)
     _G.isTeleporting = false
 end
 
-local function saveOriginalPosition()
+function saveOriginalPosition()
     local char = workspace:FindFirstChild("Characters"):FindFirstChild(LocalPlayer.Name)
     if char and char:FindFirstChild("HumanoidRootPart") then
         savedCFrame = char.HumanoidRootPart.CFrame
