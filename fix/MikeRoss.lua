@@ -616,14 +616,21 @@ do
         local bh = getBlackHole()
         local hrp = getHRP()
         if not (bh and hrp) then return end
-
+    
         local pivot = bh:GetPivot()
-        hrp.CFrame = pivot
+    
+        -- ⬇ TURUN 20 STUDS (tanpa ubah pivot asli)
+        local targetCFrame = pivot * CFrame.new(0, 100, 0)
+    
+        hrp.CFrame = targetCFrame
+    
+        -- ❗ SIMPAN PIVOT ASLI (INI KUNCI ANTI LOOP)
         _G.AutoBlackHole.lastPivot = pivot
-        
-        task.wait(0.8)
-
-        -- Aktifkan OnceBlock jika ada
+    
+        -- Stabilin karakter (tanpa anchor)
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    
         if _G.ToggleBlockOnce then
             _G.ToggleBlockOnce(true)
         end
