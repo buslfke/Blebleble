@@ -866,6 +866,129 @@ _G.CEvent:Toggle({
     end
 })
 
+_G.CEvent:Divider()
+
+_G.CEvent:Section({
+    Title = "1x1x1x1 Admin Evenr",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = true
+})
+
+_G.CEvent:Divider()
+
+
+-- =====================================================
+-- AUTO EVENT 1x1x1x1 (BLACK HOLE - MODEL / WORLDPIVOT)
+-- =====================================================
+
+do
+    _G.AutoBlackHole = {
+        enabled = false,
+        lastPivot = nil,
+        conn = nil,
+        loop = nil
+    }
+
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    local function getHRP()
+        local char = LocalPlayer.Character
+        return char and char:FindFirstChild("HumanoidRootPart")
+    end
+
+    local function getBlackHole()
+        return workspace:FindFirstChild("Props")
+            and workspace.Props:FindFirstChild("Black Hole")
+    end
+
+    local function teleportToBlackHole()
+        local bh = getBlackHole()
+        local hrp = getHRP()
+        if not (bh and hrp) then return end
+
+        local pivot = bh:GetPivot()
+        hrp.CFrame = pivot
+        _G.AutoBlackHole.lastPivot = pivot
+
+        -- Aktifkan OnceBlock jika ada
+        if _G.ToggleBlockOnce then
+            _G.ToggleBlockOnce(true)
+        end
+    end
+
+    -------------------------------------------------
+    -- START MONITOR
+    -------------------------------------------------
+    local function startMonitor()
+        local bh = getBlackHole()
+        if not bh then
+            warn("Black Hole model not found")
+            return
+        end
+
+        -- Teleport langsung saat toggle ON
+        teleportToBlackHole()
+
+        -- 1️⃣ EVENT-BASED (jika WorldPivot berubah)
+        pcall(function()
+            _G.AutoBlackHole.conn =
+                bh:GetPropertyChangedSignal("WorldPivot"):Connect(function()
+                    if not _G.AutoBlackHole.enabled then return end
+                    teleportToBlackHole()
+                end)
+        end)
+
+        -- 2️⃣ FALLBACK POLLING (aman, ringan)
+        _G.AutoBlackHole.loop = task.spawn(function()
+            while _G.AutoBlackHole.enabled do
+                local current = bh:GetPivot()
+                if not _G.AutoBlackHole.lastPivot
+                    or (current.Position - _G.AutoBlackHole.lastPivot.Position).Magnitude > 1
+                then
+                    teleportToBlackHole()
+                end
+                task.wait(2) -- cukup 2 detik, event ini jam-an
+            end
+        end)
+    end
+
+    -------------------------------------------------
+    -- STOP MONITOR
+    -------------------------------------------------
+    local function stopMonitor()
+        if _G.AutoBlackHole.conn then
+            _G.AutoBlackHole.conn:Disconnect()
+            _G.AutoBlackHole.conn = nil
+        end
+
+        if _G.AutoBlackHole.loop then
+            task.cancel(_G.AutoBlackHole.loop)
+            _G.AutoBlackHole.loop = nil
+        end
+    end
+
+    -------------------------------------------------
+    -- UI TOGGLE
+    -------------------------------------------------
+    if _G.CEvent then
+        _G.CEvent:Toggle({
+            Title = "Auto Event 1x1x1x1",
+            Value = false,
+            Callback = function(state)
+                _G.AutoBlackHole.enabled = state
+                if state then
+                    startMonitor()
+                else
+                    stopMonitor()
+                end
+            end
+        })
+    else
+        warn("EventTab not found")
+    end
+end
 
 
 -------------------------------------------
