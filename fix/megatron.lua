@@ -3305,7 +3305,7 @@ task.spawn(function()
         
                 task.spawn(function()
                     -- BIARKAN SERVER MENYELESAIKAN TELEPORT & ALIGNMENT
-                    task.wait(10)
+                    task.wait(15)
         
                     -- FORCE RETURN KE POSISI MURNI
                     ForceReturnToOriginal(_G.OriginalCFrame_Cave)
