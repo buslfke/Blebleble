@@ -2314,9 +2314,25 @@ AutoFarmArt:Button({
 ----- =======[ MASS TRADE TAB ]
 -------------------------------------------
 
+local GlobalFav = {
+    REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ObtainedNewFishNotification"],
+    REFavoriteItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FavoriteItem"],
+
+    FishIdToName = {},
+    FishNameToId = {},
+    FishNames = {},
+    FishRarity = {},
+    Variants = {},
+    SelectedFishIds = {},
+    SelectedVariants = {},
+    SelectedRarities = {},
+    AutoFavoriteEnabled = false
+}
+
+
 -- [Trade State Baru]
 local tradeState = { 
-    mode = "V3",
+    mode = "V1",
     selectedPlayerName = nil, 
     selectedPlayerId = nil, 
     tradeAmount = 0, 
@@ -2338,21 +2354,36 @@ local ItemStringUtility = _G.ItemStringUtility or require(ReplicatedStorage.Modu
 local InitiateTrade = net:WaitForChild("RF/InitiateTrade") 
 local RFAwaitTradeResponse = net:WaitForChild("RF/AwaitTradeResponse") 
 
--- Fungsi utilitas untuk mendapatkan daftar pemain
+
 local function getPlayerListV2()
-    local list = {}; 
-    for _, p in ipairs(Players:GetPlayers()) do 
-        if p ~= LocalPlayer then 
-            table.insert(list, p.Name) 
-        end 
-    end; 
-    table.sort(list); 
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(list, p.Name)
+        end
+    end
+    table.sort(list)
     return list
 end
 
 local function refreshDropdownV2()
-    if _G.PlayerDropdownTrade then
-        _G.PlayerDropdownTrade:Refresh(getPlayerListV2())
+    if not _G.PlayerDropdownTrade then return end
+
+    local previousSelection = tradeState.selectedPlayerName
+    local list = getPlayerListV2()
+
+    _G.PlayerDropdownTrade:Refresh(list)
+
+    -- Restore selection TANPA trigger ulang
+    if previousSelection then
+        for _, name in ipairs(list) do
+            if name == previousSelection then
+                task.defer(function()
+                    _G.PlayerDropdownTrade:SetValue(previousSelection, true)
+                end)
+                break
+            end
+        end
     end
 end
 
@@ -2362,13 +2393,12 @@ end
 
 local function refreshInventory()
     local DataReplion = _G.Replion.Client:WaitReplion("Data")
-    if not DataReplion or not ItemUtility or not ItemStringUtility then 
+    if not DataReplion or not ItemUtility or not ItemStringUtility then
         warn("Cannot refresh inventory: Missing modules.")
-        return 
+        return
     end
-    
+
     local inventoryItems = DataReplion:Get({ "Inventory", "Items" })
-    local groupedItems = {}
     inventoryCache = {}
     fullInventoryDropdownList = {}
 
@@ -2376,29 +2406,67 @@ local function refreshInventory()
 
     for _, itemData in ipairs(inventoryItems) do
         local baseItemData = ItemUtility:GetItemData(itemData.Id)
-        
-        if baseItemData and baseItemData.Data and (baseItemData.Data.Type == "Fish" or baseItemData.Data.Type == "Enchant Stones") then
-            -- Filter Unfavorited (Mode V2)
-            if not (tradeState.filterUnfavorited and itemData.Favorited) then
-                local dynamicName = ItemStringUtility.GetItemName(itemData, baseItemData)
-                if not groupedItems[dynamicName] then
-                    groupedItems[dynamicName] = 0
-                    inventoryCache[dynamicName] = {}
-                end
-                groupedItems[dynamicName] = (groupedItems[dynamicName] or 0) + 1
-                table.insert(inventoryCache[dynamicName], itemData.UUID)
-            end
+        if not (baseItemData and baseItemData.Data) then continue end
+
+        local itemType = baseItemData.Data.Type
+        if itemType ~= "Fish" and itemType ~= "Enchant Stones" then
+            continue
+        end
+
+        -- Filter Unfavorited (V2)
+        if tradeState.filterUnfavorited and itemData.Favorited then
+            continue
+        end
+
+        local name = ItemStringUtility.GetItemName(itemData, baseItemData)
+
+        -- =========================================
+        -- 🔹 ITEM BERBASIS QUANTITY
+        -- =========================================
+        if itemData.Quantity and itemData.Quantity > 1 then
+            inventoryCache[name] = {
+                Mode = "Quantity",
+                UUID = itemData.UUID,
+                Quantity = itemData.Quantity
+            }
+
+            table.insert(
+                fullInventoryDropdownList,
+                string.format("%s (%dx)", name, itemData.Quantity)
+            )
+
+        -- =========================================
+        -- 🔹 ITEM BERBASIS UUID (NORMAL)
+        -- =========================================
+        else
+            inventoryCache[name] = inventoryCache[name] or {
+                Mode = "UUID",
+                UUIDs = {}
+            }
+
+            table.insert(inventoryCache[name].UUIDs, itemData.UUID)
         end
     end
 
-    for name, count in pairs(groupedItems) do
-        table.insert(fullInventoryDropdownList, string.format("%s (%dx)", name, count))
+    -- Format UUID-based items
+    for name, data in pairs(inventoryCache) do
+        if data.Mode == "UUID" then
+            table.insert(
+                fullInventoryDropdownList,
+                string.format("%s (%dx)", name, #data.UUIDs)
+            )
+        end
     end
+
     table.sort(fullInventoryDropdownList)
 
-    -- Perbarui Dropdown Item dan Pemain
-    if _G.InventoryDropdown then _G.InventoryDropdown:Refresh(fullInventoryDropdownList) end
-    if _G.PlayerDropdownTrade then _G.PlayerDropdownTrade:Refresh(getPlayerListV2()) end
+    -- Refresh UI
+    if _G.InventoryDropdown then
+        _G.InventoryDropdown:Refresh(fullInventoryDropdownList)
+    end
+    if _G.PlayerDropdownTrade then
+        _G.PlayerDropdownTrade:Refresh(getPlayerListV2())
+    end
 end
 
 -- =======================================================
@@ -2498,8 +2566,7 @@ Trade:Section({Title = "Trade Mode Selection"})
 local modeDropdown = Trade:Dropdown({
     Title = "Select Trade Mode",
     Values = {"V1", "V2", "V3"},
-    Value = "V3",
-    Callback = function(v)
+    Callback = _G.ProtectCallback(function(v)
         tradeState.mode = v
         NotifySuccess("Mode Changed", "Trade mode set to: " .. v, 3)
 
@@ -2528,37 +2595,33 @@ local modeDropdown = Trade:Dropdown({
                 if element.Element then element.Element.Visible = isV3 end
             end
         end
-    end
+    end)
 })
 
-local playerDropdown = Trade:Dropdown({
-    Title = "Select Trade Target",
+_G.PlayerDropdownTrade = Trade:Dropdown({
+    Title = "Select Player",
     Values = getPlayerListV2(),
-    Value = getPlayerListV2()[1] or nil,
     SearchBarEnabled = true,
-    Callback = function(selected)
-        tradeState.selectedPlayerName = selected
-        local player = Players:FindFirstChild(selected)
-        if player then
-            tradeState.selectedPlayerId = player.UserId
-            NotifySuccess("Target Selected", "Target set to: " .. player.Name, 3)
-        else
-            tradeState.selectedPlayerId = nil
-            NotifyError("Target Error", "Player not found!", 3)
-        end
+    AllowNone = true,
+    Callback = function(name)
+        if tradeState.selectedPlayerName == name then return end
+
+        tradeState.selectedPlayerName = name
+
+        local player = Players:FindFirstChild(name)
+        tradeState.selectedPlayerId = player and player.UserId or nil
     end
 })
-_G.PlayerDropdownTrade = playerDropdown -- Simpan referensi untuk refresh
 
 Players.PlayerAdded:Connect(function()
-    task.delay(0.1, refreshDropdownV2)
+    task.wait(0.1)
+    refreshDropdownV2()
 end)
 
 Players.PlayerRemoving:Connect(function()
-    task.delay(0.1, refreshDropdownV2)
+    task.wait(0.1)
+    refreshDropdownV2()
 end)
-
-refreshDropdownV2()
 
 Trade:Section({Title = "Auto Accept Trade"})
 
@@ -2566,19 +2629,262 @@ Trade:Toggle({
     Title = "Enable Auto Accept Trade",
     Desc = "Automatically accepts incoming trade requests.",
     Value = false,
-    Callback = function(value)
+    Callback = _G.ProtectCallback(function(value)
         _G.AutoAcceptTradeEnabled = value
         if value then
             NotifySuccess("Auto Accept", "Auto accept trade enabled.", 3)
         else
             NotifyWarning("Auto Accept", "Auto accept trade disabled.", 3)
         end
+    end)
+})
+
+Trade:Section({Title = "Mode V1"})
+_G.TradeQuietElements = {}
+
+-- Toggle Mode Save Items (Mode V1)
+local saveModeToggle = Trade:Toggle({
+    Title = "Mode Save Items",
+    Desc = "Click inventory item to add for Mass Trade",
+    Value = false,
+    Callback = _G.ProtectCallback(function(state)
+        tradeState.saveTempMode = state
+        if state then
+            tradeState.TempTradeList = {}
+            NotifySuccess("Save Mode", "Enabled - Click items to save")
+        else
+            NotifyInfo("Save Mode", "Disabled - "..#tradeState.TempTradeList.." items saved")
+        end
+    end)
+})
+
+table.insert(_G.TradeQuietElements, {Element = saveModeToggle})
+
+-- Toggle Trade (Original Send) (V1)
+local originalTradeToggle = Trade:Toggle({
+    Title = "Trade (Original Send)",
+    Desc = "Click inventory items to Send Trade",
+    Value = false,
+    Callback = _G.ProtectCallback(function(state)
+        tradeState.onTrade = state
+        if state then
+            NotifySuccess("Trade", "Trade Mode Enabled. Click an item to send trade.")
+        else
+            NotifyWarning("Trade", "Trade Mode Disabled.")
+        end
+    end)
+})
+table.insert(_G.TradeQuietElements, {Element = originalTradeToggle})
+
+-- Fungsi Trade All (Mode V1)
+local function TradeAllQuiet()       
+    if not tradeState.selectedPlayerId then    
+        NotifyError("Mass Trade", "Set trade target first!")       
+        return         
+    end          
+    if #tradeState.TempTradeList == 0 then       
+        NotifyWarning("Mass Trade", "No items saved!")          
+        return         
+    end          
+    
+    NotifyInfo("Mass Trade", "Starting V1 trade of "..#tradeState.TempTradeList.." items...")      
+    
+    task.spawn(function()          
+        for i, item in ipairs(tradeState.TempTradeList) do          
+            if not tradeState.autoTradeV2 then
+                NotifyWarning("Mass Trade", "V1 Trade stopped!")         
+                break          
+            end          
+        
+            local uuid = item.UUID          
+            local category = item.Category          
+        
+            NotifyInfo("Mass Trade", "Trade item "..i.." of "..#tradeState.TempTradeList)          
+            InitiateTrade:InvokeServer(tradeState.selectedPlayerId, uuid, category)          
+        
+            task.wait(6.5)       
+        end          
+    
+        NotifySuccess("Mass Trade", "Finished V1 trading!")        
+        tradeState.autoTradeV2 = false          
+        tradeState.TempTradeList = {}          
+    end)          
+end
+
+-- Toggle Auto Trade (Mode V1)
+local autoTradeQuietToggle = Trade:Toggle({
+    Title = "Start Mass Trade V1",
+    Desc = "Trade all saved items automatically.",
+    Value = false,
+    Callback = function(state)
+        tradeState.autoTradeV2 = state
+        if tradeState.mode == "V1" and state then
+            if #tradeState.TempTradeList == 0 then
+                NotifyError("Mass Trade", "No items saved to trade!")
+                tradeState.autoTradeV2 = false
+                return
+            end
+            TradeAllQuiet()
+            NotifySuccess("Mass Trade", "V1 Auto Trade Enabled")
+        else
+            NotifyWarning("Mass Trade", "V1 Auto Trade Disabled")
+        end
     end
 })
+table.insert(_G.TradeQuietElements, {Element = autoTradeQuietToggle})
+
+Trade:Section({Title = "V2"})
+_G.TradeV2Elements = {}
+
+local filterToggleV2 = Trade:Toggle({
+    Title = "Filter Unfavorited Items Only",
+    Value = false,
+    Callback = function(val)
+        tradeState.filterUnfavorited = val
+        refreshInventory()
+        NotifyInfo("Filter Updated", "Inventory list refreshed.", 3)
+    end
+})
+table.insert(_G.TradeV2Elements, {Element = filterToggleV2})
+
+_G.InventoryDropdown = Trade:Dropdown({
+    Title = "Select Item from Inventory",
+    Values = {"- Refresh to load -"},
+    AllowNone = true,
+    SearchBarEnabled = true,
+    Callback = function(val)
+        tradeState.selectedItemName = val
+    end
+})
+table.insert(_G.TradeV2Elements, {Element = _G.InventoryDropdown})
 
 Trade:Button({ Title = "Refresh Inventory & Players", Icon = "refresh-cw", Callback = refreshInventory })
 
-_G.TradeQuietElements = {}
+local amountInputV2 = Trade:Input({
+    Title = "Amount to Trade",
+    Placeholder = "Enter amount...",
+    Type = "Input",
+    Callback = function(val)
+        tradeState.tradeAmount = tonumber(val) or 0
+    end
+})
+table.insert(_G.TradeV2Elements, {Element = amountInputV2})
+
+local statusParagraphV2 = Trade:Paragraph({ Title = "Status V2", Desc = "Waiting to start..." })
+table.insert(_G.TradeV2Elements, {Element = statusParagraphV2})
+
+Trade:Toggle({
+    Title = "Start Mass Trade V2",
+    Value = false,
+    Callback = function(value)
+        tradeState.autoTradeV2 = value
+
+        if tradeState.mode == "V2" and value then
+            task.spawn(function()
+                if not tradeState.selectedItemName
+                    or not tradeState.selectedPlayerId
+                    or tradeState.tradeAmount <= 0
+                then
+                    statusParagraphV2:SetDesc("Error: Select item, amount, and player.")
+                    tradeState.autoTradeV2 = false
+                    return
+                end
+
+                -- 🧼 CLEAN NAME
+                local cleanItemName =
+                    tradeState.selectedItemName:match("^(.*) %((%d+)x%)$")
+                if cleanItemName then
+                    cleanItemName = cleanItemName:match("^(.*)")
+                else
+                    cleanItemName = tradeState.selectedItemName
+                end
+
+                local itemData = inventoryCache[cleanItemName]
+                if not itemData then
+                    statusParagraphV2:SetDesc("Error: Item not found. Refresh inventory.")
+                    tradeState.autoTradeV2 = false
+                    return
+                end
+
+                -- 📦 VALIDASI JUMLAH
+                if itemData.Mode == "UUID" then
+                    if #itemData.UUIDs < tradeState.tradeAmount then
+                        statusParagraphV2:SetDesc("Error: Not enough items.")
+                        tradeState.autoTradeV2 = false
+                        return
+                    end
+                elseif itemData.Mode == "Quantity" then
+                    if itemData.Quantity < tradeState.tradeAmount then
+                        statusParagraphV2:SetDesc("Error: Not enough quantity.")
+                        tradeState.autoTradeV2 = false
+                        return
+                    end
+                end
+
+                local successCount, failCount = 0, 0
+                local targetName = tradeState.selectedPlayerName
+
+                for i = 1, tradeState.tradeAmount do
+                    if not tradeState.autoTradeV2 then
+                        statusParagraphV2:SetDesc("Process stopped by user.")
+                        break
+                    end
+
+                    -- 🎯 AMBIL UUID
+                    local uuid
+                    if itemData.Mode == "UUID" then
+                        uuid = itemData.UUIDs[i]
+                    else
+                        uuid = itemData.UUID -- SAME UUID, MANY TIMES
+                    end
+
+                    statusParagraphV2:SetDesc(string.format(
+                        "Progress: %d/%d | Sending to: %s | Status: <font color='#eab308'>Waiting...</font>",
+                        i, tradeState.tradeAmount, targetName
+                    ))
+
+                    local success, result = pcall(
+                        InitiateTrade.InvokeServer,
+                        InitiateTrade,
+                        tradeState.selectedPlayerId,
+                        uuid
+                    )
+
+                    if success and result then
+                        successCount += 1
+                    else
+                        failCount += 1
+                    end
+
+                    statusParagraphV2:SetDesc(string.format(
+                        "Progress: %d/%d | Sent: %s | Success: %d | Failed: %d",
+                        i,
+                        tradeState.tradeAmount,
+                        success and "✔" or "✖",
+                        successCount,
+                        failCount
+                    ))
+
+                    task.wait(5)
+                end
+
+                statusParagraphV2:SetDesc(string.format(
+                    "Trade V2 Complete.\nSuccessful: %d | Failed: %d",
+                    successCount,
+                    failCount
+                ))
+
+                tradeState.autoTradeV2 = false
+                refreshInventory()
+            end)
+        end
+    end
+})
+
+-- Sembunyikan elemen GLua secara default, kecuali tombol refresh dan dropdown mode
+for _, element in ipairs(_G.TradeV2Elements) do
+    if element.Element then element.Element.Visible = false end
+end
 
 -- Pastikan elemen Quiet terlihat
 for _, element in ipairs(_G.TradeQuietElements) do
@@ -2625,33 +2931,35 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
     local V3_TierDropdown = Trade:Dropdown({
         Title = "Select Tiers (Rarity) to Trade",
         Values = tierNames, Multi = true, AllowNone = true,
-        Callback = function(selectedNames)
+        Callback = _G.ProtectCallback(function(selectedNames)
             categoryTradeState.selectedTiers = {}
             for _, name in ipairs(selectedNames or {}) do
                 if tierMap[name] then table.insert(categoryTradeState.selectedTiers, tierMap[name]) end
             end
             NotifyInfo("Trade V3", "Tiers to trade: " .. table.concat(selectedNames, ", "))
-        end
+        end)
     })
+
     table.insert(_G.TradeV3Elements, {Element = V3_TierDropdown}) -- Daftarkan UI
 
     local V3_VariantDropdown = Trade:Dropdown({
         Title = "Select Mutations (Variants) to Trade",
         Values = variantNames, Multi = true, AllowNone = true,
-        Callback = function(selectedNames)
+        Callback = _G.ProtectCallback(function(selectedNames)
             categoryTradeState.selectedVariants = selectedNames or {}
             NotifyInfo("Trade V3", "Mutations to trade: " .. table.concat(selectedNames, ", "))
-        end
+        end)
     })
     table.insert(_G.TradeV3Elements, {Element = V3_VariantDropdown}) -- Daftarkan UI
 
     local V3_FilterToggle = Trade:Toggle({
         Title = "Filter Unfavorited Items Only",
-        Desc = "Hanya mengirim item yang tidak di-lock (favorite).", Value = false,
-        Callback = function(val)
+        Desc = "Hanya mengirim item yang tidak di-lock (favorite).",
+        Value = false,
+        Callback = _G.ProtectCallback(function(val)
             categoryTradeState.filterUnfavorited = val
             NotifyInfo("Trade V3", "Filter Unfavorited: " .. tostring(val))
-        end
+        end)
     })
     table.insert(_G.TradeV3Elements, {Element = V3_FilterToggle}) -- Daftarkan UI
     
