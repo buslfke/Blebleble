@@ -2655,7 +2655,7 @@ AutoFarmArt:Button({
 
 do
     _G.AutoQuestState = {
-        enabled = false,
+        enabled = true,
         loopThread = nil,
         selectedQuest = "Deep Sea Quest",
         currentStepName = "Idle"
@@ -2667,8 +2667,8 @@ do
     local Modules = {} 
 
     _G.QuestLocations = {
-        ["Treasure Room"] = CFrame.new(-3600, -270, -1642),
-        ["Sisyphus Statue"] = CFrame.new(-3742, -136, -1033),
+        ["Treasure Room"] = CFrame.new(-3548.52222, -269.309845, -1659.26685, 0.0472991578, -4.08685423e-08, 0.998880744, -7.68598838e-08, 1, 4.45538149e-08, -0.998880744, -7.88812216e-08, 0.0472991578),
+        ["Sisyphus Statue"] = CFrame.new(-3777.43433, -135.074417, -975.198975, -0.284491211, -1.02338751e-08, -0.958678663, 6.38407585e-08, 1, -2.96199456e-08, 0.958678663, -6.96293867e-08, -0.284491211),
         ["Ancient Jungle"] = CFrame.new(1508, 4, -298),
         ["Underground Cellar"] = CFrame.new(2137, -91, -700),
         ["Sacred Temple"] = CFrame.new(1499, -22, -641),
@@ -2876,6 +2876,8 @@ do
             Value = false,
             Callback = startOrStopAutoQuest
         })
+    
+        autoQuestToggle:Set(true)
     else
         warn("UI Tab '_G.AutoQuestTab' not found.")
     end
