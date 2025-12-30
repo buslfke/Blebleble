@@ -3317,15 +3317,15 @@ function updateParagraph(title, desc)
     end
 end
 
-_G.RuinParagraph = _G.RuinSec:Paragraph({
+_G.RuinParagraph = AutoFarmTab:Paragraph({
     Title = "Auto Farm Ancient Ruin",
     Desc = "Waiting for activation...",
     Color = "Green",
 })
 
-_G.RuinSec:Space()
+AutoFarmTab:Space()
 
-_G.RuinSec:Toggle({
+AutoFarmTab:Toggle({
     Title = "Auto Farm Ancient Ruin",
     Desc = "Automatically collects 4 Fish and unlocks Ancient Ruin.",
     Default = false,
@@ -3339,7 +3339,7 @@ _G.RuinSec:Toggle({
 })
 
 
-_G.RuinSec:Button({
+AutoFarmTab:Button({
     Title = "Unlock Ancient Ruin",
     Desc = "Still need 4 Fish!",
     Justify = "Center",
