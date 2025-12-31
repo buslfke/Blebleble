@@ -2820,7 +2820,7 @@ function createBlockUnderPlayer()
 end
 
 
-function ToggleBlockOnce(state)
+function _G.ToggleBlockOnce(state)
     BlockEnabled = state
     if state then
         createBlockUnderPlayer()
