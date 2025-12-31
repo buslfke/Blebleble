@@ -648,22 +648,23 @@ _G.GetPresentItems = function()
     local result = {}
 
     for _, item in ipairs(items) do
-        if not item or not item.Id then continue end
-
+    if item and item.Id then
         local base = _G.ItemUtility:GetItemData(item.Id)
-        if not base or not base.Data then continue end
-        if base.Data.Type ~= "Gears" then continue end
-
-        local name = _G.ItemStringUtility.GetItemName(item, base)
-        if not name then continue end
-
-        if string.find(string.lower(name), "present") then
-            table.insert(result, {
-                Name = name,
-                UUID = item.UUID
-            })
+        if base and base.Data then
+            if base.Data.Type == "Gears" then
+                local name = _G.ItemStringUtility.GetItemName(item, base)
+                if name then
+                    if string.find(string.lower(name), "present") then
+                        table.insert(result, {
+                            Name = name,
+                            UUID = item.UUID
+                        })
+                    end
+                end
+            end
         end
     end
+end
 
     return result
 end
@@ -803,10 +804,191 @@ _G.CEvent:Toggle({
     end
 })
 
+_G.Players = game:GetService("Players")
+_G.LocalPlayer = _G.Players.LocalPlayer
+_G.Workspace = game:GetService("Workspace")
+
+_G.AutoClaimPresent = {
+    enabled = false,
+    loop = nil
+}
+
+_G.PresentCounter = {
+    total = 0,
+    connAdd = nil,
+    connRemove = nil,
+    loop = nil
+}
+
+_G.CEvent:Space()
+
+_G.CEvent:Divider()
+
+_G.PresentParaTwo = _G.CEvent:Paragraph({
+    Title = "Christmas Present Monitor",
+    Desc = "Available Presents : 0\nAuto Claim : OFF",
+    Locked = true
+})
+
+
+_G.countPresents = function()
+    local folder = _G.getChristmasFolder()
+    if not folder then
+        return 0
+    end
+
+    local count = 0
+    for _, v in ipairs(folder:GetChildren()) do
+        if v:IsA("Model") then
+            count = count + 1
+        end
+    end
+
+    return count
+end
+
+_G.startPresentFallbackLoop = function()
+    if _G.PresentCounter.loop then return end
+
+    _G.PresentCounter.loop = task.spawn(function()
+        while true do
+            _G.updatePresentParagraph()
+            task.wait(2)
+        end
+    end)
+end
+
+_G.startPresentMonitor = function()
+    local folder = _G.getChristmasFolder()
+    if not folder then return end
+
+    -- Bersihkan listener lama
+    if _G.PresentCounter.connAdd then
+        _G.PresentCounter.connAdd:Disconnect()
+    end
+    if _G.PresentCounter.connRemove then
+        _G.PresentCounter.connRemove:Disconnect()
+    end
+
+    -- Initial update
+    _G.updatePresentParagraph()
+
+    -- Realtime ADD
+    _G.PresentCounter.connAdd = folder.ChildAdded:Connect(function(child)
+        if child:IsA("Model") then
+            task.defer(_G.updatePresentParagraph)
+        end
+    end)
+
+    -- Realtime REMOVE
+    _G.PresentCounter.connRemove = folder.ChildRemoved:Connect(function(child)
+        if child:IsA("Model") then
+            task.defer(_G.updatePresentParagraph)
+        end
+    end)
+end
+
+_G.updatePresentParagraph = function()
+    if not _G.PresentParaTwo then return end
+
+    local total = _G.countPresents()
+    _G.PresentCounter.total = total
+
+    _G.PresentParaTwo:SetDesc(
+        ("Available Presents : %d\nAuto Claim : %s"):format(
+            total,
+            _G.AutoClaimPresent.enabled and "ON" or "OFF"
+        )
+    )
+end
+
+_G.getHRP = function()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+_G.getChristmasFolder = function()
+    return Workspace:FindFirstChild("ChristmasPresents")
+end
+
+_G.claimAllPresents = function()
+    local hrp = _G.getHRP()
+    local folder = _G.getChristmasFolder()
+    if not (hrp and folder) then return end
+
+    for _, present in ipairs(folder:GetChildren()) do
+        if not _G.AutoClaimPresent.enabled then break end
+        if present:IsA("Model") then
+            local prompt =
+                present:FindFirstChildWhichIsA("ProximityPrompt", true)
+
+            if prompt and prompt.Parent then
+                local part =
+                    prompt.Parent:IsA("BasePart")
+                    and prompt.Parent
+                    or present:FindFirstChildWhichIsA("BasePart", true)
+
+                if part then
+                    -- 🚀 Teleport ke present
+                    hrp.CFrame = part.CFrame * CFrame.new(0, 0, -2)
+
+                    task.wait(0.1)
+
+                    -- 🔔 Fire ProximityPrompt
+                    pcall(function()
+                        fireproximityprompt(prompt)
+                    end)
+
+                    task.wait(0.15)
+                end
+            end
+        end
+    end
+end
+
+_G.startAutoClaimPresent = function()
+    if _G.AutoClaimPresent.loop then return end
+
+    _G.AutoClaimPresent.loop = task.spawn(function()
+        while _G.AutoClaimPresent.enabled do
+            _G.claimAllPresents()
+            task.wait(1) -- ulangi jika ada drop baru
+        end
+    end)
+end
+
+_G.stopAutoClaimPresent = function()
+    if _G.AutoClaimPresent.loop then
+        task.cancel(_G.AutoClaimPresent.loop)
+        _G.AutoClaimPresent.loop = nil
+    end
+end
+
+_G.CEvent:Toggle({
+    Title = "Auto Claim Drop Present",
+    Value = false,
+    Callback = function(state)
+        _G.AutoClaimPresent.enabled = state
+        _G.updatePresentParagraph()
+    
+        if state then
+            _G.startAutoClaimPresent()
+        else
+            _G.stopAutoClaimPresent()
+        end
+    end
+})
+
+task.spawn(function()
+    task.wait(1)
+    _G.startPresentMonitor()
+    _G.startPresentFallbackLoop()
+end)
+
 _G.CEvent:Divider()
 
 _G.CEvent:Section({
-    Title = "1x1x1x1 Admin Evenr",
+    Title = "New Years Event Menu",
     TextSize = 22,
     TextXAlignment = "Center",
     Opened = true
@@ -814,127 +996,111 @@ _G.CEvent:Section({
 
 _G.CEvent:Divider()
 
-
 -- =====================================================
--- AUTO EVENT 1x1x1x1 (BLACK HOLE - MODEL / WORLDPIVOT)
+-- AUTO NEW YEARS WHALE (BLACK HOLE TRACKER)
+-- Stable | WorldPivot | Respawn Safe | Y Offset Fix
 -- =====================================================
 
 do
-    _G.AutoBlackHole = {
+    _G.AutoNewYearsWhale = {
         enabled = false,
+        thread = nil,
         lastPivot = nil,
-        conn = nil,
-        loop = nil
+        currentModel = nil
     }
 
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
+    --------------------------------------------------
+    -- CONFIG
+    --------------------------------------------------
+    local CHECK_INTERVAL = 0.25
+    local TELEPORT_THRESHOLD = 5 -- studs
+    local Y_OFFSET = 115 -- 🔽 turunkan posisi (15–30 rekomendasi)
 
-    local function getHRP()
-        local char = LocalPlayer.Character
-        return char and char:FindFirstChild("HumanoidRootPart")
-    end
-
-    local function getBlackHole()
-        return workspace:FindFirstChild("Props")
-            and workspace.Props:FindFirstChild("Black Hole")
-    end
-
-    local function teleportToBlackHole()
-        local bh = getBlackHole()
-        local hrp = getHRP()
-        if not (bh and hrp) then return end
-    
-        local pivot = bh:GetPivot()
-    
-        -- ⬇ TURUN 20 STUDS (tanpa ubah pivot asli)
-        local targetCFrame = pivot * CFrame.new(0, 100, 0)
-    
-        hrp.CFrame = targetCFrame
-    
-        -- ❗ SIMPAN PIVOT ASLI (INI KUNCI ANTI LOOP)
-        _G.AutoBlackHole.lastPivot = pivot
-    
-        -- Stabilin karakter (tanpa anchor)
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.AssemblyAngularVelocity = Vector3.zero
-    
-        if _G.ToggleBlockOnce then
-            _G.ToggleBlockOnce(true)
+    --------------------------------------------------
+    -- SAFE TELEPORT (WITH OFFSET)
+    --------------------------------------------------
+    local function SafeTeleportWithOffset(pivot)
+        local char = _G.LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = pivot * CFrame.new(0, Y_OFFSET, 0)
         end
     end
 
-    -------------------------------------------------
-    -- START MONITOR
-    -------------------------------------------------
-    local function startMonitor()
-        local bh = getBlackHole()
-        if not bh then
-            warn("Black Hole model not found")
-            return
-        end
-
-        -- Teleport langsung saat toggle ON
-        teleportToBlackHole()
-
-        -- 1️⃣ EVENT-BASED (jika WorldPivot berubah)
-        pcall(function()
-            _G.AutoBlackHole.conn =
-                bh:GetPropertyChangedSignal("WorldPivot"):Connect(function()
-                    if not _G.AutoBlackHole.enabled then return end
-                    teleportToBlackHole()
-                end)
-        end)
-
-        -- 2️⃣ FALLBACK POLLING (aman, ringan)
-        _G.AutoBlackHole.loop = task.spawn(function()
-            while _G.AutoBlackHole.enabled do
-                local current = bh:GetPivot()
-                if not _G.AutoBlackHole.lastPivot
-                    or (current.Position - _G.AutoBlackHole.lastPivot.Position).Magnitude > 1
-                then
-                    teleportToBlackHole()
-                end
-                task.wait(2) -- cukup 2 detik, event ini jam-an
-            end
-        end)
+    --------------------------------------------------
+    -- FIND BLACK HOLE MODEL (SAFE)
+    --------------------------------------------------
+    local function FindBlackHole()
+        local props = workspace:FindFirstChild("Props")
+        if not props then return nil end
+        return props:FindFirstChild("Black Hole")
     end
 
-    -------------------------------------------------
-    -- STOP MONITOR
-    -------------------------------------------------
-    local function stopMonitor()
-        if _G.AutoBlackHole.conn then
-            _G.AutoBlackHole.conn:Disconnect()
-            _G.AutoBlackHole.conn = nil
-        end
+    --------------------------------------------------
+    -- MAIN MONITOR LOOP
+    --------------------------------------------------
+    local function AutoWhaleLoop()
+        while _G.AutoNewYearsWhale.enabled do
+            local model = FindBlackHole()
 
-        if _G.AutoBlackHole.loop then
-            task.cancel(_G.AutoBlackHole.loop)
-            _G.AutoBlackHole.loop = nil
-        end
-    end
+            if model and model:IsA("Model") then
+                _G.AutoNewYearsWhale.currentModel = model
 
-    -------------------------------------------------
-    -- UI TOGGLE
-    -------------------------------------------------
-    if _G.CEvent then
-        _G.CEvent:Toggle({
-            Title = "Auto Event 1x1x1x1",
-            Value = false,
-            Callback = function(state)
-                _G.AutoBlackHole.enabled = state
-                if state then
-                    startMonitor()
+                local pivot = model:GetPivot()
+
+                if not _G.AutoNewYearsWhale.lastPivot then
+                    _G.AutoNewYearsWhale.lastPivot = pivot
+                    SafeTeleportWithOffset(pivot)
+
+                    _G.ToggleBlockOnce(true)
                 else
-                    stopMonitor()
+                    local dist =
+                        (pivot.Position - _G.AutoNewYearsWhale.lastPivot.Position).Magnitude
+
+                    if dist >= TELEPORT_THRESHOLD then
+                        _G.AutoNewYearsWhale.lastPivot = pivot
+                        SafeTeleportWithOffset(pivot)
+
+                        _G.ToggleBlockOnce(true)
+                    end
                 end
+            else
+                -- Event refresh / object hilang
+                _G.AutoNewYearsWhale.currentModel = nil
+                _G.AutoNewYearsWhale.lastPivot = nil
             end
-        })
-    else
-        warn("EventTab not found")
+
+            task.wait(CHECK_INTERVAL)
+        end
+    end
+
+    --------------------------------------------------
+    -- TOGGLE HANDLER
+    --------------------------------------------------
+    _G.ToggleAutoNewYearsWhale = function(state)
+        _G.AutoNewYearsWhale.enabled = state
+
+        if state then
+            if _G.AutoNewYearsWhale.thread then return end
+            _G.AutoNewYearsWhale.thread = task.spawn(AutoWhaleLoop)
+        else
+            if _G.AutoNewYearsWhale.thread then
+                task.cancel(_G.AutoNewYearsWhale.thread)
+                _G.AutoNewYearsWhale.thread = nil
+            end
+            _G.AutoNewYearsWhale.lastPivot = nil
+            _G.AutoNewYearsWhale.currentModel = nil
+        end
     end
 end
+
+_G.CEvent:Toggle({
+    Title = "Auto New Years Whale",
+    Value = false,
+    Callback = function(v)
+        _G.ToggleAutoNewYearsWhale(v)
+    end
+})
 
 -------------------------------------------
 ----- =======[ AUTO FISH TAB ]
