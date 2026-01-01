@@ -1427,7 +1427,7 @@ table.sort(nameList)
 local CodeIsland = AutoFarmTab:Dropdown({
     Title = "Farm Island",
     Values = nameList,
-    Value = nameList[11],
+    Value = nameList[12],
     Callback = function(selectedName)
         local code = islandNamesToCode[selectedName]
         local islandName = islandCodes[code]
