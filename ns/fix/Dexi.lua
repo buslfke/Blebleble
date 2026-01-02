@@ -3604,9 +3604,11 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
     -- State untuk V3
     -- State untuk V3
     local categoryTradeState = {
-        selectedTiers = {}, selectedVariants = {},
-        filterUnfavorited = false, autoTrade = false,
-        tradeAmount = 0 -- TAMBAHKAN BARIS INI
+        selectedTiers = { tierMap["Mythic"], tierMap["SECRET"] },
+        selectedVariants = {},
+        filterUnfavorited = false,
+        autoTrade = false,
+        tradeAmount = 0
     }
     -- UI V3
     local V3_TierDropdown = Trade:Dropdown({
@@ -3677,14 +3679,6 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
                     pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
                 end
                 
-                -- ===================================
-                -- == [BARU] VALIDASI AMOUNT V3
-                -- ===================================
-                if categoryTradeState.tradeAmount <= 0 then
-                    V3_StatusParagraph:SetDesc("Error: Please enter a valid amount in the 'Amount to Trade (V3)' input.")
-                    pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
-                end
-                -- ===================================
 
                 local DataReplion = _G.Replion.Client:WaitReplion("Data")
                 if not DataReplion then
@@ -3743,25 +3737,51 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
                 -- 4. Kirim item
                 local totalFound = #uuidsToSend
                 -- Gunakan math.min untuk mengambil jumlah yang lebih kecil antara yang ditemukan dan yang diminta
-                local amountToSend = math.min(totalFound, categoryTradeState.tradeAmount) 
+                local amountToSend
+                if categoryTradeState.tradeAmount == 0 then
+                    amountToSend = totalFound
+                else
+                    amountToSend = math.min(totalFound, categoryTradeState.tradeAmount)
+                end 
                 local successCount, failCount = 0, 0
                 local targetName = tradeState.selectedPlayerName
 
                 -- Ubah loop dari 'ipairs' menjadi loop numerik sampai 'amountToSend'
                 for i = 1, amountToSend do
-                    if not categoryTradeState.autoTrade then V3_StatusParagraph:SetDesc("Trade stopped by user."); break end
-                    
-                    local uuid = uuidsToSend[i] -- Ambil UUID berdasarkan index
-                    
-                    -- Update status untuk menunjukkan progress, amount, dan total yang ditemukan
-                    V3_StatusParagraph:SetDesc(string.format(
-                        "Progress: %d/%d (Found: %d)\nSending to: %s\nSuccess: %d | Failed: %d", 
-                        i, amountToSend, totalFound, targetName, successCount, failCount
-                    ))
-                    
-                    local success, result = pcall(InitiateTrade.InvokeServer, InitiateTrade, tradeState.selectedPlayerId, uuid)
-                    if success and result then successCount = successCount + 1 else failCount = failCount + 1 end
-                    task.wait(5)
+                    if not categoryTradeState.autoTrade then
+                        V3_StatusParagraph:SetDesc("Trade stopped by user.")
+                        break
+                    end
+                
+                    local uuid = uuidsToSend[i]
+                    local sent = false
+                    local attempt = 0
+                
+                    while not sent and categoryTradeState.autoTrade do
+                        attempt += 1
+                
+                        V3_StatusParagraph:SetDesc(string.format(
+                            "Progress: %d/%d (Found: %d)\nSending to: %s\nAttempt: %d\nSuccess: %d | Failed: %d",
+                            i, amountToSend, totalFound, targetName, attempt, successCount, failCount
+                        ))
+                
+                        local success, result = pcall(
+                            InitiateTrade.InvokeServer,
+                            InitiateTrade,
+                            tradeState.selectedPlayerId,
+                            uuid
+                        )
+                
+                        if success and result then
+                            successCount += 1
+                            sent = true
+                        else
+                            failCount += 1
+                            task.wait(3) -- delay retry (WAJIB)
+                        end
+                    end
+                
+                    task.wait(5) -- delay antar item (tetap dipertahankan)
                 end
 
                 -- 5. Laporan akhir
