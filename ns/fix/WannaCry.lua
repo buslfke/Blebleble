@@ -2868,7 +2868,7 @@ do
         end)
     end
 
-    _G.AutoEventDropdown = _G.FarmSec:Dropdown({
+    _G.AutoEventDropdown = AutoFarmTab:Dropdown({
         Title = "Event Teleport",
         Values = _G.GetTeleportableEvents(),
         Value = "OFF",
