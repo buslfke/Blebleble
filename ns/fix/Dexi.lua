@@ -3103,7 +3103,7 @@ end
 
 -- [Trade State Baru]
 local tradeState = { 
-    mode = "V1",
+    mode = "V3",
     selectedPlayerName = nil, 
     selectedPlayerId = nil, 
     tradeAmount = 0, 
@@ -3282,42 +3282,6 @@ end)
 
 Trade:Section({Title = "Trade Mode Selection"})
 
-local modeDropdown = Trade:Dropdown({
-    Title = "Select Trade Mode",
-    Values = {"V1", "V2", "V3"},
-    Value = "V1",
-    Callback = function(v)
-        tradeState.mode = v
-        NotifySuccess("Mode Changed", "Trade mode set to: " .. v, 3)
-
-        -- Logika Baru untuk Menampilkan/Menyembunyikan UI
-        local isV1 = (v == "V1")
-        local isV2 = (v == "V2")
-        local isV3 = (v == "V3")
-
-        -- Sembunyikan/Tampilkan Elemen V1
-        if _G.TradeQuietElements then
-            for _, element in ipairs(_G.TradeQuietElements) do
-                if element.Element then element.Element.Visible = isV1 end
-            end
-        end
-        
-        -- Sembunyikan/Tampilkan Elemen V2
-        if _G.TradeV2Elements then
-            for _, element in ipairs(_G.TradeV2Elements) do
-                if element.Element then element.Element.Visible = isV2 end
-            end
-        end
-
-        -- Sembunyikan/Tampilkan Elemen V3
-        if _G.TradeV3Elements then
-            for _, element in ipairs(_G.TradeV3Elements) do
-                if element.Element then element.Element.Visible = isV3 end
-            end
-        end
-    end
-})
-
 -------------------------------------------
 ----- ======= V3 - MASS TRADE BY CATEGORY
 -------------------------------------------
@@ -3370,25 +3334,7 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
     })
     table.insert(_G.TradeV3Elements, {Element = V3_TierDropdown}) -- Daftarkan UI
 
-    local V3_VariantDropdown = Trade:Dropdown({
-        Title = "Select Mutations (Variants) to Trade",
-        Values = variantNames, Multi = true, AllowNone = true,
-        Callback = function(selectedNames)
-            categoryTradeState.selectedVariants = selectedNames or {}
-            NotifyInfo("Trade V3", "Mutations to trade: " .. table.concat(selectedNames, ", "))
-        end
-    })
-    table.insert(_G.TradeV3Elements, {Element = V3_VariantDropdown}) -- Daftarkan UI
 
-    local V3_FilterToggle = Trade:Toggle({
-        Title = "Filter Unfavorited Items Only",
-        Desc = "Hanya mengirim item yang tidak di-lock (favorite).", Value = false,
-        Callback = function(val)
-            categoryTradeState.filterUnfavorited = val
-            NotifyInfo("Trade V3", "Filter Unfavorited: " .. tostring(val))
-        end
-    })
-    table.insert(_G.TradeV3Elements, {Element = V3_FilterToggle}) -- Daftarkan UI
     
     -- ===================================
     -- == [BARU] INPUT AMOUNT UNTUK V3
