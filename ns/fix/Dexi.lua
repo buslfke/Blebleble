@@ -3286,6 +3286,11 @@ Trade:Section({Title = "Trade Mode Selection"})
 ----- ======= V3 - MASS TRADE BY CATEGORY
 -------------------------------------------
 
+local V3_StatusParagraph = Trade:Paragraph({
+        Title = "Status V3", Desc = "Waiting to start..."
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_StatusParagraph}) -- Daftarkan UI
+
 local playerDropdown = Trade:Dropdown({
     Title = "Select Trade Target",
     Values = getPlayerListV2(),
@@ -3516,10 +3521,6 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
     })
     table.insert(_G.TradeV3Elements, {Element = V3_AmountInput})
 
-    local V3_StatusParagraph = Trade:Paragraph({
-        Title = "Status V3", Desc = "Waiting to start..."
-    })
-    table.insert(_G.TradeV3Elements, {Element = V3_StatusParagraph}) -- Daftarkan UI
     
 else
     task.spawn(function()
