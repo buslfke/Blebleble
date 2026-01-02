@@ -3286,6 +3286,35 @@ Trade:Section({Title = "Trade Mode Selection"})
 ----- ======= V3 - MASS TRADE BY CATEGORY
 -------------------------------------------
 
+local playerDropdown = Trade:Dropdown({
+    Title = "Select Trade Target",
+    Values = getPlayerListV2(),
+    Value = getPlayerListV2()[1] or nil,
+    SearchBarEnabled = true,
+    Callback = function(selected)
+        tradeState.selectedPlayerName = selected
+        local player = Players:FindFirstChild(selected)
+        if player then
+            tradeState.selectedPlayerId = player.UserId
+            NotifySuccess("Target Selected", "Target set to: " .. player.Name, 3)
+        else
+            tradeState.selectedPlayerId = nil
+            NotifyError("Target Error", "Player not found!", 3)
+        end
+    end
+})
+_G.PlayerDropdownTrade = playerDropdown -- Simpan referensi untuk refresh
+
+Players.PlayerAdded:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+refreshDropdownV2()
+
 
 if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion and _G.ItemUtility and _G.ItemStringUtility and InitiateTrade then
     
@@ -3320,40 +3349,8 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
         autoTrade = false,
         tradeAmount = 0
     }
-    -- UI V3
-    local V3_TierDropdown = Trade:Dropdown({
-        Title = "Select Tiers (Rarity) to Trade",
-        Values = tierNames, Multi = true, AllowNone = true,
-        Callback = function(selectedNames)
-            categoryTradeState.selectedTiers = {}
-            for _, name in ipairs(selectedNames or {}) do
-                if tierMap[name] then table.insert(categoryTradeState.selectedTiers, tierMap[name]) end
-            end
-            NotifyInfo("Trade V3", "Tiers to trade: " .. table.concat(selectedNames, ", "))
-        end
-    })
-    table.insert(_G.TradeV3Elements, {Element = V3_TierDropdown}) -- Daftarkan UI
-
-
     
-    -- ===================================
-    -- == [BARU] INPUT AMOUNT UNTUK V3
-    -- ===================================
-    local V3_AmountInput = Trade:Input({
-        Title = "Amount to Trade",
-        Placeholder = "Enter amount...",
-        Type = "Input",
-        Callback = function(val)
-            categoryTradeState.tradeAmount = tonumber(val) or 0
-        end
-    })
-    table.insert(_G.TradeV3Elements, {Element = V3_AmountInput})
-
-    local V3_StatusParagraph = Trade:Paragraph({
-        Title = "Status V3", Desc = "Waiting to start..."
-    })
-    table.insert(_G.TradeV3Elements, {Element = V3_StatusParagraph}) -- Daftarkan UI
-
+   
     local V3_StartToggle = Trade:Toggle({
         Title = "Start Mass Category Trade", Value = false,
         Callback = function(value)
@@ -3490,43 +3487,46 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
         end
     })
     table.insert(_G.TradeV3Elements, {Element = V3_StartToggle}) -- Daftarkan UI
+    -- UI V3
+    local V3_TierDropdown = Trade:Dropdown({
+        Title = "Select Tiers (Rarity) to Trade",
+        Values = tierNames, Multi = true, AllowNone = true,
+        Callback = function(selectedNames)
+            categoryTradeState.selectedTiers = {}
+            for _, name in ipairs(selectedNames or {}) do
+                if tierMap[name] then table.insert(categoryTradeState.selectedTiers, tierMap[name]) end
+            end
+            NotifyInfo("Trade V3", "Tiers to trade: " .. table.concat(selectedNames, ", "))
+        end
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_TierDropdown}) -- Daftarkan UI
 
 
+    
+    -- ===================================
+    -- == [BARU] INPUT AMOUNT UNTUK V3
+    -- ===================================
+    local V3_AmountInput = Trade:Input({
+        Title = "Amount to Trade",
+        Placeholder = "Enter amount...",
+        Type = "Input",
+        Callback = function(val)
+            categoryTradeState.tradeAmount = tonumber(val) or 0
+        end
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_AmountInput})
+
+    local V3_StatusParagraph = Trade:Paragraph({
+        Title = "Status V3", Desc = "Waiting to start..."
+    })
+    table.insert(_G.TradeV3Elements, {Element = V3_StatusParagraph}) -- Daftarkan UI
+    
 else
     task.spawn(function()
         task.wait(2)
         NotifyError("Trade V3 Load Error", "Gagal memuat fitur Trade V3. Dependensi penting (seperti Trade atau GlobalFav) tidak ditemukan. Anda mungkin salah menempelkan kode atau skrip QuietXHub Anda tidak lengkap.", 10)
     end)
 end
-
-local playerDropdown = Trade:Dropdown({
-    Title = "Select Trade Target",
-    Values = getPlayerListV2(),
-    Value = getPlayerListV2()[1] or nil,
-    SearchBarEnabled = true,
-    Callback = function(selected)
-        tradeState.selectedPlayerName = selected
-        local player = Players:FindFirstChild(selected)
-        if player then
-            tradeState.selectedPlayerId = player.UserId
-            NotifySuccess("Target Selected", "Target set to: " .. player.Name, 3)
-        else
-            tradeState.selectedPlayerId = nil
-            NotifyError("Target Error", "Player not found!", 3)
-        end
-    end
-})
-_G.PlayerDropdownTrade = playerDropdown -- Simpan referensi untuk refresh
-
-Players.PlayerAdded:Connect(function()
-    task.delay(0.1, refreshDropdownV2)
-end)
-
-Players.PlayerRemoving:Connect(function()
-    task.delay(0.1, refreshDropdownV2)
-end)
-
-refreshDropdownV2()
 
 Trade:Section({Title = "Auto Accept Trade"})
 
