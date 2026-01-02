@@ -3754,21 +3754,231 @@ _G.AutoFarm = _G.FarmSec:Toggle({
 myConfig:Register("AutoFarmStart", _G.AutoFarm)
 
 
-local eventNamesForDropdown = {}
-for name in pairs(eventMap) do
-    table.insert(eventNamesForDropdown, name)
-end
+do
+    --------------------------------------------------
+    -- DEPENDENCIES
+    --------------------------------------------------
+    _G.Replion = require(
+        ReplicatedStorage.Packages._Index["ytrev_replion@2.0.0-rc.3"].replion
+    )
 
-_G.FarmSec:Dropdown({
-    Title = "Auto Teleport Event",
-    Values = eventNamesForDropdown,
-    SearchBarEnabled = true,
-    Callback = function(selected)
-        selectedEvent = selected
-        autoTPEvent = true
-        NotifyInfo("Event Selected", "Now monitoring event: " .. selectedEvent)
+    _G.EventsReplion = _G.Replion.Client:WaitReplion("Events")
+
+    --------------------------------------------------
+    -- STATE
+    --------------------------------------------------
+    _G.AutoEventTeleport = {
+        selectedEvent = "OFF",
+        originalCFrame = nil,
+        lastSpawnPos = nil,
+    }
+    
+    _G.__LastEventSignature = nil
+
+    --------------------------------------------------
+    -- HELPERS
+    --------------------------------------------------
+    _G.getHRP = function()
+        local char = LocalPlayer.Character
+        return char and char:FindFirstChild("HumanoidRootPart")
     end
-})
+
+    _G.SafeTeleport = function(cf)
+        local hrp = _G.getHRP()
+        if hrp then
+            hrp.CFrame = cf
+        end
+    end
+
+    --------------------------------------------------
+    -- EVENTS WITH SPAWN ONLY
+    --------------------------------------------------
+    _G.GetTeleportableEvents = function()
+        local events = _G.EventsReplion:Get("Events")
+        local spawns = _G.EventsReplion:Get("EventSpawnLocations")
+
+        if typeof(events) ~= "table" or typeof(spawns) ~= "table" then
+            return { "OFF" }
+        end
+
+        local results = { "OFF" }
+
+        for _, name in ipairs(events) do
+            if typeof(spawns[name]) == "Vector3" then
+                table.insert(results, tostring(name))
+            end
+        end
+
+        return results
+    end
+    
+    _G.BuildEventSignature = function()
+        local events = _G.EventsReplion:Get("Events")
+        local spawns = _G.EventsReplion:Get("EventSpawnLocations")
+    
+        if typeof(events) ~= "table" or typeof(spawns) ~= "table" then
+            return ""
+        end
+    
+        local parts = {}
+    
+        for _, name in ipairs(events) do
+            local pos = spawns[name]
+            if typeof(pos) == "Vector3" then
+                table.insert(
+                    parts,
+                    string.format(
+                        "%s:%d,%d,%d",
+                        name,
+                        pos.X,
+                        pos.Y,
+                        pos.Z
+                    )
+                )
+            end
+        end
+    
+        table.sort(parts)
+        return table.concat(parts, "|")
+    end
+
+    --------------------------------------------------
+    -- CHECK EVENT ACTIVE
+    --------------------------------------------------
+    _G.IsEventActive = function(name)
+        if name == "OFF" then return false end
+
+        local events = _G.EventsReplion:Get("Events")
+        if typeof(events) ~= "table" then return false end
+
+        for _, ev in ipairs(events) do
+            if ev == name then
+                return true
+            end
+        end
+        return false
+    end
+
+    --------------------------------------------------
+    -- APPLY TELEPORT (AUTO FOLLOW)
+    --------------------------------------------------
+    _G.ApplyEventTeleport = function()
+        local selected = _G.AutoEventTeleport.selectedEvent
+    
+        -- JANGAN sentuh posisi kalau OFF
+        if selected == "OFF" then
+            _G.AutoEventTeleport.lastSpawnPos = nil
+            return
+        end
+
+        -- event yang DIPILIH benar-benar berakhir
+        if selected ~= "OFF" and not _G.IsEventActive(selected) then
+            if _G.AutoEventTeleport.originalCFrame then
+                _G.SafeTeleport(_G.AutoEventTeleport.originalCFrame)
+            end
+        
+            _G.AutoEventTeleport.selectedEvent = "OFF"
+            _G.AutoEventTeleport.lastSpawnPos = nil
+        
+            if _G.AutoEventDropdown then
+                _G.AutoEventDropdown:Refresh(_G.GetTeleportableEvents())
+            end
+        
+            return
+        end
+
+        if not _G.IsEventActive(selected) then
+            if _G.AutoEventTeleport.originalCFrame then
+                _G.SafeTeleport(_G.AutoEventTeleport.originalCFrame)
+            end
+            _G.AutoEventTeleport.selectedEvent = "OFF"
+            _G.AutoEventTeleport.lastSpawnPos = nil
+            return
+        end
+
+        local spawns = _G.EventsReplion:Get("EventSpawnLocations")
+        local pos = spawns and spawns[selected]
+
+        if typeof(pos) == "Vector3" then
+            if not _G.AutoEventTeleport.lastSpawnPos
+            or (_G.AutoEventTeleport.lastSpawnPos - pos).Magnitude > 3 then
+
+                _G.AutoEventTeleport.lastSpawnPos = pos
+                local targetCF = CFrame.new(pos + Vector3.new(0, 15, 0))
+                _G.SafeTeleport(targetCF)
+
+                if _G.ToggleBlockOnce then
+                    pcall(function()
+                        _G.ToggleBlockOnce(true)
+                    end)
+                end
+            end
+        end
+    end
+    
+    _G.ForceRefreshEvents = function()
+        -- akses ulang semua path agar Replion "bangun"
+        pcall(function()
+            _G.EventsReplion:Get("Events")
+            _G.EventsReplion:Get("EventSpawnLocations")
+        end)
+    end
+
+    _G.AutoEventDropdown = _G.FarmSec:Dropdown({
+        Title = "Event Teleport",
+        Values = _G.GetTeleportableEvents(),
+        Value = "OFF",
+        Callback = function(v)
+            local prev = _G.AutoEventTeleport.selectedEvent
+            _G.AutoEventTeleport.selectedEvent = v
+        
+            -- simpan posisi awal saat PERTAMA kali masuk event
+            if prev == "OFF" and v ~= "OFF" then
+                local hrp = _G.getHRP()
+                if hrp then
+                    _G.AutoEventTeleport.originalCFrame = hrp.CFrame
+                end
+            end
+        
+            -- USER PILIH OFF → BALIK KE POSISI AWAL
+            if v == "OFF" then
+                if _G.AutoEventTeleport.originalCFrame then
+                    _G.SafeTeleport(_G.AutoEventTeleport.originalCFrame)
+                end
+        
+                _G.AutoEventTeleport.lastSpawnPos = nil
+                return
+            end
+        
+            -- user pilih event
+            _G.AutoEventTeleport.lastSpawnPos = nil
+            _G.ApplyEventTeleport()
+        end
+    })
+
+    task.spawn(function()
+        while true do
+            task.wait(0.5)
+    
+            local sig = _G.BuildEventSignature()
+    
+            if sig ~= _G.__LastEventSignature then
+                _G.__LastEventSignature = sig
+    
+                if _G.AutoEventDropdown then
+                    _G.AutoEventDropdown:Refresh(
+                        _G.GetTeleportableEvents()
+                    )
+                end
+    
+                -- HANYA follow jika user memang sedang di event
+                if _G.AutoEventTeleport.selectedEvent ~= "OFF" then
+                    _G.ApplyEventTeleport()
+                end
+            end
+        end
+    end)
+end
 
 
 -------------------------------------------
