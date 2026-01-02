@@ -3318,144 +3318,6 @@ local modeDropdown = Trade:Dropdown({
     end
 })
 
-local playerDropdown = Trade:Dropdown({
-    Title = "Select Trade Target",
-    Values = getPlayerListV2(),
-    Value = getPlayerListV2()[1] or nil,
-    SearchBarEnabled = true,
-    Callback = function(selected)
-        tradeState.selectedPlayerName = selected
-        local player = Players:FindFirstChild(selected)
-        if player then
-            tradeState.selectedPlayerId = player.UserId
-            NotifySuccess("Target Selected", "Target set to: " .. player.Name, 3)
-        else
-            tradeState.selectedPlayerId = nil
-            NotifyError("Target Error", "Player not found!", 3)
-        end
-    end
-})
-_G.PlayerDropdownTrade = playerDropdown -- Simpan referensi untuk refresh
-
-Players.PlayerAdded:Connect(function()
-    task.delay(0.1, refreshDropdownV2)
-end)
-
-Players.PlayerRemoving:Connect(function()
-    task.delay(0.1, refreshDropdownV2)
-end)
-
-refreshDropdownV2()
-
-Trade:Section({Title = "Auto Accept Trade"})
-
-Trade:Toggle({
-    Title = "Enable Auto Accept Trade",
-    Desc = "Automatically accepts incoming trade requests.",
-    Value = false,
-    Callback = function(value)
-        _G.AutoAcceptTradeEnabled = value
-        if value then
-            NotifySuccess("Auto Accept", "Auto accept trade enabled.", 3)
-        else
-            NotifyWarning("Auto Accept", "Auto accept trade disabled.", 3)
-        end
-    end
-})
-
-Trade:Section({Title = "Mode V1"})
-_G.TradeQuietElements = {}
-
--- Toggle Mode Save Items (Mode V1)
-local saveModeToggle = Trade:Toggle({
-    Title = "Mode Save Items",
-    Desc = "Click inventory item to add for Mass Trade",
-    Value = false,
-    Callback = function(state)
-        tradeState.saveTempMode = state
-        if state then
-            tradeState.TempTradeList = {}
-            NotifySuccess("Save Mode", "Enabled - Click items to save")
-        else
-            NotifyInfo("Save Mode", "Disabled - "..#tradeState.TempTradeList.." items saved")
-        end
-    end
-})
-table.insert(_G.TradeQuietElements, {Element = saveModeToggle})
-
--- Toggle Trade (Original Send) (V1)
-local originalTradeToggle = Trade:Toggle({
-    Title = "Trade (Original Send)",
-    Desc = "Click inventory items to Send Trade",
-    Value = false,
-    Callback = function(state)
-        tradeState.onTrade = state
-        if state then
-            NotifySuccess("Trade", "Trade Mode Enabled. Click an item to send trade.")
-        else
-            NotifyWarning("Trade", "Trade Mode Disabled.")
-        end
-    end
-})
-table.insert(_G.TradeQuietElements, {Element = originalTradeToggle})
-
--- Fungsi Trade All (Mode V1)
-local function TradeAllQuiet()       
-    if not tradeState.selectedPlayerId then    
-        NotifyError("Mass Trade", "Set trade target first!")       
-        return         
-    end          
-    if #tradeState.TempTradeList == 0 then       
-        NotifyWarning("Mass Trade", "No items saved!")          
-        return         
-    end          
-    
-    NotifyInfo("Mass Trade", "Starting V1 trade of "..#tradeState.TempTradeList.." items...")      
-    
-    task.spawn(function()          
-        for i, item in ipairs(tradeState.TempTradeList) do          
-            if not tradeState.autoTradeV2 then
-                NotifyWarning("Mass Trade", "V1 Trade stopped!")         
-                break          
-            end          
-        
-            local uuid = item.UUID          
-            local category = item.Category          
-        
-            NotifyInfo("Mass Trade", "Trade item "..i.." of "..#tradeState.TempTradeList)          
-            InitiateTrade:InvokeServer(tradeState.selectedPlayerId, uuid, category)          
-        
-            task.wait(6.5)       
-        end          
-    
-        NotifySuccess("Mass Trade", "Finished V1 trading!")        
-        tradeState.autoTradeV2 = false          
-        tradeState.TempTradeList = {}          
-    end)          
-end
-
--- Toggle Auto Trade (Mode V1)
-local autoTradeQuietToggle = Trade:Toggle({
-    Title = "Start Mass Trade V1",
-    Desc = "Trade all saved items automatically.",
-    Value = false,
-    Callback = function(state)
-        tradeState.autoTradeV2 = state
-        if tradeState.mode == "V1" and state then
-            if #tradeState.TempTradeList == 0 then
-                NotifyError("Mass Trade", "No items saved to trade!")
-                tradeState.autoTradeV2 = false
-                return
-            end
-            TradeAllQuiet()
-            NotifySuccess("Mass Trade", "V1 Auto Trade Enabled")
-        else
-            NotifyWarning("Mass Trade", "V1 Auto Trade Disabled")
-        end
-    end
-})
-table.insert(_G.TradeQuietElements, {Element = autoTradeQuietToggle})
-
 -------------------------------------------
 ----- ======= V3 - MASS TRADE BY CATEGORY
 -------------------------------------------
@@ -3690,6 +3552,144 @@ else
         NotifyError("Trade V3 Load Error", "Gagal memuat fitur Trade V3. Dependensi penting (seperti Trade atau GlobalFav) tidak ditemukan. Anda mungkin salah menempelkan kode atau skrip QuietXHub Anda tidak lengkap.", 10)
     end)
 end
+
+local playerDropdown = Trade:Dropdown({
+    Title = "Select Trade Target",
+    Values = getPlayerListV2(),
+    Value = getPlayerListV2()[1] or nil,
+    SearchBarEnabled = true,
+    Callback = function(selected)
+        tradeState.selectedPlayerName = selected
+        local player = Players:FindFirstChild(selected)
+        if player then
+            tradeState.selectedPlayerId = player.UserId
+            NotifySuccess("Target Selected", "Target set to: " .. player.Name, 3)
+        else
+            tradeState.selectedPlayerId = nil
+            NotifyError("Target Error", "Player not found!", 3)
+        end
+    end
+})
+_G.PlayerDropdownTrade = playerDropdown -- Simpan referensi untuk refresh
+
+Players.PlayerAdded:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.delay(0.1, refreshDropdownV2)
+end)
+
+refreshDropdownV2()
+
+Trade:Section({Title = "Auto Accept Trade"})
+
+Trade:Toggle({
+    Title = "Enable Auto Accept Trade",
+    Desc = "Automatically accepts incoming trade requests.",
+    Value = false,
+    Callback = function(value)
+        _G.AutoAcceptTradeEnabled = value
+        if value then
+            NotifySuccess("Auto Accept", "Auto accept trade enabled.", 3)
+        else
+            NotifyWarning("Auto Accept", "Auto accept trade disabled.", 3)
+        end
+    end
+})
+
+Trade:Section({Title = "Mode V1"})
+_G.TradeQuietElements = {}
+
+-- Toggle Mode Save Items (Mode V1)
+local saveModeToggle = Trade:Toggle({
+    Title = "Mode Save Items",
+    Desc = "Click inventory item to add for Mass Trade",
+    Value = false,
+    Callback = function(state)
+        tradeState.saveTempMode = state
+        if state then
+            tradeState.TempTradeList = {}
+            NotifySuccess("Save Mode", "Enabled - Click items to save")
+        else
+            NotifyInfo("Save Mode", "Disabled - "..#tradeState.TempTradeList.." items saved")
+        end
+    end
+})
+table.insert(_G.TradeQuietElements, {Element = saveModeToggle})
+
+-- Toggle Trade (Original Send) (V1)
+local originalTradeToggle = Trade:Toggle({
+    Title = "Trade (Original Send)",
+    Desc = "Click inventory items to Send Trade",
+    Value = false,
+    Callback = function(state)
+        tradeState.onTrade = state
+        if state then
+            NotifySuccess("Trade", "Trade Mode Enabled. Click an item to send trade.")
+        else
+            NotifyWarning("Trade", "Trade Mode Disabled.")
+        end
+    end
+})
+table.insert(_G.TradeQuietElements, {Element = originalTradeToggle})
+
+-- Fungsi Trade All (Mode V1)
+local function TradeAllQuiet()       
+    if not tradeState.selectedPlayerId then    
+        NotifyError("Mass Trade", "Set trade target first!")       
+        return         
+    end          
+    if #tradeState.TempTradeList == 0 then       
+        NotifyWarning("Mass Trade", "No items saved!")          
+        return         
+    end          
+    
+    NotifyInfo("Mass Trade", "Starting V1 trade of "..#tradeState.TempTradeList.." items...")      
+    
+    task.spawn(function()          
+        for i, item in ipairs(tradeState.TempTradeList) do          
+            if not tradeState.autoTradeV2 then
+                NotifyWarning("Mass Trade", "V1 Trade stopped!")         
+                break          
+            end          
+        
+            local uuid = item.UUID          
+            local category = item.Category          
+        
+            NotifyInfo("Mass Trade", "Trade item "..i.." of "..#tradeState.TempTradeList)          
+            InitiateTrade:InvokeServer(tradeState.selectedPlayerId, uuid, category)          
+        
+            task.wait(6.5)       
+        end          
+    
+        NotifySuccess("Mass Trade", "Finished V1 trading!")        
+        tradeState.autoTradeV2 = false          
+        tradeState.TempTradeList = {}          
+    end)          
+end
+
+-- Toggle Auto Trade (Mode V1)
+local autoTradeQuietToggle = Trade:Toggle({
+    Title = "Start Mass Trade V1",
+    Desc = "Trade all saved items automatically.",
+    Value = false,
+    Callback = function(state)
+        tradeState.autoTradeV2 = state
+        if tradeState.mode == "V1" and state then
+            if #tradeState.TempTradeList == 0 then
+                NotifyError("Mass Trade", "No items saved to trade!")
+                tradeState.autoTradeV2 = false
+                return
+            end
+            TradeAllQuiet()
+            NotifySuccess("Mass Trade", "V1 Auto Trade Enabled")
+        else
+            NotifyWarning("Mass Trade", "V1 Auto Trade Disabled")
+        end
+    end
+})
+table.insert(_G.TradeQuietElements, {Element = autoTradeQuietToggle})
 
 Trade:Section({Title = "V2"})
 _G.TradeV2Elements = {}
