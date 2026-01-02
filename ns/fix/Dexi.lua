@@ -3456,122 +3456,6 @@ local autoTradeQuietToggle = Trade:Toggle({
 })
 table.insert(_G.TradeQuietElements, {Element = autoTradeQuietToggle})
 
-Trade:Section({Title = "V2"})
-_G.TradeV2Elements = {}
-
-local filterToggleV2 = Trade:Toggle({
-    Title = "Filter Unfavorited Items Only",
-    Value = false,
-    Callback = function(val)
-        tradeState.filterUnfavorited = val
-        refreshInventory()
-        NotifyInfo("Filter Updated", "Inventory list refreshed.", 3)
-    end
-})
-table.insert(_G.TradeV2Elements, {Element = filterToggleV2})
-
-_G.InventoryDropdown = Trade:Dropdown({
-    Title = "Select Item from Inventory",
-    Values = {"- Refresh to load -"},
-    AllowNone = true,
-    SearchBarEnabled = true,
-    Callback = function(val)
-        tradeState.selectedItemName = val
-    end
-})
-table.insert(_G.TradeV2Elements, {Element = _G.InventoryDropdown})
-
-Trade:Button({ Title = "Refresh Inventory & Players", Icon = "refresh-cw", Callback = refreshInventory })
-
-local amountInputV2 = Trade:Input({
-    Title = "Amount to Trade",
-    Placeholder = "Enter amount...",
-    Type = "Input",
-    Callback = function(val)
-        tradeState.tradeAmount = tonumber(val) or 0
-    end
-})
-table.insert(_G.TradeV2Elements, {Element = amountInputV2})
-
-local statusParagraphV2 = Trade:Paragraph({ Title = "Status V2", Desc = "Waiting to start..." })
-table.insert(_G.TradeV2Elements, {Element = statusParagraphV2})
-
--- Toggle Start Mass Trade (V2)
-Trade:Toggle({
-    Title = "Start Mass Trade V2",
-    Value = false,
-    Callback = function(value)
-        tradeState.autoTradeV2 = value
-        if tradeState.mode == "V2" and value then
-            task.spawn(function()
-                if not tradeState.selectedItemName or not tradeState.selectedPlayerId or tradeState.tradeAmount <= 0 then
-                    statusParagraphV2:SetDesc("Error: Select item, amount, and player.")
-                    tradeState.autoTradeV2 = false
-                    return
-                end
-
-                local cleanItemName = tradeState.selectedItemName:match("^(.*) %((%d+)x%)$")
-                if cleanItemName then cleanItemName = cleanItemName:match("^(.*)") end 
-                if not cleanItemName then cleanItemName = tradeState.selectedItemName end
-
-                local uuidsToSend = inventoryCache[cleanItemName]
-
-                if not uuidsToSend or #uuidsToSend < tradeState.tradeAmount then
-                    statusParagraphV2:SetDesc("Error: Not enough items. Refresh inventory.")
-                    tradeState.autoTradeV2 = false
-                    return
-                end
-
-                local successCount, failCount = 0, 0
-                local targetName = tradeState.selectedPlayerName
-
-                for i = 1, tradeState.tradeAmount do 
-                    if not tradeState.autoTradeV2 then
-                        statusParagraphV2:SetDesc("Process stopped by user.")
-                        break
-                    end
-
-                    local uuid = uuidsToSend[i]
-                    statusParagraphV2:SetDesc(string.format(
-                        "Progress: %d/%d | Sending to: %s | Status: <font color='#eab308'>Waiting...</font>",
-                        i, tradeState.tradeAmount, targetName))
-
-                    local success, result = pcall(InitiateTrade.InvokeServer, InitiateTrade, tradeState.selectedPlayerId, uuid)
-
-                    if success and result then
-                        successCount = successCount + 1
-                    else
-                        failCount = failCount + 1
-                    end
-
-                    statusParagraphV2:SetDesc(string.format(
-                        "Progress: %d/%d | Sent: %s | Success: %d | Failed: %d",
-                        i, tradeState.tradeAmount, success and "âœ…" or "âŒ", successCount, failCount))
-                    
-                    task.wait(5) 
-                end
-
-                statusParagraphV2:SetDesc(string.format(
-                    "Trade V2 Process Complete.\nSuccessful: %d | Failed: %d",
-                    successCount, failCount))
-
-                tradeState.autoTradeV2 = false
-                refreshInventory()
-            end)
-        end
-    end
-})
-
--- Sembunyikan elemen GLua secara default, kecuali tombol refresh dan dropdown mode
-for _, element in ipairs(_G.TradeV2Elements) do
-    if element.Element then element.Element.Visible = false end
-end
-
--- Pastikan elemen Quiet terlihat
-for _, element in ipairs(_G.TradeQuietElements) do
-    if element.Element then element.Element.Visible = true end
-end
-
 -------------------------------------------
 ----- ======= V3 - MASS TRADE BY CATEGORY
 -------------------------------------------
@@ -3805,6 +3689,122 @@ else
         task.wait(2)
         NotifyError("Trade V3 Load Error", "Gagal memuat fitur Trade V3. Dependensi penting (seperti Trade atau GlobalFav) tidak ditemukan. Anda mungkin salah menempelkan kode atau skrip QuietXHub Anda tidak lengkap.", 10)
     end)
+end
+
+Trade:Section({Title = "V2"})
+_G.TradeV2Elements = {}
+
+local filterToggleV2 = Trade:Toggle({
+    Title = "Filter Unfavorited Items Only",
+    Value = false,
+    Callback = function(val)
+        tradeState.filterUnfavorited = val
+        refreshInventory()
+        NotifyInfo("Filter Updated", "Inventory list refreshed.", 3)
+    end
+})
+table.insert(_G.TradeV2Elements, {Element = filterToggleV2})
+
+_G.InventoryDropdown = Trade:Dropdown({
+    Title = "Select Item from Inventory",
+    Values = {"- Refresh to load -"},
+    AllowNone = true,
+    SearchBarEnabled = true,
+    Callback = function(val)
+        tradeState.selectedItemName = val
+    end
+})
+table.insert(_G.TradeV2Elements, {Element = _G.InventoryDropdown})
+
+Trade:Button({ Title = "Refresh Inventory & Players", Icon = "refresh-cw", Callback = refreshInventory })
+
+local amountInputV2 = Trade:Input({
+    Title = "Amount to Trade",
+    Placeholder = "Enter amount...",
+    Type = "Input",
+    Callback = function(val)
+        tradeState.tradeAmount = tonumber(val) or 0
+    end
+})
+table.insert(_G.TradeV2Elements, {Element = amountInputV2})
+
+local statusParagraphV2 = Trade:Paragraph({ Title = "Status V2", Desc = "Waiting to start..." })
+table.insert(_G.TradeV2Elements, {Element = statusParagraphV2})
+
+-- Toggle Start Mass Trade (V2)
+Trade:Toggle({
+    Title = "Start Mass Trade V2",
+    Value = false,
+    Callback = function(value)
+        tradeState.autoTradeV2 = value
+        if tradeState.mode == "V2" and value then
+            task.spawn(function()
+                if not tradeState.selectedItemName or not tradeState.selectedPlayerId or tradeState.tradeAmount <= 0 then
+                    statusParagraphV2:SetDesc("Error: Select item, amount, and player.")
+                    tradeState.autoTradeV2 = false
+                    return
+                end
+
+                local cleanItemName = tradeState.selectedItemName:match("^(.*) %((%d+)x%)$")
+                if cleanItemName then cleanItemName = cleanItemName:match("^(.*)") end 
+                if not cleanItemName then cleanItemName = tradeState.selectedItemName end
+
+                local uuidsToSend = inventoryCache[cleanItemName]
+
+                if not uuidsToSend or #uuidsToSend < tradeState.tradeAmount then
+                    statusParagraphV2:SetDesc("Error: Not enough items. Refresh inventory.")
+                    tradeState.autoTradeV2 = false
+                    return
+                end
+
+                local successCount, failCount = 0, 0
+                local targetName = tradeState.selectedPlayerName
+
+                for i = 1, tradeState.tradeAmount do 
+                    if not tradeState.autoTradeV2 then
+                        statusParagraphV2:SetDesc("Process stopped by user.")
+                        break
+                    end
+
+                    local uuid = uuidsToSend[i]
+                    statusParagraphV2:SetDesc(string.format(
+                        "Progress: %d/%d | Sending to: %s | Status: <font color='#eab308'>Waiting...</font>",
+                        i, tradeState.tradeAmount, targetName))
+
+                    local success, result = pcall(InitiateTrade.InvokeServer, InitiateTrade, tradeState.selectedPlayerId, uuid)
+
+                    if success and result then
+                        successCount = successCount + 1
+                    else
+                        failCount = failCount + 1
+                    end
+
+                    statusParagraphV2:SetDesc(string.format(
+                        "Progress: %d/%d | Sent: %s | Success: %d | Failed: %d",
+                        i, tradeState.tradeAmount, success and "âœ…" or "âŒ", successCount, failCount))
+                    
+                    task.wait(5) 
+                end
+
+                statusParagraphV2:SetDesc(string.format(
+                    "Trade V2 Process Complete.\nSuccessful: %d | Failed: %d",
+                    successCount, failCount))
+
+                tradeState.autoTradeV2 = false
+                refreshInventory()
+            end)
+        end
+    end
+})
+
+-- Sembunyikan elemen GLua secara default, kecuali tombol refresh dan dropdown mode
+for _, element in ipairs(_G.TradeV2Elements) do
+    if element.Element then element.Element.Visible = false end
+end
+
+-- Pastikan elemen Quiet terlihat
+for _, element in ipairs(_G.TradeQuietElements) do
+    if element.Element then element.Element.Visible = true end
 end
 
 -------------------------------------------
