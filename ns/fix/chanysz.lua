@@ -4246,7 +4246,12 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
                 -- 4. Kirim item
                 local totalFound = #uuidsToSend
                 -- Gunakan math.min untuk mengambil jumlah yang lebih kecil antara yang ditemukan dan yang diminta
-                local amountToSend = math.min(totalFound, categoryTradeState.tradeAmount) 
+                local amountToSend
+                if categoryTradeState.tradeAmount == 0 then
+                    amountToSend = totalFound
+                else
+                    amountToSend = math.min(totalFound, categoryTradeState.tradeAmount)
+                end 
                 local successCount, failCount = 0, 0
                 local targetName = tradeState.selectedPlayerName
 
