@@ -4183,11 +4183,7 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
                 -- ===================================
                 -- == [BARU] VALIDASI AMOUNT V3
                 -- ===================================
-                if categoryTradeState.tradeAmount <= 0 then
-                    V3_StatusParagraph:SetDesc("Error: Please enter a valid amount in the 'Amount to Trade (V3)' input.")
-                    pcall(V3_StartToggle.SetValue, V3_StartToggle, false); return
-                end
-                -- ===================================
+                
 
                 local DataReplion = _G.Replion.Client:WaitReplion("Data")
                 if not DataReplion then
