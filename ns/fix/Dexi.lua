@@ -520,7 +520,7 @@ _G.lastRecastTime = 0
 _G.DELAY_ANTISTUCK = 10
 _G.isRecasting5x = false
 _G.STUCK_TIMEOUT = 10
-_G.AntiStuckEnabled = false
+_G.AntiStuckEnabled = true
 _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1.5
 _G.fishCounter = 0
@@ -568,7 +568,7 @@ function InitialCast5X()
         end
 
         lastPower = currentPower
-        task.wait(0) -- task.wait(0) diganti dari task.wait() agar lebih cepat
+        task.wait(0.001) -- task.wait(0) diganti dari task.wait() agar lebih cepat
     end
     miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
 end
@@ -711,11 +711,10 @@ end)
 
 function StartAutoFish5X()
     FuncAutoFish.autofish5x = true
-    _G.AntiStuckEnabled = true
     lastEventTime = tick()
     _G.lastFishTime = tick()
     _G.equipRemote:FireServer(1)
-    task.wait(0.5)
+    task.wait(1)
     InitialCast5X() 
 end
 
@@ -1890,7 +1889,7 @@ local function monitorAutoTP()
                     wasAutoFishing = FuncAutoFish.autofish5x 
 
                     if wasAutoFishing then
-                        _G.StopAutoFish5X() 
+                        StopAutoFish5X() 
                         task.wait(0.5)
                     end
 
@@ -1900,7 +1899,7 @@ local function monitorAutoTP()
 
                     -- Mulai AutoFish setelah TP
                     if wasAutoFishing then
-                        _G.StartAutoFish5X()
+                        StartAutoFish5X()
                     end
 
                     NotifySuccess("Event Farm", ("Teleported to %s. Farming started."):format(selectedEvent))
@@ -1927,7 +1926,7 @@ local function monitorAutoTP()
                         -- Lanjutkan AutoFish jika sebelumnya aktif
                         if wasAutoFishing then
                             task.wait(1)
-                            _G.StartAutoFish5X()
+                            StartAutoFish5X()
                         end
                     end
                 end
