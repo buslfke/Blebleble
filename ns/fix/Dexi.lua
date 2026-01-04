@@ -1014,84 +1014,9 @@ _G.CutsceneController.Play = function(self, ...)
     return _G.OriginalPlayCutscene(self, ...)
 end
 
-_G.Cuki:Toggle({
-    Title = "Auto Skip Cutscenes",
-    Value = true,
-    Callback = function(state)
-        _G.AutoSkipCutscene = state
-
-        if state then
-            if _G.CutsceneController then
-                _G.CutsceneController:Stop()
-                _G.GuiControl:SetHUDVisibility(true)
-                _G.ProximityPromptService.Enabled = true
-            end
-            NotifySuccess("Cutscene", "Auto Skip Enabled. No more animations.")
-        else
-            NotifyInfo("Cutscene", "Auto Skip Disabled.")
-        end
-    end
-})
-
-_G.Cuki:Input({
-    Title = "Max Inventory Size",
-    Value = tostring(Constants.MaxInventorySize or 0),
-    Placeholder = "Input Number...",
-    Callback = function(input)
-        local newSize = tonumber(input)
-        if not newSize then
-            NotifyWarning("Inventory Size", "Must be numbers!")
-            return
-        end
-        Constants.MaxInventorySize = newSize
-    end
-})
 
 local REEquipItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
 local RFSellItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/SellItem"]
-
-local autoSellMythic = false
-local SMBlockNotif = true
-
-function ToggleAutoSellMythic(state)
-	if SMBlockNotif then
-		SMBlockNotif = false
-		return
-	end
-	autoSellMythic = state
-end
-
-local oldFireServer
-oldFireServer = hookmetamethod(game, "__namecall", function(self, ...)
-	local args = {...}
-	local method = getnamecallmethod()
-
-	if autoSellMythic
-		and method == "FireServer"
-		and self == REEquipItem
-		and typeof(args[1]) == "string"
-		and args[2] == "Fishes" then
-
-		local uuid = args[1]
-
-		task.delay(1, function()
-			pcall(function()
-				local result = RFSellItem:InvokeServer(uuid)
-			end)
-		end)
-	end
-
-	return oldFireServer(self, ...)
-end)
-
-_G.Cuki:Toggle({
-	Title = "Auto Sell Mythic",
-	Desc = "Automatically sells clicked fish",
-	Default = false,
-	Callback = function(state)
-		ToggleAutoSellMythic(state)
-	end
-})
 
 
 function sellAllFishes()
