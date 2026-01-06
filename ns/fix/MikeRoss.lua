@@ -921,8 +921,6 @@ _G.AntiStuckEnabled = false
 _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1
 _G.fishCounter = 0
-_G.sellThreshold = 30
-_G.sellActive = false
 _G.AutoFishHighQuality = false
 _G.CastTimeoutMode = "Fast"
 _G.CastTimeoutValue = 0.01
@@ -1283,11 +1281,6 @@ local v6 = {
     }
 }
 
-_G.BlatantState = {
-    mode = "Fast",
-    fishingDelay = 1.0,
-    reelDelay = 1.9
-}
 
 _G.ForceEquipRod = function()
     pcall(function()
