@@ -24,7 +24,7 @@ local Constants = require(ReplicatedStorage:WaitForChild("Shared", 20):WaitForCh
 
 local Player = Players.LocalPlayer
 local XPBar = Player:WaitForChild("PlayerGui"):WaitForChild("XP")
-
+_G.DisplayNotif = game:GetService("Players").LocalPlayer.PlayerGui["Small Notification"].Display
 LocalPlayer.Idled:Connect(function()
     VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
     task.wait(1)
@@ -990,7 +990,7 @@ _G.CutsceneController = require(ReplicatedStorage.Controllers.CutsceneController
 _G.GuiControl = require(ReplicatedStorage.Modules.GuiControl)
 _G.ProximityPromptService = game:GetService("ProximityPromptService")
 
-_G.AutoSkipCutscene = true
+_G.AutoSkipCutscene = false
 
 if not _G.OriginalPlayCutscene then
     _G.OriginalPlayCutscene = _G.CutsceneController.Play
@@ -1012,6 +1012,38 @@ _G.CutsceneController.Play = function(self, ...)
 
     return _G.OriginalPlayCutscene(self, ...)
 end
+
+_G.HideNotif = _G.Cuki:Toggle({
+    Title = "Hide Notification",
+    Value = false,
+    Callback = function(state)
+        if state then
+            _G.DisplayNotif.Visible = false
+        else 
+            _G.DisplayNotif.Visible = true
+        end
+    end
+})
+
+myConfig:Register("HideNotification", _G.HideNotif)
+
+_G.Cuki:Toggle({
+    Title = "Auto Skip Cutscenes",
+    Callback = function(state)
+        _G.AutoSkipCutscene = state
+
+        if state then
+            if _G.CutsceneController then
+                _G.CutsceneController:Stop()
+                _G.GuiControl:SetHUDVisibility(true)
+                _G.ProximityPromptService.Enabled = true
+            end
+            NotifySuccess("Cutscene", "Auto Skip Enabled. No more animations.")
+        else
+            NotifyInfo("Cutscene", "Auto Skip Disabled.")
+        end
+    end
+})
 
 
 local REEquipItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
