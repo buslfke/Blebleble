@@ -1617,8 +1617,101 @@ function _G.ToggleAutoClick(shouldActivate)
     end
 end
 
+local v5 = {
+    Net = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net,
+    FishingController = require(ReplicatedStorage.Controllers.FishingController),
+}
+
+-------------------------------------------------
+-- FORCE EQUIP SLOT 1 (AUTO)
+-------------------------------------------------
+
+local v6 = {
+    Events = {
+        REFishDone = v5.Net["RE/FishingCompleted"],
+        REEquip = v5.Net["RE/EquipToolFromHotbar"],
+    },
+    Functions = {
+        ChargeRod = v5.Net["RF/ChargeFishingRod"],
+        StartMini = v5.Net["RF/RequestFishingMinigameStarted"],
+        Cancel = v5.Net["RF/CancelFishingInputs"],
+    }
+}
+
+_G.BlatantState = {
+    enabled = false,
+    mode = "Fast",
+    fishingDelay = 1.0,
+    reelDelay = 1.9
+}
+
+_G.__RodEquipped = false
+
+_G.ForceEquipRod = function()
+    pcall(function()
+        v6.Events.REEquip:FireServer(1)
+    end)
+    task.wait(0.25)
+end
+
+task.spawn(function()
+    local lastState = false
+
+    while true do
+        local enabled = _G.BlatantState.enabled
+
+        -- rising edge: OFF -> ON
+        if enabled and not lastState then
+            _G.__RodEquipped = false
+
+            pcall(function()
+                v6.Events.REEquip:FireServer(1)
+            end)
+
+            task.delay(0.3, function()
+                _G.__RodEquipped = true
+            end)
+        end
+
+        lastState = enabled
+        task.wait(0.1)
+    end
+end)
+
+function Fastest()
+    task.spawn(function()
+        pcall(function()
+            v6.Functions.Cancel:InvokeServer()
+        end)
+        local l_workspace_ServerTimeNow_0 = workspace:GetServerTimeNow()
+        pcall(function()
+            v6.Functions.ChargeRod:InvokeServer(l_workspace_ServerTimeNow_0)
+        end)
+        pcall(function()
+            v6.Functions.StartMini:InvokeServer(-1, 0.999)
+        end)
+        task.wait(_G.BlatantState.fishingDelay)
+        pcall(function()
+            v6.Events.REFishDone:FireServer()
+        end)
+    end)
+end
+
+task.spawn(function()
+    while true do
+        if _G.BlatantState.enabled then
+            if _G.BlatantState.mode == "Fast" then
+                Fastest()
+            end
+            task.wait(_G.BlatantState.reelDelay)
+        else
+            task.wait(0.2)
+        end
+    end
+end)
+
 _G.FishAdvenc = AutoFish:Section({
-    Title = "Adcenced Settings",
+    Title = "Advenced Settings",
     TextSize = 22,
     TextXAlignment = "Center",
     Opened = false
@@ -1628,7 +1721,44 @@ _G.FishSec = AutoFish:Section({
     Title = "Auto Fishing Menu",
     TextSize = 22,
     TextXAlignment = "Center",
-    Opened = true
+    Opened = false
+})
+
+_G.BlatantSec = AutoFish:Section({
+    Title = "Blatant Fishing",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
+_G.BlatantSec:Input({
+    Title = "Delay Reel",
+    Value = tostring(_G.BlatantState.reelDelay),
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            _G.BlatantState.reelDelay = num
+        end
+    end
+})
+
+_G.BlatantSec:Input({
+    Title = "Delay Fishing",
+    Value = tostring(_G.BlatantState.fishingDelay),
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            _G.BlatantState.fishingDelay = num
+        end
+    end
+})
+
+_G.BlatantSec:Toggle({
+    Title = "Enable Blatant",
+    Value = false,
+    Callback = function(state)
+        _G.BlatantState.enabled = state
+    end
 })
 
 _G.DelayFinish = _G.FishAdvenc:Input({
