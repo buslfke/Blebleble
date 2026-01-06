@@ -32,6 +32,8 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
 end)
 
+_G.DisplayNotif = game:GetService("Players").LocalPlayer.PlayerGui["Small Notification"].Display
+
 local VirtualUser = game:GetService("VirtualUser")
 
 if Player and VirtualUser then
@@ -1089,6 +1091,19 @@ _G.FishAdvenc:Input({
         _G.STUCK_TIMEOUT = stuck
     end
 })
+
+_G.HideNotif = _G.FishAdvenc:Toggle({
+    Title = "Hide Notification",
+    Value = false,
+    Callback = function(state)
+        if state then
+            _G.DisplayNotif.Visible = false
+        else 
+            _G.DisplayNotif.Visible = true
+        end
+    end
+})
+
 
 _G.FishSec:Toggle({
     Title = "Auto Sell",
