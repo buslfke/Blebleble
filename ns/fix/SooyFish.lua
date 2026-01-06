@@ -5762,103 +5762,10 @@ task.spawn(function()
 end)
 
 
-_G.FISH_COUNTER = _G.FISH_COUNTER or 0
-_G.LAST_STUCK_TIME = _G.LAST_STUCK_TIME or "Never"
-
-function getInventoryCount()
-    local gui = LocalPlayer:FindFirstChild("PlayerGui")
-    if not gui then return "N/A" end
-
-    local bagSize =
-        gui:FindFirstChild("Backpack")
-        and gui.Backpack:FindFirstChild("Display")
-        and gui.Backpack.Display:FindFirstChild("Inventory")
-        and gui.Backpack.Display.Inventory:FindFirstChild("BagSize")
-
-    if bagSize and bagSize:IsA("TextLabel") then
-        return bagSize.Text
-    end
-
-    return "N/A"
-end
-
-local CoreGui = game:GetService("CoreGui")
-
--- HAPUS HUD LAMA JIKA ADA
-pcall(function()
-    CoreGui:FindFirstChild("FishCounterHUD"):Destroy()
-end)
-
--- SCREEN GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FishCounterHUD"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.Parent = CoreGui
-
--- FULL BLACK BACKGROUND
-local Background = Instance.new("Frame")
-Background.Size = UDim2.new(1, 0, 1, 0)
-Background.Position = UDim2.new(0, 0, 0, 0)
-Background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Background.BackgroundTransparency = 0.5 -- FULL HITAM
-Background.BorderSizePixel = 0
-Background.Parent = ScreenGui
-
--- CONTAINER TENGAH
-local Container = Instance.new("Frame")
-Container.Size = UDim2.new(1, 0, 0, 160)
-Container.Position = UDim2.new(0, 0, 0.5, -80)
-Container.BackgroundTransparency = 1
-Container.Parent = Background
-
--- UI LIST LAYOUT (VERTIKAL CENTER)
-local Layout = Instance.new("UIListLayout")
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-Layout.VerticalAlignment = Enum.VerticalAlignment.Center
-Layout.Padding = UDim.new(0, 10)
-Layout.Parent = Container
-
--- LABEL CREATOR (CENTER)
-local function createCenterLabel(text, size)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, size + 10)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.Font = Enum.Font.GothamSemibold
-    label.TextSize = size
-    label.TextXAlignment = Enum.TextXAlignment.Center
-    label.TextYAlignment = Enum.TextYAlignment.Center
-    label.Text = text
-    label.Parent = Container
-    return label
-end
-
--- LABELS
-_G.FishLabel = createCenterLabel("🎣 Total Fish Caught : 0", 28)
-_G.InvLabel  = createCenterLabel("🎒 Inventory : N/A", 28)
-_G.StuckLabel = createCenterLabel("⚠️ Last Stuck : Never", 28)
-
--- UPDATE FUNCTION
-function _G.updateHUD()
-    _G.FishLabel.Text =
-        "🎣 Total Fish Caught : " .. tostring(_G.FISH_COUNTER or 0)
-
-    _G.InvLabel.Text =
-        "🎒 Inventory : " .. tostring(getInventoryCount())
-
-    _G.StuckLabel.Text =
-        "⚠️ Last Stuck : " .. tostring(_G.LAST_STUCK_TIME or "Never")
-end
-
-_G.updateHUD()
-
 _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
     if FuncAutoFish.autofish5x then
         _G.stopSpam()
         _G.lastFishTime = tick()
-        _G.FISH_COUNTER += 1
-        _G.updateHUD()
         _G.RecastSpam()
     end
 end)
@@ -5869,12 +5776,10 @@ task.spawn(function()
             and FuncAutoFish.autofish5x
             and not _G.AutoFishHighQuality then
             if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
-                _G.LAST_STUCK_TIME = os.date("%H:%M:%S")
                 _G.StopSpam()
                 task.wait(0.1)
                 _G.RecastSpam()
                 _G.lastFishTime = tick()
-                _G.updateHUD()
             end
         end
     end
