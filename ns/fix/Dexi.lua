@@ -2822,7 +2822,7 @@ AutoFarmArt:Button({
 
 do
     _G.AutoQuestState = {
-        enabled = true,
+        enabled = false,
         loopThread = nil,
         selectedQuest = "Deep Sea Quest",
         currentStepName = "Idle"
@@ -3043,8 +3043,6 @@ do
             Value = false,
             Callback = startOrStopAutoQuest
         })
-    
-        autoQuestToggle:Set(true)
     else
         warn("UI Tab '_G.AutoQuestTab' not found.")
     end
