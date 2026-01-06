@@ -289,11 +289,6 @@ local Trade = AllMenu:Tab({
     Icon = "handshake"
 })
 
-_G.DStones = AllMenu:Tab({
-    Title = "Double Enchant Stones",
-    Icon = "gem"
-})
-
 local Player = AllMenu:Tab({
     Title = "Player",
     Icon = "users-round"
@@ -5453,83 +5448,6 @@ else
         NotifyError("Trade V3 Load Error", "Gagal memuat fitur Trade V3. Dependensi penting (seperti Trade atau GlobalFav) tidak ditemukan. Anda mungkin salah menempelkan kode atau skrip QuietXHub Anda tidak lengkap.", 10)
     end)
 end
-
--------------------------------------------
------ =======[ DOUBLE ENCHANT STONES ]
--------------------------------------------
-
-_G.DStones:Paragraph({
-    Title = "Guide",
-    Color = "Green",
-    Desc = [[
-TUTORIAL FOR DOUBLE ENCHANT
-
-1. "Enabled Double Enchant" first
-2. Hold your "SECRET" fish, then click "Get Enchant Stone"
-3. Click "Double Enchant Rod" to do Double Enchant, and don't forget to place the stone in slot 5
-
-Good Luck!
-]]
-})
-
-_G.ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-_G.DStones:Space()
-
-_G.DStones:Button({
-    Title = "Enable Double Enchant",
-    Locked = false,
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        _G.ActivateDoubleEnchant = _G.ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
-        ["RE/ActivateSecondEnchantingAltar"]
-        if _G.ActivateDoubleEnchant then
-            _G.ActivateDoubleEnchant:FireServer()
-            NotifySuccess("Double Enchant", "Double Enchant Enabled for Rods")
-        else
-            warn("Cant find Double Enchant functions")
-        end
-    end
-})
-
-_G.DStones:Space()
-
-_G.DStones:Button({
-    Title = "Get Enchant Stones",
-    Locked = false,
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        _G.CreateTranscendedStone = _G.ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
-        ["RF/CreateTranscendedStone"]
-        if _G.CreateTranscendedStone then
-            local result = _G.CreateTranscendedStone:InvokeServer()
-            NotifySuccess("Double Enchant", "Got Enchant Stone!")
-        else
-            warn("[] Tidak dapat menemukan RemoteFunction CreateTranscendedStone.")
-        end
-    end
-})
-
-_G.DStones:Space()
-
-_G.DStones:Button({
-    Title = "Double Enchant Rod",
-    Desc = "Hold the stone in slot 5",
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        _G.ActiveStone = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
-        ["RE/ActivateSecondEnchantingAltar"]
-        if _G.ActiveStone then
-            local result = _G.ActiveStone:FireServer()
-            NotifySuccess("Double Enchant", "Enchanting....")
-        else
-            warn("Error something")
-        end
-    end
-})
 
 
 -------------------------------------------
