@@ -710,10 +710,10 @@ end)
 
 
 function StartAutoFish5X()
+    _G.equipRemote:FireServer(1)
     FuncAutoFish.autofish5x = true
     lastEventTime = tick()
     _G.lastFishTime = tick()
-    _G.equipRemote:FireServer(1)
     task.wait(1)
     InitialCast5X() 
 end
