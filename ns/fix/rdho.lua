@@ -1280,10 +1280,25 @@ _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
 end)
 
 function StartCast5X()
+    _G.StopFishing()
+    local getPowerFunction = Constants.GetPower
+    local perfectThreshold = 0.99
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
-    task.wait()
-    RodIdle:Play()
+    local calculationLoopStart = tick()
+
+    local timeoutDuration = 1
+
+    local lastPower = 0
+    while (tick() - calculationLoopStart < timeoutDuration) do
+        local currentPower = getPowerFunction(Constants, chargeStartTime)
+        if currentPower < lastPower and lastPower >= perfectThreshold then
+            break
+        end
+
+        lastPower = currentPower
+        task.wait(0.001)
+    end
     miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
 end
 
@@ -4387,32 +4402,70 @@ Utils:Button({
 Utils:Space()
 
 
+-- =================================================================
+-- LIBRARY & DEPENDENCIES
+-- =================================================================
 _G.ItemUtilityModule = require(ReplicatedStorage.Shared.ItemUtility)
 _G.ClientReplionModule = require(ReplicatedStorage.Packages._Index["ytrev_replion@2.0.0-rc.3"].replion.Client.ClientReplion)
 
 -- Menyimpan Remote Event
 _G.RESpawnTotem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/SpawnTotem"]
 
--- Variabel Global untuk data & status
- -- Akan diisi saat inisialisasi
-_G.TotemInventoryCache = {} -- Cache untuk menyimpan UUID {["Luck Totem"] = {UUIDs = {"uuid1", ...}}}
+-- Mencoba mencari Remote Oxygen Tank (Untuk Anti-Drown)
+pcall(function()
+    local packages = game:GetService("ReplicatedStorage"):FindFirstChild("Packages")
+    if packages then
+        for _, v in pairs(packages:GetDescendants()) do
+            if v.Name == "RF/EquipOxygenTank" then _G.RF_EquipOxygenTank = v end
+            if v.Name == "RF/UnequipOxygenTank" then _G.RF_UnequipOxygenTank = v end
+        end
+    end
+end)
+
+-- =================================================================
+-- VARIABLES & CONFIGURATION
+-- =================================================================
+_G.TotemInventoryCache = {} 
 _G.TotemsList = {}
 _G.AutoTotemState = {
     IsRunning = false,
     DelayMinutes = 10,
-    SelectedTotemName = {},
+    SelectedTotemName = nil,
     LoopThread = nil,
 }
 
+_G.AUTO_9_TOTEM_ACTIVE = false
+_G.AUTO_9_TOTEM_THREAD = nil
+_G.stateConnection = nil
+_G.RunService = game:GetService("RunService")
 
+-- [CONFIG] Koordinat Formasi V3 (Relative Offsets)
+-- Ini memastikan formasi tetap rapi (3 Bawah, 3 Tengah, 3 Atas)
+_G.REF_CENTER = Vector3.new(93.932, 9.532, 2684.134)
+_G.REF_SPOTS = {
+    -- TENGAH (Y ~ 9.5)
+    Vector3.new(45.0468979, 9.51625347, 2730.19067),   -- 1
+    Vector3.new(145.644608, 9.51625347, 2721.90747),   -- 2
+    Vector3.new(84.6406631, 10.2174253, 2636.05786),   -- 3
+    -- ATAS (Y ~ 109.5)
+    Vector3.new(45.0468979, 110.516253, 2730.19067),   -- 4
+    Vector3.new(145.644608, 110.516253, 2721.90747),   -- 5
+    Vector3.new(84.6406631, 111.217425, 2636.05786),   -- 6
+    -- BAWAH (Y ~ -90.5)
+    Vector3.new(45.0468979, -92.483747, 2730.19067),   -- 7
+    Vector3.new(145.644608, -92.483747, 2721.90747),   -- 8
+    Vector3.new(84.6406631, -93.782575, 2636.05786),   -- 9
+}
+
+-- =================================================================
+-- INVENTORY FUNCTIONS
+-- =================================================================
 function _G.RefreshTotemInventory()
     if not _G.DataReplion then return end
 
-    -- Reset Cache dengan benar
     _G.TotemInventoryCache = {}
     _G.TotemsList = {}
 
-    -- Ambil item dari Replion
     local items = _G.DataReplion:Get({ "Inventory", "Totems" })
 
     if not items then
@@ -4423,37 +4476,28 @@ function _G.RefreshTotemInventory()
         return
     end
 
-    -- Loop isi cache
     for _, item in ipairs(items) do
         local totemData = _G.ItemUtilityModule:GetTotemsData(item.Id)
-
         if totemData and totemData.Data then
             local name = totemData.Data.Name
-
-            -- Jika belum ada, buat array
             if not _G.TotemInventoryCache[name] then
                 _G.TotemInventoryCache[name] = {}
             end
-
-            -- Masukkan UUID
             table.insert(_G.TotemInventoryCache[name], item.UUID)
         end
     end
 
-    -- Bangun dropdown list
     for name, list in pairs(_G.TotemInventoryCache) do
-        local count = #list  -- FIX: tidak lagi memakai list.UUIDs
+        local count = #list 
         table.insert(_G.TotemsList, string.format("%s (x%d)", name, count))
     end
 
     table.sort(_G.TotemsList)
 
-    -- Update dropdown
     if _G.TotemDropdown then
         _G.TotemDropdown:Refresh(_G.TotemsList)
     end
 
-    -- Update status
     if _G.TotemStatusParagraph then
         _G.TotemStatusParagraph:SetDesc(
             string.format("Inventory refreshed. Found %d types of totems.", #_G.TotemsList)
@@ -4461,9 +4505,274 @@ function _G.RefreshTotemInventory()
     end
 end
 
+function _G.ConsumeTotemUUID(totemName)
+    if not _G.TotemInventoryCache then return nil end
+    -- Bersihkan nama dari "(x5)" -> "Luck Totem"
+    local cleanName = totemName:match("^(.-) %(") or totemName
+    
+    local list = _G.TotemInventoryCache[cleanName]
+    if list and #list > 0 then
+        return table.remove(list, 1)
+    end
+    return nil
+end
 
+-- =================================================================
+-- PHYSICS V3 ENGINE (Anti-Fall & Smooth Fly)
+-- =================================================================
+function _G.GetFlyPart()
+    local char = game.Players.LocalPlayer.Character
+    if not char then return nil end
+    return char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("HumanoidRootPart")
+end
 
--- Fungsi untuk menghentikan loop
+function _G.MaintainAntiFallState(enable)
+    local char = game.Players.LocalPlayer.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    if not hum then return end
+
+    if enable then
+        -- Matikan state jatuh agar server tidak menolak posisi
+        hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Flying, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Running, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+
+        if not _G.stateConnection then
+            _G.stateConnection = _G.RunService.Heartbeat:Connect(function()
+                if hum and _G.AUTO_9_TOTEM_ACTIVE then
+                    -- Paksa swimming agar stabil di udara
+                    hum:ChangeState(Enum.HumanoidStateType.Swimming)
+                    hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, true)
+                end
+            end)
+        end
+    else
+        if _G.stateConnection then _G.stateConnection:Disconnect(); _G.stateConnection = nil end
+        -- Kembalikan normal
+        hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Landed, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+        hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+    end
+end
+
+function _G.EnableV3Physics()
+    local char = game.Players.LocalPlayer.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    local mainPart = _G.GetFlyPart()
+    
+    if not mainPart or not hum then return end
+
+    if char:FindFirstChild("Animate") then char.Animate.Disabled = true end
+    hum.PlatformStand = true
+    
+    _G.MaintainAntiFallState(true)
+
+    local bg = mainPart:FindFirstChild("FlyGuiGyro") or Instance.new("BodyGyro")
+    bg.Name = "FlyGuiGyro"; bg.P = 9e4; bg.maxTorque = Vector3.new(9e9, 9e9, 9e9); bg.CFrame = mainPart.CFrame; bg.Parent = mainPart
+
+    local bv = mainPart:FindFirstChild("FlyGuiVelocity") or Instance.new("BodyVelocity")
+    bv.Name = "FlyGuiVelocity"; bv.velocity = Vector3.new(0, 0.1, 0); bv.maxForce = Vector3.new(9e9, 9e9, 9e9); bv.Parent = mainPart
+
+    task.spawn(function()
+        while _G.AUTO_9_TOTEM_ACTIVE and char do
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = false end
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+
+function _G.DisableV3Physics()
+    local char = game.Players.LocalPlayer.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    local mainPart = _G.GetFlyPart()
+
+    if mainPart then
+        if mainPart:FindFirstChild("FlyGuiGyro") then mainPart.FlyGuiGyro:Destroy() end
+        if mainPart:FindFirstChild("FlyGuiVelocity") then mainPart.FlyGuiVelocity:Destroy() end
+
+        mainPart.Velocity = Vector3.zero
+        mainPart.RotVelocity = Vector3.zero
+        mainPart.AssemblyLinearVelocity = Vector3.zero
+        mainPart.AssemblyAngularVelocity = Vector3.zero
+
+        local _, y, _ = mainPart.CFrame:ToEulerAnglesYXZ()
+        mainPart.CFrame = CFrame.new(mainPart.Position) * CFrame.fromEulerAnglesYXZ(0, y, 0)
+
+        -- Anti nyangkut lantai
+        local ray = Ray.new(mainPart.Position, Vector3.new(0, -5, 0))
+        local hit = workspace:FindPartOnRay(ray, char)
+        if hit then mainPart.CFrame = mainPart.CFrame + Vector3.new(0, 3, 0) end
+    end
+
+    if hum then
+        hum.PlatformStand = false
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+    
+    _G.MaintainAntiFallState(false)
+
+    if char and char:FindFirstChild("Animate") then char.Animate.Disabled = false end
+
+    if char then
+        for _, v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = true end
+        end
+    end
+end
+
+function _G.FlyPhysicsTo(targetPos)
+    local mainPart = _G.GetFlyPart()
+    if not mainPart then return end
+    
+    local bv = mainPart:FindFirstChild("FlyGuiVelocity")
+    local bg = mainPart:FindFirstChild("FlyGuiGyro")
+    
+    local SPEED = 120
+    
+    while _G.AUTO_9_TOTEM_ACTIVE do
+        local currentPos = mainPart.Position
+        local diff = targetPos - currentPos
+        local dist = diff.Magnitude
+        
+        if bg then bg.CFrame = CFrame.lookAt(currentPos, targetPos) end
+
+        if dist < 1.0 then 
+            if bv then bv.velocity = Vector3.new(0, 0.1, 0) end
+            break
+        else
+            if bv then bv.velocity = diff.Unit * SPEED end
+        end
+        _G.RunService.Heartbeat:Wait()
+    end
+end
+
+-- =================================================================
+-- LOGIC 9 TOTEM (Pause Fish -> Oxygen -> Spawn -> Resume)
+-- =================================================================
+function _G.Run9TotemLoop()
+    if _G.AUTO_9_TOTEM_ACTIVE then return end
+    
+    if not _G.AutoTotemState.SelectedTotemName then 
+        NotifyError("Error", "Select a totem first!")
+        return 
+    end
+
+    _G.AUTO_9_TOTEM_ACTIVE = true
+
+    task.spawn(function()
+        local player = game.Players.LocalPlayer
+        local char = player.Character or player.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        local hum = char:WaitForChild("Humanoid")
+
+        -- 1. Pause Auto Fish (Simpan state kalau gagal deteksi, asumsikan jalan kalau mau resume)
+        
+        local wasFishing = true
+        pcall(function()
+            StopAutoFish5X()
+        end)
+
+        local myStartPos = hrp.Position
+        local firstPost = hrp.CFrame
+        
+        if _G.TotemStatusParagraph then _G.TotemStatusParagraph:SetDesc("Starting V3 Engine...") end
+
+        -- 2. Equip Oxygen (Anti-Drown)
+        if _G.RF_EquipOxygenTank then 
+            pcall(function() _G.RF_EquipOxygenTank:InvokeServer(105) end) 
+        end
+
+        _G.EnableV3Physics()
+
+        for i, refSpot in ipairs(_G.REF_SPOTS) do
+            if not _G.AUTO_9_TOTEM_ACTIVE then break end
+
+            local uuid = _G.ConsumeTotemUUID(_G.AutoTotemState.SelectedTotemName)
+            if not uuid then 
+                NotifyError("Error", "Ran out of totems at stack #"..i)
+                break 
+            end
+
+            -- Hitung Posisi Relative
+            local relativePos = refSpot - _G.REF_CENTER
+            local targetPos = myStartPos + relativePos
+
+            -- Terbang ke posisi
+            if _G.TotemStatusParagraph then _G.TotemStatusParagraph:SetDesc("Flying to spot #"..i) end
+            _G.FlyPhysicsTo(targetPos)
+
+            -- Stabilisasi (0.6s)
+            task.wait(0.6)
+
+            -- Spawn Totem
+            _G.RESpawnTotem:FireServer(uuid)
+            if _G.TotemStatusParagraph then _G.TotemStatusParagraph:SetDesc("Spawning #"..i) end
+
+            -- Jeda antar spawn (1.5s)
+            task.wait(1.5)
+        end
+
+        -- 3. Kembali ke posisi awal
+        if _G.AUTO_9_TOTEM_ACTIVE then
+            if _G.TotemStatusParagraph then _G.TotemStatusParagraph:SetDesc("Returning...") end
+            hrp.CFrame = firstPost
+            task.wait(0.5)
+        end
+
+        -- 4. Cleanup & Landing
+        if _G.RF_UnequipOxygenTank then 
+            pcall(function() _G.RF_UnequipOxygenTank:InvokeServer() end) 
+        end
+
+        _G.DisableV3Physics()
+        _G.AUTO_9_TOTEM_ACTIVE = false
+        
+        if _G.TotemStatusParagraph then _G.TotemStatusParagraph:SetDesc("Landing & Stabilizing...") end
+        
+        -- FIX: Tunggu sampai karakter menyentuh tanah dan animasi "GettingUp" selesai
+        task.wait(1.5) 
+
+        -- Paksa Equip Rod (Pancingan) agar AutoFish tidak error
+        pcall(function()
+            local bp = player.Backpack
+            local rod = bp:FindFirstChild("Rod") or bp:FindFirstChild("Fishing Rod")
+            if rod and hum then hum:EquipTool(rod) end
+        end)
+        task.wait(0.5)
+
+        -- 5. Resume Fishing
+        if wasFishing then
+            if _G.TotemStatusParagraph then _G.TotemStatusParagraph:SetDesc("Resuming Auto Fish...") end
+            pcall(function() StartAutoFish5X() end)
+        end
+        
+        NotifySuccess("Success", "9 Totem Stack")
+    end)
+end
+
+-- =================================================================
+-- LOGIC AUTO TOTEM BIASA (SINGLE LOOP)
+-- =================================================================
 function _G.StopAutoTotem()
     _G.AutoTotemState.IsRunning = false
     if _G.AutoTotemState.LoopThread then
@@ -4481,75 +4790,67 @@ function _G.StartAutoTotem()
 
     _G.AutoTotemState.LoopThread = task.spawn(function()
         while _G.AutoTotemState.IsRunning do
-
-            -- ============================
-            -- 1. Validasi pilihan totem
-            -- ============================
             local rawName = _G.AutoTotemState.SelectedTotemName
             if not rawName or rawName == "" then
-                NotifyError("Auto Totem", "No totem selected from dropdown.")
+                NotifyError("Auto Totem", "No totem selected.")
                 return _G.StopAutoTotem()
             end
 
-            -- Clean name dari "(x5)" → "Luck Totem"
-            local cleanName = rawName:match("^(.-) %(")
-            cleanName = cleanName or rawName -- fallback seluruh name
+            -- Clean name
+            local cleanName = rawName:match("^(.-) %(") or rawName
 
-            -- ============================
-            -- 2. Ambil data totem
-            -- ============================
+            -- Cek Stok
             local totemList = _G.TotemInventoryCache[cleanName]
-
             if not totemList or #totemList == 0 then
-                NotifyError("Auto Totem", "No more '" .. cleanName .. "' left in inventory.")
                 _G.RefreshTotemInventory()
-                return _G.StopAutoTotem()
+                task.wait(1)
+                totemList = _G.TotemInventoryCache[cleanName]
+                if not totemList or #totemList == 0 then
+                    NotifyError("Auto Totem", "No more '" .. cleanName .. "'.")
+                    return _G.StopAutoTotem()
+                end
             end
 
-            -- ============================
-            -- 3. Ambil UUID & FireServer
-            -- ============================
+            -- Pause Fishing
+            pcall(function() StopAutoFish5X() end)
+            task.wait(1)
+
+            -- Spawn Totem
             local uuid = table.remove(totemList, 1)
             if uuid then
                 _G.RESpawnTotem:FireServer(uuid)
                 NotifySuccess("Auto Totem", "Spawned 1x " .. cleanName)
             end
-
-            -- ============================
-            -- 4. Refresh UI
-            -- ============================
             
-            StopAutoFish5X()
+            -- Resume Fishing
             task.wait(1)
-            StartAutoFish5X()
+            pcall(function() StartAutoFish5X() end)
 
-            -- ============================
-            -- 5. Delay (with countdown)
-            -- ============================
+            -- Delay Countdown
             local delaySeconds = _G.AutoTotemState.DelayMinutes * 60
             local waited = 0
             
             while waited < delaySeconds and _G.AutoTotemState.IsRunning do
                 local remaining = delaySeconds - waited
-                
                 local minutes = math.floor(remaining / 60)
                 local seconds = remaining % 60
             
-                _G.TotemStatusParagraph:SetDesc(
-                    string.format("Spawned %s. Waiting %02d:%02d...", cleanName, minutes, seconds)
-                )
+                if _G.TotemStatusParagraph then
+                    _G.TotemStatusParagraph:SetDesc(
+                        string.format("Waiting %02d:%02d...", minutes, seconds)
+                    )
+                end
                 
                 local step = math.min(5, remaining)
                 task.wait(step)
-                waited += step
+                waited = waited + step
             end
-            
         end
     end)
 end
 
 -- =======================================================
--- 3. UI (DROPDOWN, INPUT, TOGGLE)
+-- UI SETUP
 -- =======================================================
 
 _G.TotemStatusParagraph = Utils:Paragraph({
@@ -4567,17 +4868,15 @@ _G.TotemDropdown = Utils:Dropdown({
             _G.AutoTotemState.SelectedTotemName = nil
             return
         end
-
         local clean = val:match("^(.-) %(") or val
         _G.AutoTotemState.SelectedTotemName = clean
     end
 })
 
 _G.TotemDelayInput = Utils:Input({
-    Title = "Delay (Minutes)",
+    Title = "Delay",
     Placeholder = "Enter minutes...",
     Default = 10,
-    Type = "Input",
     Callback = function(val)
         _G.AutoTotemState.DelayMinutes = tonumber(val) or 10
     end
@@ -4589,29 +4888,34 @@ Utils:Toggle({
     Title = "Enable Auto Totem",
     Value = false,
     Callback = function(state)
-        if state then
-            _G.StartAutoTotem()
-        else
-            _G.StopAutoTotem()
-        end
+        if state then _G.StartAutoTotem() else _G.StopAutoTotem() end
+    end
+})
+
+Utils:Space()
+
+Utils:Button({
+    Title = "Spawn 9 Totems",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        _G.Run9TotemLoop()
     end
 })
 
 task.spawn(function()
     while not _G.Replion do 
-        _G.TotemStatusParagraph:SetDesc("Waiting for _G.Replion...")
+        if _G.TotemStatusParagraph then _G.TotemStatusParagraph:SetDesc("Waiting for _G.Replion...") end
         task.wait(2) 
     end
     
     _G.DataReplion = _G.Replion.Client:WaitReplion("Data")
     if not _G.DataReplion then
-        _G.TotemStatusParagraph:SetDesc("Error: Failed to connect to Server Data.")
+        if _G.TotemStatusParagraph then _G.TotemStatusParagraph:SetDesc("Error: Failed to connect to Server Data.") end
         return
     end
 
-    -- Panggil fungsi (yang sudah diperbaiki) untuk pertama kali
     _G.RefreshTotemInventory()
-    
 end)
 
 
