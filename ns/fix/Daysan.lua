@@ -2407,12 +2407,13 @@ for _, item in ipairs(ReplicatedStorage.Items:GetChildren()) do
     end
 end
 
--- Load Variants
+-- Load Variants (FIXED)
 for _, variantModule in pairs(ReplicatedStorage.Variants:GetChildren()) do
     local ok, variantData = pcall(require, variantModule)
-    if ok and variantData.Data.Name then
+    if ok and variantData.Data then
+        local id = variantData.Data.Id or variantModule.Name
         local name = variantData.Data.Name
-        GlobalFav.Variants[name] = name
+        GlobalFav.Variants[id] = name
     end
 end
 
@@ -2422,7 +2423,7 @@ AutoFav:Section({
     TextXAlignment = "Center",
 })
 
-_G.ToggleFav = AutoFav:Toggle({
+_G.FavToggle = AutoFav:Toggle({
     Title = "Enable Auto Favorite",
     Value = false,
     Callback = function(state)
@@ -2435,7 +2436,7 @@ _G.ToggleFav = AutoFav:Toggle({
     end
 })
 
-myConfig:Register("ToggleFav", _G.ToggleFav)
+myConfig:Register("ToggleFav", _G.FavToggle)
 
 local fishName = GlobalFav.FishIdToName[itemId]
 
@@ -2446,7 +2447,7 @@ _G.FishList = AutoFav:Dropdown({
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = function(selectedNames)
+    Callback = _G.ProtectCallback(function(selectedNames)
         GlobalFav.SelectedFishIds = {}
 
         for _, nameWithId in ipairs(selectedNames) do
@@ -2457,13 +2458,11 @@ _G.FishList = AutoFav:Dropdown({
         end
 
         NotifyInfo("Auto Favorite", "Favoriting fish: " .. HttpService:JSONEncode(selectedNames))
-    end
+    end)
 })
 
-myConfig:Register("FavFish", _G.FishList)
 
-
-_G.VariantFav = AutoFav:Dropdown({
+_G.FavVariantDropdown = AutoFav:Dropdown({
     Title = "Auto Favorite Variants",
     Values = GlobalFav.Variants,
     Multi = true,
@@ -2478,11 +2477,11 @@ _G.VariantFav = AutoFav:Dropdown({
                 end
             end
         end
-        NotifyInfo("Auto Favorite", "Favoriting active for variants: " .. HttpService:JSONEncode(selectedVariants))
+        NotifyInfo("Auto Favorite", "Favoriting variants: " .. HttpService:JSONEncode(selectedVariants))
     end)
 })
 
-myConfig:Register("VarianrFav", _G.VariantFav)
+myConfig:Register("FavVariants", _G.FavVariantDropdown)
 
 -- Rarity dropdown
 local rarityList = {}
@@ -2490,7 +2489,7 @@ for tier, name in pairs(TierToRarityName) do
     table.insert(rarityList, name)
 end
 
-_G.RaretyFav = AutoFav:Dropdown({
+_G.FavRarityDropdown = AutoFav:Dropdown({
     Title = "Auto Favorite by Rarity",
     Values = rarityList,
     Multi = true,
@@ -2509,7 +2508,7 @@ _G.RaretyFav = AutoFav:Dropdown({
     end)
 })
 
-myConfig:Register("Rarety", _G.RaretyFav)
+myConfig:Register("FavRarity", _G.FavRarityDropdown)
 
 GlobalFav.REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, _, data)
     if not GlobalFav.AutoFavoriteEnabled then return end
@@ -2527,10 +2526,20 @@ GlobalFav.REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, _
     local isRaritySelected = GlobalFav.SelectedRarities[tier]
 
     local shouldFavorite = false
-    if (isFishSelected or not next(GlobalFav.SelectedFishIds))
-       and (isVariantSelected or not next(GlobalFav.SelectedVariants))
-       and (isRaritySelected or not next(GlobalFav.SelectedRarities)) then
-        shouldFavorite = true
+    local matchFish =
+        next(GlobalFav.SelectedFishIds) == nil
+        or GlobalFav.SelectedFishIds[itemId]
+    
+    local matchVariant =
+        next(GlobalFav.SelectedVariants) == nil
+        or (variantId and GlobalFav.SelectedVariants[variantId])
+    
+    local matchRarity =
+        next(GlobalFav.SelectedRarities) == nil
+        or GlobalFav.SelectedRarities[tier]
+    
+    if matchFish and matchVariant and matchRarity then
+        GlobalFav.REFavoriteItem:FireServer(uuid)
     end
 
     if shouldFavorite then
@@ -2589,14 +2598,22 @@ function GlobalFav.ProcessInventory(action)
             local isVariantSelected = variantId and GlobalFav.SelectedVariants[variantId]
             local isRaritySelected = GlobalFav.SelectedRarities[tier]
 
-            local matchFish = (isFishSelected or not next(GlobalFav.SelectedFishIds))
-            local matchVariant = (isVariantSelected or not next(GlobalFav.SelectedVariants))
-            local matchRarity = (isRaritySelected or not next(GlobalFav.SelectedRarities))
-
+            local matchFish =
+                next(GlobalFav.SelectedFishIds) == nil
+                or GlobalFav.SelectedFishIds[itemId]
+            
+            local matchVariant =
+                next(GlobalFav.SelectedVariants) == nil
+                or (variantId and GlobalFav.SelectedVariants[variantId])
+            
+            local matchRarity =
+                next(GlobalFav.SelectedRarities) == nil
+                or GlobalFav.SelectedRarities[tier]
+            
             if matchFish and matchVariant and matchRarity then
                 GlobalFav.REFavoriteItem:FireServer(uuid)
                 count = count + 1
-                task.wait(0.1) 
+                task.wait(0.1)
             end
         end
     end

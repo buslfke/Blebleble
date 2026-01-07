@@ -576,6 +576,26 @@ getgenv().AutoRejoinConnection = game:GetService("CoreGui").RobloxPromptGui.prom
     end
 end)
 
+_G.__UIReady = false
+_G.__ProtectedCallbacks = setmetatable({}, { __mode = "k" })
+
+function _G.ProtectCallback(callback)
+    if type(callback) ~= "function" then return callback end
+
+    local wrapper = function(...)
+        if not _G.__UIReady then
+            -- abaikan eksekusi pertama
+            return
+        end
+
+        return callback(...)
+    end
+
+    -- simpan biar GC tidak makan wrapper
+    _G.__ProtectedCallbacks[wrapper] = callback
+    return wrapper
+end
+
 -------------------------------------------
 -- =======[ CHRISTMAS EVENT - FINAL ]
 -------------------------------------------
@@ -3786,12 +3806,13 @@ for _, item in ipairs(ReplicatedStorage.Items:GetChildren()) do
     end
 end
 
--- Load Variants
+-- Load Variants (FIXED)
 for _, variantModule in pairs(ReplicatedStorage.Variants:GetChildren()) do
     local ok, variantData = pcall(require, variantModule)
-    if ok and variantData.Data.Name then
+    if ok and variantData.Data then
+        local id = variantData.Data.Id or variantModule.Name
         local name = variantData.Data.Name
-        GlobalFav.Variants[name] = name
+        GlobalFav.Variants[id] = name
     end
 end
 
@@ -3801,7 +3822,7 @@ AutoFav:Section({
     TextXAlignment = "Center",
 })
 
-AutoFav:Toggle({
+_G.FavToggle = AutoFav:Toggle({
     Title = "Enable Auto Favorite",
     Value = false,
     Callback = function(state)
@@ -3814,6 +3835,8 @@ AutoFav:Toggle({
     end
 })
 
+myConfig:Register("ToggleFav", _G.FavToggle)
+
 local fishName = GlobalFav.FishIdToName[itemId]
 
 _G.FishList = AutoFav:Dropdown({
@@ -3823,7 +3846,7 @@ _G.FishList = AutoFav:Dropdown({
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = function(selectedNames)
+    Callback = _G.ProtectCallback(function(selectedNames)
         GlobalFav.SelectedFishIds = {}
 
         for _, nameWithId in ipairs(selectedNames) do
@@ -3834,17 +3857,17 @@ _G.FishList = AutoFav:Dropdown({
         end
 
         NotifyInfo("Auto Favorite", "Favoriting fish: " .. HttpService:JSONEncode(selectedNames))
-    end
+    end)
 })
 
 
-AutoFav:Dropdown({
+_G.FavVariantDropdown = AutoFav:Dropdown({
     Title = "Auto Favorite Variants",
     Values = GlobalFav.Variants,
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = function(selectedVariants)
+    Callback = _G.ProtectCallback(function(selectedVariants)
         GlobalFav.SelectedVariants = {}
         for _, vName in ipairs(selectedVariants) do
             for vId, name in pairs(GlobalFav.Variants) do
@@ -3853,9 +3876,11 @@ AutoFav:Dropdown({
                 end
             end
         end
-        NotifyInfo("Auto Favorite", "Favoriting active for variants: " .. HttpService:JSONEncode(selectedVariants))
-    end
+        NotifyInfo("Auto Favorite", "Favoriting variants: " .. HttpService:JSONEncode(selectedVariants))
+    end)
 })
+
+myConfig:Register("FavVariants", _G.FavVariantDropdown)
 
 -- Rarity dropdown
 local rarityList = {}
@@ -3863,13 +3888,13 @@ for tier, name in pairs(TierToRarityName) do
     table.insert(rarityList, name)
 end
 
-AutoFav:Dropdown({
+_G.FavRarityDropdown = AutoFav:Dropdown({
     Title = "Auto Favorite by Rarity",
     Values = rarityList,
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = function(selectedRarities)
+    Callback = _G.ProtectCallback(function(selectedRarities)
         GlobalFav.SelectedRarities = {}
         for _, rarityName in ipairs(selectedRarities) do
             for tier, name in pairs(TierToRarityName) do
@@ -3879,8 +3904,10 @@ AutoFav:Dropdown({
             end
         end
         NotifyInfo("Auto Favorite", "Favoriting active for rarities: " .. HttpService:JSONEncode(selectedRarities))
-    end
+    end)
 })
+
+myConfig:Register("FavRarity", _G.FavRarityDropdown)
 
 GlobalFav.REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, _, data)
     if not GlobalFav.AutoFavoriteEnabled then return end
@@ -3898,10 +3925,20 @@ GlobalFav.REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, _
     local isRaritySelected = GlobalFav.SelectedRarities[tier]
 
     local shouldFavorite = false
-    if (isFishSelected or not next(GlobalFav.SelectedFishIds))
-       and (isVariantSelected or not next(GlobalFav.SelectedVariants))
-       and (isRaritySelected or not next(GlobalFav.SelectedRarities)) then
-        shouldFavorite = true
+    local matchFish =
+        next(GlobalFav.SelectedFishIds) == nil
+        or GlobalFav.SelectedFishIds[itemId]
+    
+    local matchVariant =
+        next(GlobalFav.SelectedVariants) == nil
+        or (variantId and GlobalFav.SelectedVariants[variantId])
+    
+    local matchRarity =
+        next(GlobalFav.SelectedRarities) == nil
+        or GlobalFav.SelectedRarities[tier]
+    
+    if matchFish and matchVariant and matchRarity then
+        GlobalFav.REFavoriteItem:FireServer(uuid)
     end
 
     if shouldFavorite then
@@ -3920,6 +3957,90 @@ GlobalFav.REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, _
         NotifySuccess("Auto Favorite", msg .. "!")
     end
 end)
+
+---------------------------------------------------------------------
+-- FUNGSI BARU: SCAN INVENTORY & EKSEKUSI (LOCK / UNLOCK)
+---------------------------------------------------------------------
+function GlobalFav.ProcessInventory(action)
+    
+    local actionName = action and "Favorite" or "Unfavorite"
+    
+    if not _G.DataReplion then 
+        NotifyWarning("Inventory Scan", "Data Replion not found. Please wait...")
+        return 
+    end
+
+    local inventory = _G.DataReplion:Get({"Inventory", "Items"})
+    if not inventory then 
+        NotifyWarning("Inventory Scan", "No fish found in inventory.")
+        return 
+    end
+
+    local count = 0
+    NotifyInfo(actionName, "Scanning inventory...")
+
+    for key, item in pairs(inventory) do
+        local uuid = item.UUID or key
+        local itemId = item.Id
+        
+        local currentLocked = item.Favorited or false
+        
+        if currentLocked ~= action then
+            
+
+            local variantId = item.Metadata and (item.Metadata.VariantId or item.Metadata.Variant)
+            local tier = GlobalFav.FishRarity[itemId] or 1
+            
+
+            local isFishSelected = GlobalFav.SelectedFishIds[itemId]
+
+            local isVariantSelected = variantId and GlobalFav.SelectedVariants[variantId]
+            local isRaritySelected = GlobalFav.SelectedRarities[tier]
+
+            local matchFish =
+                next(GlobalFav.SelectedFishIds) == nil
+                or GlobalFav.SelectedFishIds[itemId]
+            
+            local matchVariant =
+                next(GlobalFav.SelectedVariants) == nil
+                or (variantId and GlobalFav.SelectedVariants[variantId])
+            
+            local matchRarity =
+                next(GlobalFav.SelectedRarities) == nil
+                or GlobalFav.SelectedRarities[tier]
+            
+            if matchFish and matchVariant and matchRarity then
+                GlobalFav.REFavoriteItem:FireServer(uuid)
+                count = count + 1
+                task.wait(0.1)
+            end
+        end
+    end
+
+    NotifySuccess(actionName, "Finished! Processed " .. count .. " items.")
+end
+
+AutoFav:Space()
+
+AutoFav:Button({
+    Title = "Favorite Fish",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        GlobalFav.ProcessInventory(true) -- True untuk Lock
+    end
+})
+
+AutoFav:Space()
+
+AutoFav:Button({
+    Title = "Unfavorite All Fish",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        GlobalFav.ProcessInventory(false)
+    end
+})
 
 
 
