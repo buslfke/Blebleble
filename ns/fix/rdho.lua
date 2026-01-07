@@ -1883,7 +1883,7 @@ AutoFav:Section({
     TextXAlignment = "Center",
 })
 
-AutoFav:Toggle({
+_G.ToggleFav = AutoFav:Toggle({
     Title = "Enable Auto Favorite",
     Value = false,
     Callback = function(state)
@@ -1895,6 +1895,8 @@ AutoFav:Toggle({
         end
     end
 })
+
+myConfig:Register("ToggleFav", _G.ToggleFav)
 
 local fishName = GlobalFav.FishIdToName[itemId]
 
@@ -1919,6 +1921,7 @@ _G.FishList = AutoFav:Dropdown({
     end
 })
 
+myConfig:Register("FavFish", _G.FishList)
 
 AutoFav:Dropdown({
     Title = "Auto Favorite Variants",

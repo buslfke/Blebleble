@@ -2402,7 +2402,7 @@ AutoFav:Section({
     TextXAlignment = "Center",
 })
 
-AutoFav:Toggle({
+_G.ToggleFav = AutoFav:Toggle({
     Title = "Enable Auto Favorite",
     Value = false,
     Callback = function(state)
@@ -2415,6 +2415,8 @@ AutoFav:Toggle({
     end
 })
 
+myConfig:Register("ToggleFav", _G.ToggleFav)
+
 local fishName = GlobalFav.FishIdToName[itemId]
 
 _G.FishList = AutoFav:Dropdown({
@@ -2424,7 +2426,7 @@ _G.FishList = AutoFav:Dropdown({
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = _G.ProtectCallback(function(selectedNames)
+    Callback = function(selectedNames)
         GlobalFav.SelectedFishIds = {}
 
         for _, nameWithId in ipairs(selectedNames) do
@@ -2435,8 +2437,10 @@ _G.FishList = AutoFav:Dropdown({
         end
 
         NotifyInfo("Auto Favorite", "Favoriting fish: " .. HttpService:JSONEncode(selectedNames))
-    end)
+    end
 })
+
+myConfig:Register("FavFish", _G.FishList)
 
 
 AutoFav:Dropdown({
