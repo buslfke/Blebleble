@@ -530,7 +530,7 @@ _G.sellThreshold = 30
 _G.sellActive = false
 _G.AutoFishHighQuality = false
 _G.CastTimeoutMode = "Fast"
-_G.CastTimeoutValue = 0.01
+_G.CastTimeoutValue = 1
 
 function RandomFloat()
     return 0.01 + math.random() * 0.99
