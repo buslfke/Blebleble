@@ -2443,7 +2443,7 @@ _G.FishList = AutoFav:Dropdown({
 myConfig:Register("FavFish", _G.FishList)
 
 
-AutoFav:Dropdown({
+_G.VariantFav = AutoFav:Dropdown({
     Title = "Auto Favorite Variants",
     Values = GlobalFav.Variants,
     Multi = true,
@@ -2462,13 +2462,15 @@ AutoFav:Dropdown({
     end)
 })
 
+myConfig:Register("VarianrFav", _G.VariantFav)
+
 -- Rarity dropdown
 local rarityList = {}
 for tier, name in pairs(TierToRarityName) do
     table.insert(rarityList, name)
 end
 
-AutoFav:Dropdown({
+_G.RaretyFav = AutoFav:Dropdown({
     Title = "Auto Favorite by Rarity",
     Values = rarityList,
     Multi = true,
@@ -2486,6 +2488,8 @@ AutoFav:Dropdown({
         NotifyInfo("Auto Favorite", "Favoriting active for rarities: " .. HttpService:JSONEncode(selectedRarities))
     end)
 })
+
+myConfig:Register("Rarety", _G.RaretyFav)
 
 GlobalFav.REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, _, data)
     if not GlobalFav.AutoFavoriteEnabled then return end

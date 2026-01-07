@@ -1923,13 +1923,14 @@ _G.FishList = AutoFav:Dropdown({
 
 myConfig:Register("FavFish", _G.FishList)
 
-AutoFav:Dropdown({
+
+_G.VariantFav = AutoFav:Dropdown({
     Title = "Auto Favorite Variants",
     Values = GlobalFav.Variants,
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = function(selectedVariants)
+    Callback = _G.ProtectCallback(function(selectedVariants)
         GlobalFav.SelectedVariants = {}
         for _, vName in ipairs(selectedVariants) do
             for vId, name in pairs(GlobalFav.Variants) do
@@ -1939,8 +1940,10 @@ AutoFav:Dropdown({
             end
         end
         NotifyInfo("Auto Favorite", "Favoriting active for variants: " .. HttpService:JSONEncode(selectedVariants))
-    end
+    end)
 })
+
+myConfig:Register("VarianrFav", _G.VariantFav)
 
 -- Rarity dropdown
 local rarityList = {}
@@ -1948,13 +1951,13 @@ for tier, name in pairs(TierToRarityName) do
     table.insert(rarityList, name)
 end
 
-AutoFav:Dropdown({
+_G.RaretyFav = AutoFav:Dropdown({
     Title = "Auto Favorite by Rarity",
     Values = rarityList,
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = function(selectedRarities)
+    Callback = _G.ProtectCallback(function(selectedRarities)
         GlobalFav.SelectedRarities = {}
         for _, rarityName in ipairs(selectedRarities) do
             for tier, name in pairs(TierToRarityName) do
@@ -1964,8 +1967,10 @@ AutoFav:Dropdown({
             end
         end
         NotifyInfo("Auto Favorite", "Favoriting active for rarities: " .. HttpService:JSONEncode(selectedRarities))
-    end
+    end)
 })
+
+myConfig:Register("Rarety", _G.RaretyFav)
 
 GlobalFav.REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, _, data)
     if not GlobalFav.AutoFavoriteEnabled then return end
