@@ -3933,22 +3933,25 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
     local V3_Section = Trade:Section({Title = "V3 - Mass Trade by Category"})
     table.insert(_G.TradeV3Elements, {Element = V3_Section}) -- Daftarkan UI
 
-    -- Data yang diperlukan untuk Tiers
+
     local tierMap = {
         ["Common"] = 1, ["Uncommon"] = 2, ["Rare"] = 3, ["Epic"] = 4,
         ["Legendary"] = 5, ["Mythic"] = 6, ["SECRET"] = 7
     }
     local tierNames = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "SECRET" }
 
-    -- Data yang diperlukan untuk Variants (Mutasi)
     local variantNames = {}
-    for vName, _ in pairs(GlobalFav.Variants) do
-        table.insert(variantNames, vName)
+    for _, name in pairs(GlobalFav.Variants) do
+        table.insert(variantNames, tostring(name))
     end
+    
     if not table.find(variantNames, "Shiny") then
         table.insert(variantNames, "Shiny")
     end
-    table.sort(variantNames)
+    
+    table.sort(variantNames, function(a, b)
+        return tostring(a) < tostring(b)
+    end)
     
     -- State untuk V3
     -- State untuk V3

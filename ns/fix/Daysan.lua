@@ -3141,13 +3141,17 @@ if Trade and GlobalFav and GlobalFav.Variants and NotifyWarning and _G.Replion a
 
     -- Data yang diperlukan untuk Variants (Mutasi)
     local variantNames = {}
-    for vName, _ in pairs(GlobalFav.Variants) do
-        table.insert(variantNames, vName)
+    for _, name in pairs(GlobalFav.Variants) do
+        table.insert(variantNames, tostring(name))
     end
+    
     if not table.find(variantNames, "Shiny") then
         table.insert(variantNames, "Shiny")
     end
-    table.sort(variantNames)
+    
+    table.sort(variantNames, function(a, b)
+        return tostring(a) < tostring(b)
+    end)
     
     -- State untuk V3
     -- State untuk V3
