@@ -708,6 +708,19 @@ _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
     end
 end)
 
+task.spawn(function()
+	while task.wait(1) do
+		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x then
+			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
+				StopAutoFish5X()
+				task.wait(1)
+				StartAutoFish5X()
+				_G.lastFishTime = tick()
+			end
+		end
+	end
+end)
+
 
 function StartAutoFish5X()
     _G.equipRemote:FireServer(1)
@@ -721,25 +734,10 @@ end
 function StopAutoFish5X()
     FuncAutoFish.autofish5x = false
     _G.AntiStuckEnabled = false
-    FuncAutoFish.delayInitialized = false
     _G.StopFishing()
-    _G.isRecasting5x = false
     _G.stopSpam()
     _G.StopRecastSpam()
 end
-
-task.spawn(function()
-	while task.wait(1) do
-		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x then
-			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
-				StopAutoFish5X()
-				task.wait(1)
-				StartAutoFish5X()
-				_G.lastFishTime = tick()
-			end
-		end
-	end
-end)
 
 --[[
 
