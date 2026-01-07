@@ -2011,6 +2011,82 @@ GlobalFav.REObtainedNewFishNotification.OnClientEvent:Connect(function(itemId, _
     end
 end)
 
+---------------------------------------------------------------------
+-- FUNGSI BARU: SCAN INVENTORY & EKSEKUSI (LOCK / UNLOCK)
+---------------------------------------------------------------------
+function GlobalFav.ProcessInventory(action)
+    
+    local actionName = action and "Favorite" or "Unfavorite"
+    
+    if not _G.DataReplion then 
+        NotifyWarning("Inventory Scan", "Data Replion not found. Please wait...")
+        return 
+    end
+
+    local inventory = _G.DataReplion:Get({"Inventory", "Items"})
+    if not inventory then 
+        NotifyWarning("Inventory Scan", "No fish found in inventory.")
+        return 
+    end
+
+    local count = 0
+    NotifyInfo(actionName, "Scanning inventory...")
+
+    for key, item in pairs(inventory) do
+        local uuid = item.UUID or key
+        local itemId = item.Id
+        
+        local currentLocked = item.Favorited or false
+        
+        if currentLocked ~= action then
+            
+
+            local variantId = item.Metadata and (item.Metadata.VariantId or item.Metadata.Variant)
+            local tier = GlobalFav.FishRarity[itemId] or 1
+            
+
+            local isFishSelected = GlobalFav.SelectedFishIds[itemId]
+
+            local isVariantSelected = variantId and GlobalFav.SelectedVariants[variantId]
+            local isRaritySelected = GlobalFav.SelectedRarities[tier]
+
+            local matchFish = (isFishSelected or not next(GlobalFav.SelectedFishIds))
+            local matchVariant = (isVariantSelected or not next(GlobalFav.SelectedVariants))
+            local matchRarity = (isRaritySelected or not next(GlobalFav.SelectedRarities))
+
+            if matchFish and matchVariant and matchRarity then
+                GlobalFav.REFavoriteItem:FireServer(uuid)
+                count = count + 1
+                task.wait(0.1) 
+            end
+        end
+    end
+
+    NotifySuccess(actionName, "Finished! Processed " .. count .. " items.")
+end
+
+AutoFav:Space()
+
+AutoFav:Button({
+    Title = "Favorite Fish",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        GlobalFav.ProcessInventory(true) -- True untuk Lock
+    end
+})
+
+AutoFav:Space()
+
+AutoFav:Button({
+    Title = "Unfavorite All Fish",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        GlobalFav.ProcessInventory(false)
+    end
+})
+
 
 -------------------------------------------
 ----- =======[ AUTO FARM TAB ]
