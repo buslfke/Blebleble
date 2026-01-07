@@ -514,19 +514,29 @@ _G.REObtainedNewFishNotification = ReplicatedStorage
 
 _G.isSpamming = false
 _G.rSpamming = false
+_G.rStopSpam = false
 _G.spamThread = nil
 _G.rspamThread = nil
+_G.stopThread = nil
 _G.lastRecastTime = 0
 _G.DELAY_ANTISTUCK = 10
 _G.isRecasting5x = false
 _G.STUCK_TIMEOUT = 10
-_G.AntiStuckEnabled = true
+_G.AntiStuckEnabled = false
 _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1.5
 _G.fishCounter = 0
-_G.sellThreshold = 10
-_G.sellActive = true
-_G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
+_G.sellThreshold = 30
+_G.sellActive = false
+_G.AutoFishHighQuality = false
+_G.CastTimeoutMode = "Fast"
+_G.CastTimeoutValue = 0.01
+
+function RandomFloat()
+    return 0.01 + math.random() * 0.99
+end
+
+-- [[ KONFIGURASI DELAY ]] --
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
@@ -534,7 +544,7 @@ _G.RemoteSell = _G.RemotePackage["RF/SellAllItems"]
 
 _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
     if _G.sellActive and data then
-        _G.fishCounter += 1
+        _G.fishCounter = _G.fishCounter + 1
         if _G.fishCounter >= _G.sellThreshold then
             _G.TrySellNow()
             _G.fishCounter = 0
@@ -554,12 +564,15 @@ function _G.TrySellNow()
 end
 
 function InitialCast5X()
+    _G.StopFishing()
     local getPowerFunction = Constants.GetPower
     local perfectThreshold = 0.99
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
     local calculationLoopStart = tick()
-    local timeoutDuration = 0.01 -- Loop 1 detik ini TETAP DI SINI
+
+    local timeoutDuration = tonumber(_G.CastTimeoutValue)
+
     local lastPower = 0
     while (tick() - calculationLoopStart < timeoutDuration) do
         local currentPower = getPowerFunction(Constants, chargeStartTime)
@@ -568,19 +581,22 @@ function InitialCast5X()
         end
 
         lastPower = currentPower
-        task.wait(0.001) -- task.wait(0) diganti dari task.wait() agar lebih cepat
+        task.wait(0.001)
     end
     miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
 end
 
-task.spawn(function()
-    while task.wait(0.5) do
-        if _G.sellActive and #_G.obtainedFishUUIDs >= tonumber(_G.sellThreshold) then
-            sellItems()
-            task.wait(0.5)
+function _G.StopSpam()
+    if _G.rStopSpam then return end
+    _G.rStopSpam = true
+    _G.spamThread = task.spawn(function()
+        for i = 1, 5 do
+            task.wait(0.01) 
+            _G.StopFishing()
         end
-    end
-end)
+    end)
+end
+
 
 function _G.RecastSpam()
     if _G.rSpamming then return end
@@ -588,8 +604,8 @@ function _G.RecastSpam()
     
     _G.rspamThread = task.spawn(function()
         while _G.rSpamming do
+            task.wait(0.01) 
             InitialCast5X()
-            task.wait(0) 
         end
     end)
 end
@@ -608,8 +624,8 @@ function _G.startSpam()
     if _G.isSpamming then return end
     _G.isSpamming = true
     _G.spamThread = task.spawn(function()
-      task.wait(tonumber(_G.FINISH_DELAY))
-      finishRemote:FireServer()
+        task.wait(tonumber(_G.FINISH_DELAY))
+        finishRemote:FireServer()
     end)
 end
     
@@ -633,7 +649,9 @@ task.spawn(function()
     while task.wait(1) do
         if _G.AutoFishHighQuality and FuncAutoFish.autofish5x and FuncAutoFish.REReplicateTextEffect then
             if tick() - lastEventTime > 10 then
-                _G.RecastSpam()
+                _G.StopSpam()
+				task.wait(0.1)
+				_G.RecastSpam()
                 lastEventTime = tick()
             end
         end
@@ -688,6 +706,7 @@ FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
         end
     
         if isBadFish then
+            _G.StopFishing()
             _G.RecastSpam()
         else
             _G.startSpam()
@@ -701,16 +720,15 @@ end)
 
 _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
     if FuncAutoFish.autofish5x then
-        _G.lastFishTime = tick()
         _G.stopSpam()
-        _G.StopFishing()
+        _G.lastFishTime = tick()
         _G.RecastSpam()
     end
 end)
 
 task.spawn(function()
 	while task.wait(1) do
-		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x then
+		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
 			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
 				StopAutoFish5X()
 				task.wait(1)
@@ -725,16 +743,20 @@ end)
 function StartAutoFish5X()
     _G.equipRemote:FireServer(1)
     FuncAutoFish.autofish5x = true
+    _G.AntiStuckEnabled = true
     lastEventTime = tick()
     _G.lastFishTime = tick()
-    task.wait(1)
-    InitialCast5X() 
+    task.wait(0.5)
+    InitialCast5X()
 end
+
 
 function StopAutoFish5X()
     FuncAutoFish.autofish5x = false
     _G.AntiStuckEnabled = false
     _G.StopFishing()
+    _G.isRecasting5x = false
+    _G.StopSpam()
     _G.stopSpam()
     _G.StopRecastSpam()
 end
