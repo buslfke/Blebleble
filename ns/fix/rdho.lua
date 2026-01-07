@@ -1928,7 +1928,7 @@ _G.FishList = AutoFav:Dropdown({
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = function(selectedNames)
+    Callback = _G.ProtectCallback(function(selectedNames)
         GlobalFav.SelectedFishIds = {}
 
         for _, nameWithId in ipairs(selectedNames) do
@@ -1939,7 +1939,7 @@ _G.FishList = AutoFav:Dropdown({
         end
 
         NotifyInfo("Auto Favorite", "Favoriting fish: " .. HttpService:JSONEncode(selectedNames))
-    end
+    end)
 })
 
 
@@ -1949,7 +1949,7 @@ _G.FavVariantDropdown = AutoFav:Dropdown({
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = function(selectedVariants)
+    Callback = _G.ProtectCallback(function(selectedVariants)
         GlobalFav.SelectedVariants = {}
         for _, vName in ipairs(selectedVariants) do
             for vId, name in pairs(GlobalFav.Variants) do
@@ -1959,7 +1959,7 @@ _G.FavVariantDropdown = AutoFav:Dropdown({
             end
         end
         NotifyInfo("Auto Favorite", "Favoriting variants: " .. HttpService:JSONEncode(selectedVariants))
-    end
+    end)
 })
 
 myConfig:Register("FavVariants", _G.FavVariantDropdown)
@@ -1976,7 +1976,7 @@ _G.FavRarityDropdown = AutoFav:Dropdown({
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = function(selectedRarities)
+    Callback = _G.ProtectCallback(function(selectedRarities)
         GlobalFav.SelectedRarities = {}
         for _, rarityName in ipairs(selectedRarities) do
             for tier, name in pairs(TierToRarityName) do
@@ -1986,7 +1986,7 @@ _G.FavRarityDropdown = AutoFav:Dropdown({
             end
         end
         NotifyInfo("Auto Favorite", "Favoriting active for rarities: " .. HttpService:JSONEncode(selectedRarities))
-    end
+    end)
 })
 
 myConfig:Register("FavRarity", _G.FavRarityDropdown)
