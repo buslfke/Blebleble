@@ -6347,4 +6347,9 @@ SettingsTab:Button({
 
 SettingsTab:Space()
 
+task.defer(function()
+    task.wait(0.5)
+    _G.__UIReady = true
+end)
+
 myConfig:Load()

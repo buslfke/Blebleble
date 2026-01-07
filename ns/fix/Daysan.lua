@@ -4863,3 +4863,8 @@ SettingsTab:Button({
         NotifySuccess("Config Loaded", "Config has beed loaded!")
     end
 })
+
+task.defer(function()
+    task.wait(0.5)
+    _G.__UIReady = true
+end)
