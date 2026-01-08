@@ -540,6 +540,7 @@ function _G.ProtectCallback(callback)
     _G.__ProtectedCallbacks[wrapper] = callback
     return wrapper
 end
+
 -------------------------------------------
 ----- =======[ AUTO FISH TAB ]
 -------------------------------------------
@@ -576,8 +577,10 @@ _G.REObtainedNewFishNotification = ReplicatedStorage
 
 _G.isSpamming = false
 _G.rSpamming = false
+_G.rStopSpam = false
 _G.spamThread = nil
 _G.rspamThread = nil
+_G.stopThread = nil
 _G.lastRecastTime = 0
 _G.DELAY_ANTISTUCK = 10
 _G.isRecasting5x = false
@@ -586,9 +589,17 @@ _G.AntiStuckEnabled = false
 _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1
 _G.fishCounter = 0
-_G.sellThreshold = 5
+_G.sellThreshold = 30
 _G.sellActive = false
-_G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
+_G.AutoFishHighQuality = false
+_G.CastTimeoutMode = "Fast"
+_G.CastTimeoutValue = 0.01
+
+function RandomFloat()
+    return 0.01 + math.random() * 0.99
+end
+
+-- [[ KONFIGURASI DELAY ]] --
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
 _G.RemoteFish = _G.RemotePackage["RE/ObtainedNewFishNotification"]
@@ -596,7 +607,7 @@ _G.RemoteSell = _G.RemotePackage["RF/SellAllItems"]
 
 _G.RemoteFish.OnClientEvent:Connect(function(_, _, data)
     if _G.sellActive and data then
-        _G.fishCounter += 1
+        _G.fishCounter = _G.fishCounter + 1
         if _G.fishCounter >= _G.sellThreshold then
             _G.TrySellNow()
             _G.fishCounter = 0
@@ -616,12 +627,15 @@ function _G.TrySellNow()
 end
 
 function InitialCast5X()
+    _G.StopFishing()
     local getPowerFunction = Constants.GetPower
     local perfectThreshold = 0.99
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
     local calculationLoopStart = tick()
-    local timeoutDuration = 0.01 -- Loop 1 detik ini TETAP DI SINI
+
+    local timeoutDuration = tonumber(_G.CastTimeoutValue)
+
     local lastPower = 0
     while (tick() - calculationLoopStart < timeoutDuration) do
         local currentPower = getPowerFunction(Constants, chargeStartTime)
@@ -630,19 +644,22 @@ function InitialCast5X()
         end
 
         lastPower = currentPower
-        task.wait(0) -- task.wait(0) diganti dari task.wait() agar lebih cepat
+        task.wait(0.001)
     end
     miniGameRemote:InvokeServer(-1.25, 1.0, workspace:GetServerTimeNow())
 end
 
-task.spawn(function()
-    while task.wait(0.5) do
-        if _G.sellActive and #_G.obtainedFishUUIDs >= tonumber(_G.sellThreshold) then
-            sellItems()
-            task.wait(0.5)
+function _G.StopSpam()
+    if _G.rStopSpam then return end
+    _G.rStopSpam = true
+    _G.spamThread = task.spawn(function()
+        for i = 1, 5 do
+            task.wait(0.01) 
+            _G.StopFishing()
         end
-    end
-end)
+    end)
+end
+
 
 function _G.RecastSpam()
     if _G.rSpamming then return end
@@ -650,8 +667,8 @@ function _G.RecastSpam()
     
     _G.rspamThread = task.spawn(function()
         while _G.rSpamming do
+            task.wait(0.01) 
             InitialCast5X()
-            task.wait(0) 
         end
     end)
 end
@@ -695,7 +712,9 @@ task.spawn(function()
     while task.wait(1) do
         if _G.AutoFishHighQuality and FuncAutoFish.autofish5x and FuncAutoFish.REReplicateTextEffect then
             if tick() - lastEventTime > 10 then
-                _G.RecastSpam()
+                _G.StopSpam()
+				task.wait(0.1)
+				_G.RecastSpam()
                 lastEventTime = tick()
             end
         end
@@ -750,6 +769,7 @@ FuncAutoFish.REReplicateTextEffect.OnClientEvent:Connect(function(data)
         end
     
         if isBadFish then
+            _G.StopFishing()
             _G.RecastSpam()
         else
             _G.startSpam()
@@ -763,9 +783,8 @@ end)
 
 _G.REFishCaught.OnClientEvent:Connect(function(fishName, info)
     if FuncAutoFish.autofish5x then
-        _G.lastFishTime = tick()
         _G.stopSpam()
-        _G.StopFishing()
+        _G.lastFishTime = tick()
         _G.RecastSpam()
     end
 end)
@@ -775,7 +794,7 @@ task.spawn(function()
 		if _G.AntiStuckEnabled and FuncAutoFish.autofish5x and not _G.AutoFishHighQuality then
 			if tick() - _G.lastFishTime > tonumber(_G.STUCK_TIMEOUT) then
 				StopAutoFish5X()
-				task.wait(0.5)
+				task.wait(1)
 				StartAutoFish5X()
 				_G.lastFishTime = tick()
 			end
@@ -785,21 +804,22 @@ end)
 
 
 function StartAutoFish5X()
+    _G.equipRemote:FireServer(1)
     FuncAutoFish.autofish5x = true
     _G.AntiStuckEnabled = true
     lastEventTime = tick()
     _G.lastFishTime = tick()
-    _G.equipRemote:FireServer(1)
     task.wait(0.5)
-    InitialCast5X() 
+    InitialCast5X()
 end
+
 
 function StopAutoFish5X()
     FuncAutoFish.autofish5x = false
     _G.AntiStuckEnabled = false
-    FuncAutoFish.delayInitialized = false
     _G.StopFishing()
     _G.isRecasting5x = false
+    _G.StopSpam()
     _G.stopSpam()
     _G.StopRecastSpam()
 end
@@ -938,6 +958,8 @@ _G.BlatantState = {
     reelDelay = 1.9
 }
 
+_G.__RodEquipped = false
+
 _G.ForceEquipRod = function()
     pcall(function()
         v6.Events.REEquip:FireServer(1)
@@ -945,9 +967,32 @@ _G.ForceEquipRod = function()
     task.wait(0.25)
 end
 
+task.spawn(function()
+    local lastState = false
+
+    while true do
+        local enabled = _G.BlatantState.enabled
+
+        -- rising edge: OFF -> ON
+        if enabled and not lastState then
+            _G.__RodEquipped = false
+
+            pcall(function()
+                v6.Events.REEquip:FireServer(1)
+            end)
+
+            task.delay(0.3, function()
+                _G.__RodEquipped = true
+            end)
+        end
+
+        lastState = enabled
+        task.wait(0.1)
+    end
+end)
+
 function Fastest()
     task.spawn(function()
-        _G.ForceEquipRod()
         pcall(function()
             v6.Functions.Cancel:InvokeServer()
         end)
@@ -978,19 +1023,25 @@ task.spawn(function()
     end
 end)
 
+AutoFish:Divider()
+
 _G.FishAdvenc = AutoFish:Section({
-    Title = "Adcenced Settings",
+    Title = "Advenced Settings",
     TextSize = 22,
     TextXAlignment = "Center",
     Opened = false
 })
 
+AutoFish:Divider()
+
 _G.FishSec = AutoFish:Section({
     Title = "Auto Fishing Menu",
     TextSize = 22,
     TextXAlignment = "Center",
-    Opened = true
+    Opened = false
 })
+
+AutoFish:Divider()
 
 _G.BlatantSec = AutoFish:Section({
     Title = "Blatant Fishing",
@@ -998,6 +1049,17 @@ _G.BlatantSec = AutoFish:Section({
     TextXAlignment = "Center",
     Opened = false
 })
+
+AutoFish:Divider()
+
+_G.AnimSec = AutoFish:Section({
+    Title = "Animation Menu",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false
+})
+
+AutoFish:Divider()
 
 _G.BlatantSec:Input({
     Title = "Delay Reel",
@@ -1029,157 +1091,64 @@ _G.BlatantSec:Toggle({
     end
 })
 
-_G.FishAdvenc:Input({
+_G.DelayFinish = _G.FishAdvenc:Input({
     Title = "Delay Finish",
     Desc = [[
 High Rod = 1
 Medium Rod = 1.5 - 1.7
 Low Rod = 2 - 3
 ]],
-    Value = _G.FINISH_DELAY,
     Type = "Input",
+    Value = _G.FINISH_DELAY,
     Placeholder = "Input Delay Finish..",
     Callback = function(input)
         fDelays = tonumber(input)
-        if not fDelays then
-            NotifyWarning("Please Input Valid Number")
-        end
         _G.FINISH_DELAY = fDelays
     end
 })
 
-_G.FishAdvenc:Input({
+myConfig:Register("DelayFinish", _G.DelayFinish)
+
+_G.SpeedLegit = _G.FishAdvenc:Input({
     Title = "Speed Legit",
     Desc = "Speed Click for Auto Fish Legit",
-    Value = _G.SPEED_LEGIT,
     Type = "Input",
     Placeholder = "Input Speed..",
+    Value = _G.SPEED_LEGIT,
     Callback = function(input)
         DelayLegit = tonumber(input)
-        if not DelayLegit then
-            NotifyWarning("Please Input Valid Number")
-        end
         _G.SPEED_LEGIT = DelayLegit
     end
 })
 
-_G.FishAdvenc:Input({
+myConfig:Register("SpeedLegit", _G.SpeedLegit)
+
+_G.SellThress = _G.FishAdvenc:Input({
     Title = "Sell Threesold",
-    Value = _G.sellThreshold,
     Type = "Input",
     Placeholder = "Input Delay Finish..",
+    Value = _G.sellThreshold,
     Callback = function(input)
         thresold = tonumber(input)
-        if not thresold then
-            NotifyWarning("Please Input Valid Number")
-        end
         _G.sellThreshold = thresold
     end
 })
 
-_G.FishAdvenc:Input({
+myConfig:Register("SellThresold", _G.SellThress)
+
+_G.StuckDelay = _G.FishAdvenc:Input({
     Title = "Anti Stuck Delay",
     Desc = "Cooldown for anti stuck Auto Fish",
-    Value = _G.STUCK_TIMEOUT,
     Type = "Input",
+    Value = _G.STUCK_TIMEOUT,
     Placeholder = "Input Delay Finish..",
     Callback = function(input)
         stuck = tonumber(input)
-        if not stuck then
-            NotifyWarning("Please Input Valid Number")
-        end
         _G.STUCK_TIMEOUT = stuck
     end
 })
 
-_G.HideNotif = _G.FishAdvenc:Toggle({
-    Title = "Hide Notification",
-    Value = false,
-    Callback = function(state)
-        if state then
-            _G.DisplayNotif.Visible = false
-        else 
-            _G.DisplayNotif.Visible = true
-        end
-    end
-})
-
-
-_G.FishSec:Toggle({
-    Title = "Auto Sell",
-    Value = false,
-    Callback = function(state)
-        _G.sellActive = state
-        if state then
-            NotifySuccess("Auto Sell", "Limit: " .. _G.sellThreshold)
-        else
-            NotifySuccess("Auto Sell", "Disabled")
-        end
-    end
-})
-
-_G.AutoFishes = _G.FishSec:Toggle({
-    Title = "Auto Fish",
-    Callback = function(value)
-        if value then
-            StartAutoFish5X()
-            _G.savePosition()
-        else
-            StopAutoFish5X()
-        end
-    end
-})
-
-_G.FishSec:Toggle({
-    Title = "Fish High Quality",
-    Desc = "Only Legendary, Mythic, & SECRET",
-    Value = _G.AutoFishHighQuality,
-    Callback = function(state)
-        _G.AutoFishHighQuality = state
-    end
-})
-
-_G.FishSec:Toggle({
-    Title = "Auto Fish Legit",
-    Value = false,
-    Callback = function(state)
-        _G.equipRemote:FireServer(1)
-        _G.ToggleAutoClick(state)
-
-        local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-        local fishingGui = playerGui:WaitForChild("Fishing"):WaitForChild("Main")
-        local chargeGui = playerGui:WaitForChild("Charge"):WaitForChild("Main")
-
-        if state then
-            fishingGui.Visible = false
-            chargeGui.Visible = false
-        else
-            fishingGui.Visible = true
-            chargeGui.Visible = true
-        end
-    end
-})
-
-
-_G.FishSec:Space()
-
-
-_G.FishSec:Button({
-    Title = "Stop Fishing",
-    Locked = false,
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        _G.StopFishing()
-        RodIdle:Stop()
-        RodIdle:Stop()
-        _G.stopSpam()
-        _G.StopRecastSpam()
-    end
-})
-
-_G.FishSec:Space()
-
+myConfig:Register("StuckDelay", _G.StuckDelay)
 
 -- =======================================================
 -- == AUTO CUTSCENE REMOVER (TOGGLE + HOOK)
@@ -1189,7 +1158,7 @@ _G.CutsceneController = require(ReplicatedStorage.Controllers.CutsceneController
 _G.GuiControl = require(ReplicatedStorage.Modules.GuiControl)
 _G.ProximityPromptService = game:GetService("ProximityPromptService")
 
-_G.AutoSkipCutscene = true
+_G.AutoSkipCutscene = false
 
 if not _G.OriginalPlayCutscene then
     _G.OriginalPlayCutscene = _G.CutsceneController.Play
@@ -1212,9 +1181,22 @@ _G.CutsceneController.Play = function(self, ...)
     return _G.OriginalPlayCutscene(self, ...)
 end
 
+_G.HideNotif = _G.FishAdvenc:Toggle({
+    Title = "Hide Notification",
+    Value = false,
+    Callback = function(state)
+        if state then
+            _G.DisplayNotif.Visible = false
+        else 
+            _G.DisplayNotif.Visible = true
+        end
+    end
+})
+
+myConfig:Register("HideNotification", _G.HideNotif)
+
 _G.FishAdvenc:Toggle({
     Title = "Auto Skip Cutscenes",
-    Value = true,
     Callback = function(state)
         _G.AutoSkipCutscene = state
 
@@ -1231,115 +1213,238 @@ _G.FishAdvenc:Toggle({
     end
 })
 
-
-
-_G.FishAdvenc:Input({
-    Title = "Max Inventory Size",
-    Value = tostring(Constants.MaxInventorySize or 0),
-    Placeholder = "Input Number...",
-    Callback = function(input)
-        local newSize = tonumber(input)
-        if not newSize then
-            NotifyWarning("Inventory Size", "Must be numbers!")
-            return
-        end
-        Constants.MaxInventorySize = newSize
-    end
-})
-
 local REEquipItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
 local RFSellItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/SellItem"]
 
-local autoSellMythic = false
-local SMBlockNotif = true
-
 function ToggleAutoSellMythic(state)
-	if SMBlockNotif then
-		SMBlockNotif = false
-		return
-	end
-	autoSellMythic = state
-	if autoSellMythic then
-		NotifySuccess("AutoSellMythic", "Status: ON")
-	else
-		NotifyWarning("AutoSellMythic", "Status: OFF")
-	end
+    autoSellMythic = state
+    if autoSellMythic then
+        NotifySuccess("AutoSellMythic", "Status: ON")
+    else
+        NotifyWarning("AutoSellMythic", "Status: OFF")
+    end
 end
 
 local oldFireServer
 oldFireServer = hookmetamethod(game, "__namecall", function(self, ...)
-	local args = {...}
-	local method = getnamecallmethod()
+    local args = { ... }
+    local method = getnamecallmethod()
 
-	if autoSellMythic
-		and method == "FireServer"
-		and self == REEquipItem
-		and typeof(args[1]) == "string"
-		and args[2] == "Fishes" then
+    if autoSellMythic
+        and method == "FireServer"
+        and self == REEquipItem
+        and typeof(args[1]) == "string"
+        and args[2] == "Fishes" then
+        local uuid = args[1]
 
-		local uuid = args[1]
+        task.delay(1, function()
+            pcall(function()
+                local result = RFSellItem:InvokeServer(uuid)
+                if result then
+                    NotifySuccess("AutoSellMythic", "Items Sold!!")
+                else
+                    NotifyError("AutoSellMythic", "Failed to sell item!!")
+                end
+            end)
+        end)
+    end
 
-		task.delay(1, function()
-			pcall(function()
-				local result = RFSellItem:InvokeServer(uuid)
-				if result then
-					NotifySuccess("AutoSellMythic", "Items Sold!!")
-				else
-					NotifyError("AutoSellMythic", "Failed to sell item!!")
-				end
-			end)
-		end)
-	end
-
-	return oldFireServer(self, ...)
+    return oldFireServer(self, ...)
 end)
-
-AutoFish:Toggle({
-	Title = "Auto Sell Mythic",
-	Desc = "Automatically sells clicked fish",
-	Default = false,
-	Callback = function(state)
-		ToggleAutoSellMythic(state)
-	end
-})
 
 
 function sellAllFishes()
-	local charFolder = workspace:FindFirstChild("Characters")
-	local char = charFolder and charFolder:FindFirstChild(LocalPlayer.Name)
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	if not hrp then
-		NotifyError("Character Not Found", "HRP tidak ditemukan.")
-		return
-	end
+    local charFolder = workspace:FindFirstChild("Characters")
+    local char = charFolder and charFolder:FindFirstChild(LocalPlayer.Name)
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        NotifyError("Character Not Found", "HRP tidak ditemukan.")
+        return
+    end
 
-	local originalPos = hrp.CFrame
-	local sellRemote = net:WaitForChild("RF/SellAllItems")
+    local originalPos = hrp.CFrame
+    local sellRemote = net:WaitForChild("RF/SellAllItems")
 
-	task.spawn(function()
-		NotifyInfo("Selling...", "I'm going to sell all the fish, please wait...", 3)
+    task.spawn(function()
+        NotifyInfo("Selling...", "I'm going to sell all the fish, please wait...", 3)
 
-		task.wait(1)
-		local success, err = pcall(function()
-			sellRemote:InvokeServer()
-		end)
+        task.wait(1)
+        local success, err = pcall(function()
+            sellRemote:InvokeServer()
+        end)
 
-		if success then
-			NotifySuccess("Sold!", "All the fish were sold successfully.", 3)
-		else
-			NotifyError("Sell Failed", tostring(err, 3))
-		end
-
-	end)
+        if success then
+            NotifySuccess("Sold!", "All the fish were sold successfully.", 3)
+        else
+            NotifyError("Sell Failed", tostring(err, 3))
+        end
+    end)
 end
 
-AutoFish:Button({
+_G.FishSec:Space()
+
+_G.FishAdvenc:Button({
     Title = "Sell All Fishes",
     Locked = false,
+    Justify = "Center",
+    Icon = "",
     Callback = function()
         sellAllFishes()
     end
 })
+
+_G.FishSec:Space()
+
+_G.AutoSell = _G.FishSec:Toggle({
+    Title = "Auto Sell",
+    Callback = function(state)
+        _G.sellActive = state
+        if state then
+            NotifySuccess("Auto Sell", "Limit: " .. _G.sellThreshold)
+        else
+            NotifySuccess("Auto Sell", "Disabled")
+        end
+    end
+})
+
+myConfig:Register("AutoSell", _G.AutoSell)
+
+_G.AutoFishes = _G.FishSec:Toggle({
+    Title = "Auto Fish",
+    Callback = function(value)
+        if value then
+            StartAutoFish5X()
+        else
+            StopAutoFish5X()
+        end
+    end
+})
+
+myConfig:Register("AutoFishing", _G.AutoFishes)
+
+_G.SetCast = _G.FishSec:Dropdown({
+    Title = "Cast Mode",
+    Desc = "Choose casting speed",
+    Values = {"Perfect", "Fast", "Random"},
+    Value = "Fast",
+    Multi = false,
+    Callback = function(selected)
+        _G.CastTimeoutMode = selected
+        if selected == "Perfect" then
+            _G.CastTimeoutValue = 1
+        elseif selected == "Random" then
+            _G.CastTimeoutValue = RandomFloat()
+        elseif selected == "Fast" then
+            _G.CastTimeoutValue = 0.01
+        end
+    end
+})
+
+myConfig:Register("SetCast", _G.SetCast)
+
+_G.HighFish = _G.FishSec:Toggle({
+    Title = "Fish High Quality",
+    Desc = "Only Legendary, Mythic, & SECRET",
+    Callback = function(state)
+        _G.AutoFishHighQuality = state
+    end
+})
+
+myConfig:Register("FishHigh", _G.HighFish)
+
+_G.FishLegit = _G.FishSec:Toggle({
+    Title = "Auto Fish Legit",
+    Callback = function(state)
+        _G.equipRemote:FireServer(1)
+        _G.ToggleAutoClick(state)
+
+        local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        local fishingGui = playerGui:WaitForChild("Fishing"):WaitForChild("Main")
+        local chargeGui = playerGui:WaitForChild("Charge"):WaitForChild("Main")
+
+        if state then
+            fishingGui.Visible = false
+            chargeGui.Visible = false
+        else
+            fishingGui.Visible = true
+            chargeGui.Visible = true
+        end
+    end
+})
+
+myConfig:Register("FishLegit", _G.FishLegit)
+
+_G.DisableAnimations = false
+
+task.spawn(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    
+    local success, AnimController = pcall(require, ReplicatedStorage:WaitForChild("Controllers"):WaitForChild("AnimationController"))
+    
+    if success and AnimController then
+        local originalPlayAnimation = AnimController.PlayAnimation
+        
+        AnimController.PlayAnimation = function(self, ...)
+            if _G.DisableAnimations then
+                if self.DestroyActiveAnimationTracks then
+                    self:DestroyActiveAnimationTracks()
+                end
+                return nil 
+            end
+            return originalPlayAnimation(self, ...)
+        end
+        
+        task.spawn(function()
+            while task.wait(1) do
+                if _G.DisableAnimations then
+                    pcall(function()
+                        local char = Players.LocalPlayer.Character
+                        local hum = char and char:FindFirstChild("Humanoid")
+                        local animator = hum and hum:FindFirstChild("Animator")
+                        if animator then
+                            for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                                track:Stop()
+                            end
+                        end
+                    end)
+                end
+            end
+        end)
+    end
+end)
+
+_G.Animate = _G.FishSec:Toggle({
+    Title = "Disable Animation",
+    Desc = "Disable Rod Animation",
+    Value = false,
+    Callback = function(state)
+        _G.DisableAnimations = state
+    end
+})
+
+myConfig:Register("AnimationDisable", _G.Animate)
+
+
+_G.FishSec:Space()
+
+
+_G.FishSec:Button({
+    Title = "Stop Fishing",
+    Locked = false,
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        _G.StopFishing()
+        RodIdle:Stop()
+        RodIdle:Stop()
+        _G.stopSpam()
+        _G.StopRecastSpam()
+    end
+})
+
+_G.FishSec:Space()
 
 -- =======================================================
 -- AUTO ENCHANT (GLOBAL VARIABLE VERSION)
