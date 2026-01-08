@@ -6389,7 +6389,7 @@ FishNotif:Dropdown({
     Title = "Select Fish Categories",
     Desc = "Choose which categories to send to webhook",
     Values = { "Secret", "Legendary", "Mythic" },
-    Value = { "Secret", "Mythic" },
+    Value = { "Secret" },
     Multi = true,
     Callback = function(selected)
         SelectedCategories = selected
