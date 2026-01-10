@@ -7717,7 +7717,6 @@ _G.AccConfig:Toggle({
 
 _G.AccConfig:Space()
 
-
 function _G.getHeader()
     local Character = workspace:WaitForChild("Characters"):FindFirstChild(LocalPlayer.Name)
     if not Character then return nil end

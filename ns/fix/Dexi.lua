@@ -3659,10 +3659,10 @@ Trade:Toggle({
     Value = false,
     Callback = function(value)
         tradeState.autoTradeV2 = value
-        if tradeState.mode == "V2" and value then
+        if value then
             task.spawn(function()
-                if not tradeState.selectedItemName or not tradeState.selectedPlayerId or tradeState.tradeAmount <= 0 then
-                    statusParagraphV2:SetDesc("Error: Select item, amount, and player.")
+                if not tradeState.selectedItemName or not tradeState.selectedPlayerId then
+                    statusParagraphV2:SetDesc("Error: Select item and player.")
                     tradeState.autoTradeV2 = false
                     return
                 end
@@ -3672,8 +3672,18 @@ Trade:Toggle({
                 if not cleanItemName then cleanItemName = tradeState.selectedItemName end
 
                 local uuidsToSend = inventoryCache[cleanItemName]
+                
+                -- ======================================================
+                -- RESOLVE TRADE AMOUNT
+                -- ======================================================
+                local resolvedAmount
+                if tradeState.tradeAmount and tradeState.tradeAmount > 0 then
+                    resolvedAmount = tradeState.tradeAmount
+                else
+                    resolvedAmount = #uuidsToSend -- kirim semua
+                end
 
-                if not uuidsToSend or #uuidsToSend < tradeState.tradeAmount then
+                if not uuidsToSend or #uuidsToSend < resolvedAmount then
                     statusParagraphV2:SetDesc("Error: Not enough items. Refresh inventory.")
                     tradeState.autoTradeV2 = false
                     return
@@ -3682,7 +3692,7 @@ Trade:Toggle({
                 local successCount, failCount = 0, 0
                 local targetName = tradeState.selectedPlayerName
 
-                for i = 1, tradeState.tradeAmount do 
+                for i = 1, resolvedAmount do
                     if not tradeState.autoTradeV2 then
                         statusParagraphV2:SetDesc("Process stopped by user.")
                         break
@@ -3691,7 +3701,7 @@ Trade:Toggle({
                     local uuid = uuidsToSend[i]
                     statusParagraphV2:SetDesc(string.format(
                         "Progress: %d/%d | Sending to: %s | Status: <font color='#eab308'>Waiting...</font>",
-                        i, tradeState.tradeAmount, targetName))
+                        i, resolvedAmount, targetName))
 
                     local success, result = pcall(InitiateTrade.InvokeServer, InitiateTrade, tradeState.selectedPlayerId, uuid)
 
@@ -3703,7 +3713,7 @@ Trade:Toggle({
 
                     statusParagraphV2:SetDesc(string.format(
                         "Progress: %d/%d | Sent: %s | Success: %d | Failed: %d",
-                        i, tradeState.tradeAmount, success and "âœ…" or "âŒ", successCount, failCount))
+                        i, resolvedAmount, success and "âœ…" or "âŒ", successCount, failCount))
                     
                     task.wait(5) 
                 end
