@@ -3123,13 +3123,12 @@ end
 
 local function refreshInventory()
     local DataReplion = _G.Replion.Client:WaitReplion("Data")
-    if not DataReplion or not ItemUtility or not ItemStringUtility then 
+    if not DataReplion or not ItemUtility or not ItemStringUtility then
         warn("Cannot refresh inventory: Missing modules.")
-        return 
+        return
     end
-    
+
     local inventoryItems = DataReplion:Get({ "Inventory", "Items" })
-    local groupedItems = {}
     inventoryCache = {}
     fullInventoryDropdownList = {}
 
@@ -3137,29 +3136,67 @@ local function refreshInventory()
 
     for _, itemData in ipairs(inventoryItems) do
         local baseItemData = ItemUtility:GetItemData(itemData.Id)
-        
-        if baseItemData and baseItemData.Data and (baseItemData.Data.Type == "Fish" or baseItemData.Data.Type == "Enchant Stones") then
-            -- Filter Unfavorited (Mode V2)
-            if not (tradeState.filterUnfavorited and itemData.Favorited) then
-                local dynamicName = ItemStringUtility.GetItemName(itemData, baseItemData)
-                if not groupedItems[dynamicName] then
-                    groupedItems[dynamicName] = 0
-                    inventoryCache[dynamicName] = {}
-                end
-                groupedItems[dynamicName] = (groupedItems[dynamicName] or 0) + 1
-                table.insert(inventoryCache[dynamicName], itemData.UUID)
-            end
+        if not (baseItemData and baseItemData.Data) then continue end
+
+        local itemType = baseItemData.Data.Type
+        if itemType ~= "Fish" and itemType ~= "Enchant Stones" then
+            continue
+        end
+
+        -- Filter Unfavorited (V2)
+        if tradeState.filterUnfavorited and itemData.Favorited then
+            continue
+        end
+
+        local name = ItemStringUtility.GetItemName(itemData, baseItemData)
+
+        -- =========================================
+        -- 🔹 ITEM BERBASIS QUANTITY
+        -- =========================================
+        if itemData.Quantity and itemData.Quantity > 1 then
+            inventoryCache[name] = {
+                Mode = "Quantity",
+                UUID = itemData.UUID,
+                Quantity = itemData.Quantity
+            }
+
+            table.insert(
+                fullInventoryDropdownList,
+                string.format("%s (%dx)", name, itemData.Quantity)
+            )
+
+        -- =========================================
+        -- 🔹 ITEM BERBASIS UUID (NORMAL)
+        -- =========================================
+        else
+            inventoryCache[name] = inventoryCache[name] or {
+                Mode = "UUID",
+                UUIDs = {}
+            }
+
+            table.insert(inventoryCache[name].UUIDs, itemData.UUID)
         end
     end
 
-    for name, count in pairs(groupedItems) do
-        table.insert(fullInventoryDropdownList, string.format("%s (%dx)", name, count))
+    -- Format UUID-based items
+    for name, data in pairs(inventoryCache) do
+        if data.Mode == "UUID" then
+            table.insert(
+                fullInventoryDropdownList,
+                string.format("%s (%dx)", name, #data.UUIDs)
+            )
+        end
     end
+
     table.sort(fullInventoryDropdownList)
 
-    -- Perbarui Dropdown Item dan Pemain
-    if _G.InventoryDropdown then _G.InventoryDropdown:Refresh(fullInventoryDropdownList) end
-    if _G.PlayerDropdownTrade then _G.PlayerDropdownTrade:Refresh(getPlayerListV2()) end
+    -- Refresh UI
+    if _G.InventoryDropdown then
+        _G.InventoryDropdown:Refresh(fullInventoryDropdownList)
+    end
+    if _G.PlayerDropdownTrade then
+        _G.PlayerDropdownTrade:Refresh(getPlayerListV2())
+    end
 end
 
 -- =======================================================
@@ -3667,11 +3704,35 @@ Trade:Toggle({
                     return
                 end
 
-                local cleanItemName = tradeState.selectedItemName:match("^(.*) %((%d+)x%)$")
-                if cleanItemName then cleanItemName = cleanItemName:match("^(.*)") end 
-                if not cleanItemName then cleanItemName = tradeState.selectedItemName end
+                local cleanItemName =
+                    tradeState.selectedItemName:match("^(.*) %((%d+)x%)$")
+                if cleanItemName then
+                    cleanItemName = cleanItemName:match("^(.*)")
+                else
+                    cleanItemName = tradeState.selectedItemName
+                end
 
-                local uuidsToSend = inventoryCache[cleanItemName]
+                local itemData = inventoryCache[cleanItemName]
+                if not itemData then
+                    statusParagraphV2:SetDesc("Error: Item not found. Refresh inventory.")
+                    tradeState.autoTradeV2 = false
+                    return
+                end
+                
+                -- 📦 VALIDASI JUMLAH
+                if itemData.Mode == "UUID" then
+                    if #itemData.UUIDs < tradeState.tradeAmount then
+                        statusParagraphV2:SetDesc("Error: Not enough items.")
+                        tradeState.autoTradeV2 = false
+                        return
+                    end
+                elseif itemData.Mode == "Quantity" then
+                    if itemData.Quantity < tradeState.tradeAmount then
+                        statusParagraphV2:SetDesc("Error: Not enough quantity.")
+                        tradeState.autoTradeV2 = false
+                        return
+                    end
+                end
                 
                 -- ======================================================
                 -- RESOLVE TRADE AMOUNT
@@ -3680,17 +3741,14 @@ Trade:Toggle({
                 if tradeState.tradeAmount and tradeState.tradeAmount > 0 then
                     resolvedAmount = tradeState.tradeAmount
                 else
-                    resolvedAmount = #uuidsToSend -- kirim semua
+                    resolvedAmount = #itemData -- kirim semua
                 end
 
-                if not uuidsToSend or #uuidsToSend < resolvedAmount then
-                    statusParagraphV2:SetDesc("Error: Not enough items. Refresh inventory.")
-                    tradeState.autoTradeV2 = false
-                    return
-                end
 
                 local successCount, failCount = 0, 0
                 local targetName = tradeState.selectedPlayerName
+                
+                
 
                 for i = 1, resolvedAmount do
                     if not tradeState.autoTradeV2 then
@@ -3698,7 +3756,14 @@ Trade:Toggle({
                         break
                     end
 
-                    local uuid = uuidsToSend[i]
+                    -- 🎯 AMBIL UUID
+                    local uuid
+                    if itemData.Mode == "UUID" then
+                        uuid = itemData.UUIDs[i]
+                    else
+                        uuid = itemData.UUID -- SAME UUID, MANY TIMES
+                    end
+                    
                     statusParagraphV2:SetDesc(string.format(
                         "Progress: %d/%d | Sending to: %s | Status: <font color='#eab308'>Waiting...</font>",
                         i, resolvedAmount, targetName))
