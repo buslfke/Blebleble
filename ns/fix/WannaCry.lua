@@ -1314,6 +1314,7 @@ _G.AutoFishes = _G.FishSec:Toggle({
     Callback = function(value)
         if value then
             StartAutoFish5X()
+            _G.savePosition()
         else
             StopAutoFish5X()
         end
