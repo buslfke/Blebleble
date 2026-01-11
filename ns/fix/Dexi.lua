@@ -3734,14 +3734,19 @@ Trade:Toggle({
                     end
                 end
                 
-                -- ======================================================
-                -- RESOLVE TRADE AMOUNT
-                -- ======================================================
                 local resolvedAmount
                 if tradeState.tradeAmount and tradeState.tradeAmount > 0 then
                     resolvedAmount = tradeState.tradeAmount
                 else
-                    resolvedAmount = #itemData -- kirim semua
+                    if itemData.Mode == "UUID" then
+                        resolvedAmount = #itemData.UUIDs
+                    elseif itemData.Mode == "Quantity" then
+                        resolvedAmount = itemData.Quantity
+                    else
+                        statusParagraphV2:SetDesc("Error: Unknown item mode.")
+                        tradeState.autoTradeV2 = false
+                        return
+                    end
                 end
 
 
@@ -3768,12 +3773,30 @@ Trade:Toggle({
                         "Progress: %d/%d | Sending to: %s | Status: <font color='#eab308'>Waiting...</font>",
                         i, resolvedAmount, targetName))
 
-                    local success, result = pcall(InitiateTrade.InvokeServer, InitiateTrade, tradeState.selectedPlayerId, uuid)
-
+                    local success, result
+                    local attempts = 0
+                    local maxRetries = 10
+                    
+                    repeat
+                        attempts += 1
+                        success, result = pcall(
+                            InitiateTrade.InvokeServer,
+                            InitiateTrade,
+                            tradeState.selectedPlayerId,
+                            uuid
+                        )
+                    
+                        if success and result then
+                            break
+                        end
+                    
+                        task.wait(3) -- retry delay
+                    until attempts >= maxRetries
+                    
                     if success and result then
-                        successCount = successCount + 1
+                        successCount += 1
                     else
-                        failCount = failCount + 1
+                        failCount += 1
                     end
 
                     statusParagraphV2:SetDesc(string.format(
