@@ -3753,7 +3753,6 @@ Trade:Toggle({
                 local successCount, failCount = 0, 0
                 local targetName = tradeState.selectedPlayerName
                 
-                
 
                 for i = 1, resolvedAmount do
                     if not tradeState.autoTradeV2 then
@@ -3775,7 +3774,7 @@ Trade:Toggle({
 
                     local success, result
                     local attempts = 0
-                    local maxRetries = 10
+                    local maxRetries = 999999999999
                     
                     repeat
                         attempts += 1
