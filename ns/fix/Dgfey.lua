@@ -3537,10 +3537,8 @@ _G.FarmSec = AutoFarmTab:Section({
 -- GLOBAL FLAGS
 -------------------------------------------------
 _G.AutoLochNess = false
-_G.AutoChristmasCave = false
 
 _G.LochStatus = "Idle"
-_G.CaveStatus = "Waiting Event..."
 
 -------------------------------------------------
 -- SERVICES
@@ -3553,10 +3551,6 @@ _G.CountdownLabel =
     workspace["!!! DEPENDENCIES"]["Event Tracker"]
         .Main.Gui.Content.Items.Countdown.Label
 
-_G.CaveLabel =
-    workspace.Map.CavernTeleporter
-        .StartTeleport.Gui.Frame.NewLabel
-
 -------------------------------------------------
 -- CFRAMES
 -------------------------------------------------
@@ -3567,25 +3561,14 @@ local LOCHNESS_CFRAME = CFrame.new(
     0.999767482, 0, 0.0215646587
 )
 
-_G.ChristmasCaveCFrames = {
-    CFrame.new(605.692871, -580.58136, 8887.51074, 0.0267926417, -8.79793234e-08, 0.999641001, -2.50977159e-08, 1, 8.8683592e-08, -0.999641001, -2.74647753e-08, 0.0267926417),
-    CFrame.new(576.37677, -580.58136, 8931.45312, 0.968435466, -5.87835451e-08, -0.249264464, 4.9410648e-08, 1, -4.38591208e-08, 0.249264464, 3.01584109e-08, 0.968435466),
-    CFrame.new(694.887695, -487.111328, 8913.8877, 0.991148233, 3.50480462e-08, -0.132759795, -3.17826441e-08, 1, 2.67154086e-08, 0.132759795, -2.22594725e-08, 0.991148233),
-    CFrame.new(746.483093, -487.112, 8926.44238, 0.689154983, -5.98709349e-09, -0.724613965, -4.31799663e-09, 1, -1.23691546e-08, 0.724613965, 1.16531451e-08, 0.689154983),
-    CFrame.new(743.71759, -487.110687, 8862.72656, -0.911057472, 1.73095618e-08, -0.412279397, 1.06622533e-08, 1, 1.84235134e-08, 0.412279397, 1.23890525e-08, -0.911057472),
-}
-
 -------------------------------------------------
 -- STATE
 -------------------------------------------------
-_G.OriginalCFrame_Cave = nil
-_G.CaveState = {
-    HasTeleported = false
-}
 _G.CaveReturnScheduled = false
 _G.LochEventRunning = false
 _G.LochEventEndTime = nil
 _G.OriginalCFrame_Loch = nil
+
 -------------------------------------------------
 -- UI
 -------------------------------------------------
@@ -3596,10 +3579,9 @@ _G.EventParagraph = _G.FarmSec:Paragraph({
 
 function _G.UpdateEventUI()
     _G.EventParagraph:SetDesc(string.format(
-        "Lochness : %s\nCountdown: %s\nChristmas Cave : %s",
+        "LochNess : %s\nCountdown: %s",
         _G.LochStatus,
-        _G.CountdownLabel.Text or "N/A",
-        _G.CaveStatus
+        _G.CountdownLabel.Text or "N/A"
     ))
 end
 
@@ -3611,38 +3593,6 @@ _G.FarmSec:Toggle({
     Callback = function(v)
         _G.AutoLochNess = v
         _G.LochStatus = v and "Monitoring..." or "Idle"
-        _G.UpdateEventUI()
-    end
-})
-
-_G.FarmSec:Toggle({
-    Title = "Auto Christmas Cave",
-    Callback = function(v)
-        _G.AutoChristmasCave = v
-
-        local hrp = LocalPlayer.Character
-            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-
-        if v then
-            -- SIMPAN PAKSA POSISI AWAL (SATU-SATUNYA SUMBER KEBENARAN)
-            if hrp then
-                _G.OriginalCFrame_Cave = hrp.CFrame
-            end
-
-            _G.CaveStatus = "Monitoring..."
-            _G.__ForceCaveRecheck = true
-        else
-            -- JIKA DIMATIKAN, KEMBALI KE POSISI AWAL
-            if _G.OriginalCFrame_Cave then
-                ForceReturnToOriginal(_G.OriginalCFrame_Cave)
-            end
-
-            _G.CaveState.HasTeleported = false
-            _G.OriginalCFrame_Cave = nil
-            _G.CaveReturnScheduled = false
-            _G.CaveStatus = "Disabled"
-        end
-
         _G.UpdateEventUI()
     end
 })
@@ -3681,6 +3631,9 @@ function ForceReturnToOriginal(cf)
     hrp.Anchored = false
 end
 
+-------------------------------------------------
+-- LOCHNESS LOGIC (STABLE)
+-------------------------------------------------
 -------------------------------------------------
 -- LOCHNESS LOGIC (FIXED & DETERMINISTIC)
 -------------------------------------------------
@@ -3749,81 +3702,6 @@ function OnCountdownChanged()
 end
 
 _G.CountdownLabel:GetPropertyChangedSignal("Text"):Connect(OnCountdownChanged)
-
--------------------------------------------------
--- CHRISTMAS CAVE LOGIC (FINAL & SAFE)
--------------------------------------------------
-task.spawn(function()
-    local lastText = ""
-
-    while task.wait(0.5) do
-        if _G.__ForceCaveRecheck then
-            lastText = ""
-            _G.__ForceCaveRecheck = false
-        end
-
-        if _G.CaveLabel then
-            local text = _G.CaveLabel.Text
-
-            if text ~= lastText then
-                lastText = text
-
-                -- ===============================
-                -- EVENT CLOSED (SELALU DIMONITOR)
-                -- ===============================
-                if text:upper():find("CAVE CLOSED") then
-                    _G.CaveStatus = "Waiting Event..."
-                    _G.UpdateEventUI()
-
-                    if _G.CaveState.HasTeleported
-                        and _G.OriginalCFrame_Cave
-                        and not _G.CaveReturnScheduled
-                    then
-                        _G.CaveReturnScheduled = true
-
-                        task.spawn(function()
-                            -- BIARKAN SERVER MENYELESAIKAN TELEPORT & ALIGNMENT
-                            task.wait(10)
-
-                            -- FORCE RETURN KE POSISI MURNI
-                            ForceReturnToOriginal(_G.OriginalCFrame_Cave)
-
-                            _G.CaveState.HasTeleported = false
-                            _G.CaveReturnScheduled = false
-                        end)
-                    end
-
-                -- ===============================
-                -- EVENT OPEN (HANYA JIKA TOGGLE ON)
-                -- ===============================
-                else
-                    if _G.AutoChristmasCave
-                        and not _G.CaveState.HasTeleported
-                    then
-                        local hrp =
-                            LocalPlayer.Character
-                            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-
-                        if hrp then
-                            _G.CaveStatus = "Teleporting..."
-                            _G.UpdateEventUI()
-
-                            SafeTeleport(
-                                _G.ChristmasCaveCFrames[
-                                    math.random(#_G.ChristmasCaveCFrames)
-                                ]
-                            )
-
-                            _G.CaveState.HasTeleported = true
-                            _G.CaveStatus = "Farming..."
-                            _G.UpdateEventUI()
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
 
 -------------------------------------------------
 -- UI REFRESH FAILSAFE
