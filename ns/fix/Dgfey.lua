@@ -3305,7 +3305,7 @@ local islandCodes = {
     ["14"] = "Secret Farm Ancient",
     ["15"] = "The Temple (Unlock First)",
     ["16"] = "Ancient Ruin",
-    ["18"] = "Priate Cove"
+    ["18"] = "Pirate Cove"
 }
 
 local farmLocations = {
