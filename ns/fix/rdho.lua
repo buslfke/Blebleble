@@ -2395,9 +2395,7 @@ local islandCodes = {
     ["14"] = "Secret Farm Ancient",
     ["15"] = "The Temple (Unlock First)",
     ["16"] = "Ancient Ruin",
-    ["17"] = "Iron Cavern",
-    ["18"] = "The Iron Cafe",
-    ["19"] = "Christmas Island"
+    ["18"] = "Priate Cove"
 }
 
 local farmLocations = {
@@ -2482,22 +2480,10 @@ local farmLocations = {
     	CFrame.new(6020.40186, -555.693909, 4513.84229, -0.0245459341, -2.1426688e-08, -0.999698699, -1.28175666e-08, 1, -2.11184314e-08, 0.999698699, 1.22953328e-08, -0.0245459341),
     	CFrame.new(6057.14893, -557.975098, 4485.46631, -0.985172093, -3.35700534e-08, -0.171569183, -3.98707982e-08, 1, 3.32783721e-08, 0.171569183, 3.9625526e-08, -0.985172093)
     },
-    ["Iron Cavern"] = {
-        CFrame.new(-8797.98438, -585.000061, 81.8659973, 0.621304512, 7.69412338e-08, -0.783569217, -8.01423212e-08, 1, 3.4647158e-08, 0.783569217, 4.12706207e-08, 0.621304512),
-        CFrame.new(-8788.70508, -585.000061, 96.8170547, 0.814901888, 2.71509681e-09, -0.579598963, -5.01786808e-08, 1, -6.58655495e-08, 0.579598963, 8.27574738e-08, 0.814901888),
-        CFrame.new(-8754.25977, -580.000061, 267.518188, 0.866729259, -4.04597955e-08, 0.498778909, 1.90199643e-08, 1, 4.806666e-08, -0.498778909, -3.21740252e-08, 0.866729259)
+    ["Pirate Cove"] = {
+        CFrame.new(3469.79932, 4.19277096, 3496.23315, 0.598028243, -1.68198007e-08, 0.801475048, 3.59461581e-08, 1, -5.83551296e-09, -0.801475048, 3.22997487e-08, 0.598028243),
+        CFrame.new(3423.27734, 4.19297075, 3433.854, -0.852984607, -4.74888253e-08, -0.521936059, -8.19830319e-08, 1, 4.29965361e-08, 0.521936059, 7.94652877e-08, -0.852984607)
     },
-    ["The Iron Cafe"] = {
-        CFrame.new(-8618.95898, -547.500183, 177.389847, 0.981545031, 6.44111608e-08, 0.191231206, -7.8954109e-08, 1, 6.84294932e-08, -0.191231206, -8.22651174e-08, 0.981545031),
-        CFrame.new(-8608.74414, -547.500183, 159.39743, -0.0346038602, -1.00222408e-08, 0.999401093, 7.37646433e-09, 1, 1.02836539e-08, -0.999401093, 7.72790099e-09, -0.0346038602),
-        CFrame.new(-8617.29395, -547.500183, 145.088608, -0.997185349, 1.96364649e-08, -0.0749754608, 1.6428654e-08, 1, 4.34015313e-08, 0.0749754608, 4.20476276e-08, -0.997185349)
-    },
-    ["Christmas Island"] = {
-        CFrame.new(1164.52563, 24.2395878, 1497.37585, 0.0651856363, 9.78068471e-08, 0.997873127, -7.8768096e-08, 1, -9.28698185e-08, -0.997873127, -7.25467899e-08, 0.0651856363),
-        CFrame.new(1161.08643, 23.7999992, 1530.70715, -0.962064207, 2.33530362e-10, 0.272823215, 1.85178362e-08, 1, 6.4443995e-08, -0.272823215, 6.70513529e-08, -0.962064207),
-        CFrame.new(1177.27295, 23.5436211, 1549.23669, -0.182084903, 6.89579807e-08, 0.983282804, -1.50466839e-08, 1, -7.29167127e-08, -0.983282804, -2.80721792e-08, -0.182084903),
-        CFrame.new(1139.6543, 23.59935, 1564.44116, 0.595472097, 0, -0.803376019, 0, 1, 0, 0.803376019, 0, 0.595472097)
-    }
 }
 
 local nameList = {}
@@ -2644,10 +2630,8 @@ _G.FarmSec = AutoFarmTab:Section({
 -- GLOBAL FLAGS
 -------------------------------------------------
 _G.AutoLochNess = false
-_G.AutoChristmasCave = false
 
 _G.LochStatus = "Idle"
-_G.CaveStatus = "Waiting Event..."
 
 -------------------------------------------------
 -- SERVICES
@@ -2660,10 +2644,6 @@ _G.CountdownLabel =
     workspace["!!! DEPENDENCIES"]["Event Tracker"]
         .Main.Gui.Content.Items.Countdown.Label
 
-_G.CaveLabel =
-    workspace.Map.CavernTeleporter
-        .StartTeleport.Gui.Frame.NewLabel
-
 -------------------------------------------------
 -- CFRAMES
 -------------------------------------------------
@@ -2674,21 +2654,9 @@ local LOCHNESS_CFRAME = CFrame.new(
     0.999767482, 0, 0.0215646587
 )
 
-_G.ChristmasCaveCFrames = {
-    CFrame.new(605.692871, -580.58136, 8887.51074, 0.0267926417, -8.79793234e-08, 0.999641001, -2.50977159e-08, 1, 8.8683592e-08, -0.999641001, -2.74647753e-08, 0.0267926417),
-    CFrame.new(576.37677, -580.58136, 8931.45312, 0.968435466, -5.87835451e-08, -0.249264464, 4.9410648e-08, 1, -4.38591208e-08, 0.249264464, 3.01584109e-08, 0.968435466),
-    CFrame.new(694.887695, -487.111328, 8913.8877, 0.991148233, 3.50480462e-08, -0.132759795, -3.17826441e-08, 1, 2.67154086e-08, 0.132759795, -2.22594725e-08, 0.991148233),
-    CFrame.new(746.483093, -487.112, 8926.44238, 0.689154983, -5.98709349e-09, -0.724613965, -4.31799663e-09, 1, -1.23691546e-08, 0.724613965, 1.16531451e-08, 0.689154983),
-    CFrame.new(743.71759, -487.110687, 8862.72656, -0.911057472, 1.73095618e-08, -0.412279397, 1.06622533e-08, 1, 1.84235134e-08, 0.412279397, 1.23890525e-08, -0.911057472),
-}
-
 -------------------------------------------------
 -- STATE
 -------------------------------------------------
-_G.OriginalCFrame_Cave = nil
-_G.CaveState = {
-    HasTeleported = false
-}
 _G.CaveReturnScheduled = false
 _G.LochEventRunning = false
 _G.LochEventEndTime = nil
@@ -2704,10 +2672,9 @@ _G.EventParagraph = _G.FarmSec:Paragraph({
 
 function _G.UpdateEventUI()
     _G.EventParagraph:SetDesc(string.format(
-        "LochNess : %s\nCountdown: %s\nChristmas Cave : %s",
+        "LochNess : %s\nCountdown: %s",
         _G.LochStatus,
-        _G.CountdownLabel.Text or "N/A",
-        _G.CaveStatus
+        _G.CountdownLabel.Text or "N/A"
     ))
 end
 
@@ -2719,38 +2686,6 @@ _G.FarmSec:Toggle({
     Callback = function(v)
         _G.AutoLochNess = v
         _G.LochStatus = v and "Monitoring..." or "Idle"
-        _G.UpdateEventUI()
-    end
-})
-
-_G.FarmSec:Toggle({
-    Title = "Auto Christmas Cave",
-    Callback = function(v)
-        _G.AutoChristmasCave = v
-
-        local hrp = LocalPlayer.Character
-            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-
-        if v then
-            -- SIMPAN PAKSA POSISI AWAL (SATU-SATUNYA SUMBER KEBENARAN)
-            if hrp then
-                _G.OriginalCFrame_Cave = hrp.CFrame
-            end
-
-            _G.CaveStatus = "Monitoring..."
-            _G.__ForceCaveRecheck = true
-        else
-            -- JIKA DIMATIKAN, KEMBALI KE POSISI AWAL
-            if _G.OriginalCFrame_Cave then
-                ForceReturnToOriginal(_G.OriginalCFrame_Cave)
-            end
-
-            _G.CaveState.HasTeleported = false
-            _G.OriginalCFrame_Cave = nil
-            _G.CaveReturnScheduled = false
-            _G.CaveStatus = "Disabled"
-        end
-
         _G.UpdateEventUI()
     end
 })
@@ -2860,76 +2795,6 @@ function OnCountdownChanged()
 end
 
 _G.CountdownLabel:GetPropertyChangedSignal("Text"):Connect(OnCountdownChanged)
-
--------------------------------------------------
--- CHRISTMAS CAVE LOGIC (FINAL & SAFE)
--------------------------------------------------
-task.spawn(function()
-    local lastText = ""
-
-    while task.wait(0.5) do
-        if _G.__ForceCaveRecheck then
-            lastText = ""
-            _G.__ForceCaveRecheck = false
-        end
-
-        if not _G.CaveLabel then continue end
-
-        local text = _G.CaveLabel.Text
-        if text == lastText then continue end
-        lastText = text
-
-        -- ===============================
-        -- EVENT CLOSED (SELALU DIMONITOR)
-        -- ===============================
-        if text:upper():find("CAVE CLOSED") then
-            _G.CaveStatus = "Waiting Event..."
-            _G.UpdateEventUI()
-        
-            if _G.CaveState.HasTeleported
-                and _G.OriginalCFrame_Cave
-                and not _G.CaveReturnScheduled
-            then
-                _G.CaveReturnScheduled = true
-        
-                task.spawn(function()
-                    -- BIARKAN SERVER MENYELESAIKAN TELEPORT & ALIGNMENT
-                    task.wait(10)
-        
-                    -- FORCE RETURN KE POSISI MURNI
-                    ForceReturnToOriginal(_G.OriginalCFrame_Cave)
-        
-                    _G.CaveState.HasTeleported = false
-                    _G.CaveReturnScheduled = false
-                end)
-            end
-        
-            continue
-        end
-
-        -- ===============================
-        -- EVENT OPEN (HANYA JIKA TOGGLE ON)
-        -- ===============================
-        if _G.AutoChristmasCave and not _G.CaveState.HasTeleported then
-            local hrp = LocalPlayer.Character
-                and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp then continue end
-
-            _G.CaveStatus = "Teleporting..."
-            _G.UpdateEventUI()
-
-            SafeTeleport(
-                _G.ChristmasCaveCFrames[
-                    math.random(#_G.ChristmasCaveCFrames)
-                ]
-            )
-
-            _G.CaveState.HasTeleported = true
-            _G.CaveStatus = "Farming..."
-            _G.UpdateEventUI()
-        end
-    end
-end)
 
 -------------------------------------------------
 -- UI REFRESH FAILSAFE
@@ -5103,10 +4968,7 @@ local islandCoords = {
 	["15"] = { name = "The Temple", position = Vector3.new(1477, -22, -631) },
 	["16"] = { name = "Underground Cellar", position = Vector3.new(2133, -91, -674)},
 	["17"] = { name = "Ancient Ruin", position = Vector3.new(6052, -546, 4427)},
-	["18"] = {name = "Iron Cavern", position = Vector3.new(-8873, -582, 157) },
-  ["19"] = {name = "Iron Cafe", position = Vector3.new(-8668, -549, 161) },
-  ["20"] = {name = "Classic Island", position = Vector3.new(1259, 10, 2824) },
-  ["21"] = {name = "Christmas Island", position = Vector3.new(873, 26, 1564)}
+	["21"] = {name = "Pirate Cove", position = Vector3.new(3497, 4, 3447) }
 }
 
 local islandNames = {}
