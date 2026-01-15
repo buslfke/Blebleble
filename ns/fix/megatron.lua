@@ -1182,7 +1182,7 @@ end
 
 local FuncAutoFish = {
     REReplicateTextEffect = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ReplicateTextEffect"],
-    autofish5x = false,
+    autofish5x = true,
     perfectCast5x = true,
     fishingActive = false,
     delayInitialized = false,
@@ -1208,12 +1208,12 @@ _G.lastRecastTime = 0
 _G.DELAY_ANTISTUCK = 7
 _G.isRecasting5x = false
 _G.STUCK_TIMEOUT = 7
-_G.AntiStuckEnabled = false
+_G.AntiStuckEnabled = true
 _G.lastFishTime = tick()
-_G.FINISH_DELAY = 1.5
+_G.FINISH_DELAY = 1
 _G.fishCounter = 0
-_G.sellThreshold = 5
-_G.sellActive = false
+_G.sellThreshold = 50
+_G.sellActive = true
 _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 _G.RemotePackage = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
