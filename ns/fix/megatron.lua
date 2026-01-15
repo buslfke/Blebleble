@@ -1247,7 +1247,7 @@ function InitialCast5X()
     local chargeStartTime = workspace:GetServerTimeNow()
     rodRemote:InvokeServer(chargeStartTime)
     local calculationLoopStart = tick()
-    local timeoutDuration = 0.01 -- Loop 1 detik ini TETAP DI SINI
+    local timeoutDuration = 1 -- Loop 1 detik ini TETAP DI SINI
     local lastPower = 0
     while (tick() - calculationLoopStart < timeoutDuration) do
         local currentPower = getPowerFunction(Constants, chargeStartTime)
