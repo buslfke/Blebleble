@@ -545,7 +545,7 @@ _G.loadPosition()
 ----- =======[ PIRATE ISSLAND ]
 -------------------------------------------
 
-_gDivider()
+_G.CEvent:Divider()
 
 _G.CEvent:Section({
     Title = "Pirate Island",
