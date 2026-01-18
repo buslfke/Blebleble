@@ -421,7 +421,7 @@ local Home = Window:Tab({
 })
 
 _G.CEvent = Window:Tab({
-    Title = "Christmas Event",
+    Title = "Pirate Island",
     Icon = "solar:stars-bold",
 })
 
@@ -542,536 +542,140 @@ end
 _G.loadPosition()
 
 -------------------------------------------
--- =======[ CHRISTMAS EVENT - FINAL ]
+----- =======[ PIRATE ISSLAND ]
 -------------------------------------------
 
-_G.CEvent:Divider()
+_gDivider()
 
 _G.CEvent:Section({
-    Title = "Christmas Event Menu",
+    Title = "Pirate Island",
     TextSize = 22,
     TextXAlignment = "Center",
-    Opened = true
 })
 
 _G.CEvent:Divider()
 
-_G.PresentParagraph = _G.CEvent:Paragraph({
-    Title = "Auto Christmas Event",
-    Desc = "Idle",
-    Thumbnail = "https://i.ibb.co.com/DP3Rx9Kt/Pngtree-free-christmas-tree-with-gift-15824230.jpg",
-    ThumbnailSize = 80
-})
+function getHRP()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
 
-function setUI(text)
-    if _G.PresentParagraph then
-        _G.PresentParagraph:SetDesc(text)
+function firePrompt(prompt)
+    if prompt and prompt:IsA("ProximityPrompt") then
+        fireproximityprompt(prompt)
+        task.wait(0.25)
     end
 end
 
--------------------------------------------------
--- LIBRARIES
--------------------------------------------------
-_G.Replion = require(
-    ReplicatedStorage.Packages._Index["ytrev_replion@2.0.0-rc.3"].replion
-)
-
-_G.ItemUtility = require(
-    ReplicatedStorage.Shared.ItemUtility
-)
-
-_G.ItemStringUtility = require(
-    ReplicatedStorage.Modules.ItemStringUtility
-)
-
--------------------------------------------------
--- REMOTES
--------------------------------------------------
-_G.RFSpecialDialogueEvent =
-    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
-        .net["RF/SpecialDialogueEvent"]
-
-_G.REEquipItem =
-    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
-        .net["RE/EquipItem"]
-
-_G.REEquipToolFromHotbar =
-    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
-        .net["RE/EquipToolFromHotbar"]
-
-_G.RFRedeemGift =
-    ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
-        .net["RF/RedeemGift"]
-
--------------------------------------------------
--- GLOBAL STATE
--------------------------------------------------
-_G.AutoChristmasEvent = false
-_G.__ChristmasThread = nil
-_G.RedeemDelay = 2
-
--------------------------------------------------
--- INVENTORY SCAN (GEARS PRESENT ONLY)
--------------------------------------------------
-_G.GetPresentItems = function()
-    local DataReplion = _G.Replion.Client:WaitReplion("Data")
-    if not DataReplion then return {} end
-
-    local items = DataReplion:Get({ "Inventory", "Items" }) or {}
-    local result = {}
-
-    for _, item in ipairs(items) do
-    if item and item.Id then
-        local base = _G.ItemUtility:GetItemData(item.Id)
-        if base and base.Data then
-            if base.Data.Type == "Gears" then
-                local name = _G.ItemStringUtility.GetItemName(item, base)
-                if name then
-                    if string.find(string.lower(name), "present") then
-                        table.insert(result, {
-                            Name = name,
-                            UUID = item.UUID
-                        })
-                    end
-                end
-            end
-        end
-    end
+function fastTeleport(cf)
+    local hrp = getHRP()
+    hrp.CFrame = cf
+    task.wait(0.15)
 end
 
-    return result
-end
+function collectAllTNT()
+    local tntFolder = workspace:FindFirstChild("!!! SEARCH ITEM SPAWNS")
+        and workspace["!!! SEARCH ITEM SPAWNS"]:FindFirstChild("TNT")
 
--------------------------------------------------
--- CLAIM ALL CHRISTMAS DOORS
--------------------------------------------------
-_G.ClaimDoors = function()
-    local folder = workspace:FindFirstChild("ChristmasDoors")
-    if not folder then return end
-
-    for _, door in ipairs(folder:GetChildren()) do
-        pcall(function()
-            _G.RFSpecialDialogueEvent:InvokeServer(
-                door.Name,
-                "PresentChristmasDoor"
-            )
-        end)
-        task.wait(0.4)
-    end
-end
-
--------------------------------------------------
--- REDEEM PRESENTS
--------------------------------------------------
-_G.RedeemAllPresents = function()
-    local presents = _G.GetPresentItems()
-
-    if #presents == 0 then
-        setUI("No Present found in inventory.")
+    if not tntFolder then
+        warn("[PirateCove] TNT folder not found")
         return false
     end
 
-    for i, item in ipairs(presents) do
-        if not _G.AutoChristmasEvent then return false end
+    local collected = 0
 
-        setUI(string.format(
-            "[%d/%d]\nRedeeming %s",
-            i, #presents, item.Name
-        ))
-
-        pcall(function()
-            _G.REEquipItem:FireServer(item.UUID, "Gears")
-        end)
-
-        task.wait(0.6)
-
-        pcall(function()
-            _G.REEquipToolFromHotbar:FireServer(6)
-        end)
-
-        task.wait(0.6)
-
-        pcall(function()
-            _G.RFRedeemGift:InvokeServer()
-        end)
-
-        task.wait(_G.RedeemDelay)
+    for _, obj in ipairs(tntFolder:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            local part = obj.Parent
+            if part and part:IsA("BasePart") then
+                fastTeleport(part.CFrame * CFrame.new(0, 0, -3))
+                firePrompt(obj)
+                collected = collected + 1
+            end
+        end
     end
 
-    return true
+    warn("[PirateCove] TNT collected:", collected)
+    return collected > 0
 end
 
--------------------------------------------------
--- MAIN LOOP
--------------------------------------------------
-_G.StartChristmasLoop = function()
-    if _G.__ChristmasThread then return end
+function openPirateCoveWall()
+    local wallPrompt =
+        workspace:FindFirstChild("Islands")
+        and workspace.Islands:FindFirstChild("Pirate's Cove")
+        and workspace.Islands["Pirate's Cove"]:FindFirstChild("PirateCoveWall")
+        and workspace.Islands["Pirate's Cove"].PirateCoveWall:FindFirstChild("Prompt")
+        and workspace.Islands["Pirate's Cove"].PirateCoveWall.Prompt:FindFirstChild("ProximityPrompt")
 
-    _G.__ChristmasThread = task.spawn(function()
-        while _G.AutoChristmasEvent do
-            -- =========================
-            -- STEP 1: CLAIM DOORS
-            -- =========================
-            setUI("Claiming Christmas Presents...")
-            pcall(_G.ClaimDoors)
+    if not wallPrompt then
+        warn("[PirateCove] Wall prompt not found")
+        return
+    end
 
-            -- =========================
-            -- STEP 2: WAIT SERVER SYNC
-            -- =========================
-            setUI("Syncing inventory...")
-            for i = 1, 6 do
-                if not _G.AutoChristmasEvent then break end
+    firePrompt(wallPrompt)
+    warn("[PirateCove] Pirate Cove Wall opened")
+end
+
+_G.CEvent:Button({
+    Title = "Auto Open Pirate Cove Wall",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        task.spawn(function()
+            local ok = collectAllTNT()
+            if ok then
                 task.wait(1)
+                openPirateCoveWall()
             end
-
-            -- =========================
-            -- STEP 3: SCAN & REDEEM
-            -- =========================
-            local count = #_G.GetPresentItems()
-
-            if count > 0 then
-                setUI(("Found %d Present(s).\nRedeeming..."):format(count))
-                _G.RedeemAllPresents()
-                setUI("Redeem finished.")
-            else
-                setUI("No Present available this cycle.")
-            end
-            
-            task.wait(1)
-
-            -- =========================
-            -- STEP 4: COOLDOWN
-            -- =========================
-            
-            setUI("Cooldown... Next check in 1 hour.")
-            local start = tick()
-            while _G.AutoChristmasEvent and (tick() - start) < 3600 do
-                task.wait(1)
-            end
-        end
-
-        _G.__ChristmasThread = nil
-    end)
-end
-
-_G.StopChristmasLoop = function()
-    _G.AutoChristmasEvent = false
-end
-
--------------------------------------------------
--- TOGGLE
--------------------------------------------------
-_G.CEvent:Toggle({
-    Title = "Auto Christmas Event (Claim + Redeem)",
-    Value = false,
-    Callback = function(state)
-        _G.AutoChristmasEvent = state
-
-        if state then
-            setUI("Starting...")
-            _G.StartChristmasLoop()
-        else
-            setUI("Disabled.")
-            _G.StopChristmasLoop()
-        end
+        end)
     end
 })
 
-_G.Players = game:GetService("Players")
-_G.LocalPlayer = _G.Players.LocalPlayer
-_G.Workspace = game:GetService("Workspace")
+_G.FirePrompt = function(prompt)
+    if prompt and prompt:IsA("ProximityPrompt") then
+        pcall(function()
+            fireproximityprompt(prompt)
+        end)
+        task.wait(0.15)
+    end
+end
 
-_G.AutoClaimPresent = {
-    enabled = false,
-    loop = nil
-}
+_G.OpenAllPirateChests = function()
+    _G.ChestFolder = workspace:FindFirstChild("PirateChestStorage")
 
-_G.PresentCounter = {
-    total = 0,
-    connAdd = nil,
-    connRemove = nil,
-    loop = nil
-}
-
-_G.CEvent:Space()
-
-_G.CEvent:Divider()
-
-_G.PresentParaTwo = _G.CEvent:Paragraph({
-    Title = "Christmas Present Monitor",
-    Desc = "Available Presents : 0\nAuto Claim : OFF",
-    Locked = true
-})
-
-
-_G.countPresents = function()
-    local folder = _G.getChristmasFolder()
-    if not folder then
-        return 0
+    if not _G.ChestFolder then
+        warn("[PirateChest] PirateChestStorage not found")
+        return
     end
 
-    local count = 0
-    for _, v in ipairs(folder:GetChildren()) do
-        if v:IsA("Model") then
-            count = count + 1
-        end
-    end
+    _G.Opened = 0
 
-    return count
-end
+    for _, model in ipairs(_G.ChestFolder:GetChildren()) do
+        if model:IsA("Model") then
+            _G.Cover = model:FindFirstChild("Cover")
 
-_G.startPresentFallbackLoop = function()
-    if _G.PresentCounter.loop then return end
+            if _G.Cover then
+                _G.Prompt = _G.Cover:FindFirstChildWhichIsA("ProximityPrompt", true)
 
-    _G.PresentCounter.loop = task.spawn(function()
-        while true do
-            _G.updatePresentParagraph()
-            task.wait(2)
-        end
-    end)
-end
-
-_G.startPresentMonitor = function()
-    local folder = _G.getChristmasFolder()
-    if not folder then return end
-
-    -- Bersihkan listener lama
-    if _G.PresentCounter.connAdd then
-        _G.PresentCounter.connAdd:Disconnect()
-    end
-    if _G.PresentCounter.connRemove then
-        _G.PresentCounter.connRemove:Disconnect()
-    end
-
-    -- Initial update
-    _G.updatePresentParagraph()
-
-    -- Realtime ADD
-    _G.PresentCounter.connAdd = folder.ChildAdded:Connect(function(child)
-        if child:IsA("Model") then
-            task.defer(_G.updatePresentParagraph)
-        end
-    end)
-
-    -- Realtime REMOVE
-    _G.PresentCounter.connRemove = folder.ChildRemoved:Connect(function(child)
-        if child:IsA("Model") then
-            task.defer(_G.updatePresentParagraph)
-        end
-    end)
-end
-
-_G.updatePresentParagraph = function()
-    if not _G.PresentParaTwo then return end
-
-    local total = _G.countPresents()
-    _G.PresentCounter.total = total
-
-    _G.PresentParaTwo:SetDesc(
-        ("Available Presents : %d\nAuto Claim : %s"):format(
-            total,
-            _G.AutoClaimPresent.enabled and "ON" or "OFF"
-        )
-    )
-end
-
-_G.getHRP = function()
-    local char = LocalPlayer.Character
-    return char and char:FindFirstChild("HumanoidRootPart")
-end
-
-_G.getChristmasFolder = function()
-    return Workspace:FindFirstChild("ChristmasPresents")
-end
-
-_G.claimAllPresents = function()
-    local hrp = _G.getHRP()
-    local folder = _G.getChristmasFolder()
-    if not (hrp and folder) then return end
-
-    for _, present in ipairs(folder:GetChildren()) do
-        if not _G.AutoClaimPresent.enabled then break end
-        if present:IsA("Model") then
-            local prompt =
-                present:FindFirstChildWhichIsA("ProximityPrompt", true)
-
-            if prompt and prompt.Parent then
-                local part =
-                    prompt.Parent:IsA("BasePart")
-                    and prompt.Parent
-                    or present:FindFirstChildWhichIsA("BasePart", true)
-
-                if part then
-                    -- 🚀 Teleport ke present
-                    hrp.CFrame = part.CFrame * CFrame.new(0, 0, -2)
-
-                    task.wait(0.1)
-
-                    -- 🔔 Fire ProximityPrompt
-                    pcall(function()
-                        fireproximityprompt(prompt)
-                    end)
-
-                    task.wait(0.15)
+                if _G.Prompt then
+                    _G.FirePrompt(_G.Prompt)
+                    _G.Opened = _G.Opened + 1
                 end
             end
         end
     end
+
+    warn("[PirateChest] Opened:", _G.Opened)
 end
 
-_G.startAutoClaimPresent = function()
-    if _G.AutoClaimPresent.loop then return end
-
-    _G.AutoClaimPresent.loop = task.spawn(function()
-        while _G.AutoClaimPresent.enabled do
-            _G.claimAllPresents()
-            task.wait(1) -- ulangi jika ada drop baru
-        end
-    end)
-end
-
-_G.stopAutoClaimPresent = function()
-    if _G.AutoClaimPresent.loop then
-        task.cancel(_G.AutoClaimPresent.loop)
-        _G.AutoClaimPresent.loop = nil
-    end
-end
-
-_G.CEvent:Toggle({
-    Title = "Auto Claim Drop Present",
-    Value = false,
-    Callback = function(state)
-        _G.AutoClaimPresent.enabled = state
-        _G.updatePresentParagraph()
-    
-        if state then
-            _G.startAutoClaimPresent()
-        else
-            _G.stopAutoClaimPresent()
-        end
-    end
-})
-
-task.spawn(function()
-    task.wait(1)
-    _G.startPresentMonitor()
-    _G.startPresentFallbackLoop()
-end)
-
-_G.CEvent:Divider()
-
-_G.CEvent:Section({
-    Title = "New Years Event Menu",
-    TextSize = 22,
-    TextXAlignment = "Center",
-    Opened = true
-})
-
-_G.CEvent:Divider()
-
--- =====================================================
--- AUTO NEW YEARS WHALE (BLACK HOLE TRACKER)
--- Stable | WorldPivot | Respawn Safe | Y Offset Fix
--- =====================================================
-
-do
-    _G.AutoNewYearsWhale = {
-        enabled = false,
-        thread = nil,
-        lastPivot = nil,
-        currentModel = nil
-    }
-
-    --------------------------------------------------
-    -- CONFIG
-    --------------------------------------------------
-    local CHECK_INTERVAL = 0.25
-    local TELEPORT_THRESHOLD = 5 -- studs
-    local Y_OFFSET = 115 -- 🔽 turunkan posisi (15–30 rekomendasi)
-
-    --------------------------------------------------
-    -- SAFE TELEPORT (WITH OFFSET)
-    --------------------------------------------------
-    local function SafeTeleportWithOffset(pivot)
-        local char = _G.LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = pivot * CFrame.new(0, Y_OFFSET, 0)
-        end
-    end
-
-    --------------------------------------------------
-    -- FIND BLACK HOLE MODEL (SAFE)
-    --------------------------------------------------
-    local function FindBlackHole()
-        local props = workspace:FindFirstChild("Props")
-        if not props then return nil end
-        return props:FindFirstChild("Black Hole")
-    end
-
-    --------------------------------------------------
-    -- MAIN MONITOR LOOP
-    --------------------------------------------------
-    local function AutoWhaleLoop()
-        while _G.AutoNewYearsWhale.enabled do
-            local model = FindBlackHole()
-
-            if model and model:IsA("Model") then
-                _G.AutoNewYearsWhale.currentModel = model
-
-                local pivot = model:GetPivot()
-
-                if not _G.AutoNewYearsWhale.lastPivot then
-                    _G.AutoNewYearsWhale.lastPivot = pivot
-                    SafeTeleportWithOffset(pivot)
-
-                    _G.ToggleBlockOnce(true)
-                else
-                    local dist =
-                        (pivot.Position - _G.AutoNewYearsWhale.lastPivot.Position).Magnitude
-
-                    if dist >= TELEPORT_THRESHOLD then
-                        _G.AutoNewYearsWhale.lastPivot = pivot
-                        SafeTeleportWithOffset(pivot)
-
-                        _G.ToggleBlockOnce(true)
-                    end
-                end
-            else
-                -- Event refresh / object hilang
-                _G.AutoNewYearsWhale.currentModel = nil
-                _G.AutoNewYearsWhale.lastPivot = nil
-            end
-
-            task.wait(CHECK_INTERVAL)
-        end
-    end
-
-    --------------------------------------------------
-    -- TOGGLE HANDLER
-    --------------------------------------------------
-    _G.ToggleAutoNewYearsWhale = function(state)
-        _G.AutoNewYearsWhale.enabled = state
-
-        if state then
-            if _G.AutoNewYearsWhale.thread then return end
-            _G.AutoNewYearsWhale.thread = task.spawn(AutoWhaleLoop)
-        else
-            if _G.AutoNewYearsWhale.thread then
-                task.cancel(_G.AutoNewYearsWhale.thread)
-                _G.AutoNewYearsWhale.thread = nil
-            end
-            _G.AutoNewYearsWhale.lastPivot = nil
-            _G.AutoNewYearsWhale.currentModel = nil
-        end
-    end
-end
-
-_G.CEvent:Toggle({
-    Title = "Auto New Years Whale",
-    Value = false,
-    Callback = function(v)
-        _G.ToggleAutoNewYearsWhale(v)
+_G.CEvent:Button({
+    Title = "Open All Pirate Chest",
+    Justify = "Center",
+    Icon = "",
+    Callback = function()
+        task.spawn(function()
+            _G.OpenAllPirateChests()
+        end)
     end
 })
 
