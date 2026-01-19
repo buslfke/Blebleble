@@ -1457,6 +1457,9 @@ _G.EnchantSec = AutoFish:Section({
     TextXAlignment = "Center",
     Opened = false
 })
+
+AutoFish:Divider()
+
 do
     -- Definisi State Global
     _G.autoEnchantState = { 
@@ -1466,6 +1469,7 @@ do
         stonesUsed = 0, 
         selectedRodUUID = nil,
         selectedRodName = "",
+        selectedStoneName = "Enchant Stone", -- 🔥 DEFAULT
         enchantLoopThread = nil 
     }
     
@@ -1571,7 +1575,23 @@ do
         SearchBarEnabled = true,
         Callback = function(v) _G.autoEnchantState.targetEnchant = v end
     })
-    -- myConfig:Register("TargetEnchantQuite", _G.targetEnchantDropdown)
+    
+    myConfig:Register("TargetEnchant", _G.targetEnchantDropdown)
+    
+    _G.enchantStoneDropdown = _G.EnchantSec:Dropdown({
+        Title = "Select Enchant Stone",
+        Values = {
+            "Enchant Stone",
+            "Evolved Enchant Stone"
+        },
+        Value = "Enchant Stone",
+        Callback = _G.ProtectCallback(function(v)
+            _G.autoEnchantState.selectedStoneName = v
+            if _G.enchantStatusParagraph then
+                _G.enchantStatusParagraph:SetDesc("Using stone: " .. v)
+            end
+        end)
+    })
     
     _G.rodDropdown = _G.EnchantSec:Dropdown({
         Title = "Select Rod to Enchant",
@@ -1605,23 +1625,31 @@ do
     -- Thread Update Stone Count
     task.spawn(function()
         while task.wait(2) do
-            -- Pastikan Window aktif (jika variabel Window ada di _G atau scope lain)
             pcall(function()
                 if not _G.Replion then return end
                 local DataReplion = _G.Replion.Client:GetReplion("Data")
                 if not DataReplion then return end
+    
                 local items = DataReplion:Get({ "Inventory", "Items" })
                 local count = 0
+                local targetStone = _G.autoEnchantState.selectedStoneName
+    
                 if items then
                     for _, item in ipairs(items) do
                         local base = _G.ItemUtility:GetItemData(item.Id)
-                        if base and base.Data and base.Data.Type == "Enchant Stones" then
-                            count = count + (item.Quantity or 1)
+                        if base and base.Data
+                            and base.Data.Type == "Enchant Stones"
+                            and base.Data.Name == targetStone
+                        then
+                            count = count + (item.Quantity or 0)
                         end
                     end
                 end
+    
                 if _G.enchantStoneCountParagraph then
-                    _G.enchantStoneCountParagraph:SetDesc("You have: " .. count .. " stones")
+                    _G.enchantStoneCountParagraph:SetDesc(
+                        string.format("%s: %d", targetStone, count)
+                    )
                 end
             end)
         end
@@ -1632,12 +1660,6 @@ do
         Value = false,
         Callback = function(value)
             _G.autoEnchantState.enabled = value
-            
-            -- Matikan thread lama jika ada
-            if _G.autoEnchantState.enchantLoopThread then
-                task.cancel(_G.autoEnchantState.enchantLoopThread)
-                _G.autoEnchantState.enchantLoopThread = nil
-            end
     
             if value then
                 _G.autoEnchantState.enchantLoopThread = task.spawn(function()
@@ -1673,19 +1695,29 @@ do
                             break
                         end
     
-                        -- 3. Cari Stone
+                        -- 3. Cari Stone SESUAI PILIHAN
                         local stoneItem = nil
                         local items = DataReplion:Get({ "Inventory", "Items" })
+                        local targetStone = _G.autoEnchantState.selectedStoneName
+                        
                         for _, item in ipairs(items or {}) do
                             local base = _G.ItemUtility:GetItemData(item.Id)
-                            if base and base.Data and base.Data.Type == "Enchant Stones" then
+                            if base and base.Data
+                                and base.Data.Type == "Enchant Stones"
+                                and base.Data.Name == targetStone
+                                and (item.Quantity or 0) > 0
+                            then
                                 stoneItem = item
                                 break
                             end
                         end
     
                         if not stoneItem then
-                            if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Stopped: Out of Enchant Stones.") end
+                            if _G.enchantStatusParagraph then
+                                _G.enchantStatusParagraph:SetDesc(
+                                    "Stopped: Out of " .. targetStone
+                                )
+                            end
                             break
                         end
     
