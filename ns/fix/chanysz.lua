@@ -1019,7 +1019,7 @@ _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1
 _G.fishCounter = 0
 _G.sellThreshold = 5
-_G.sellActive = false
+_G.sellActive = true
 _G.AutoFishHighQuality = false -- [[ VARIABEL KONTROL UNTUK FITUR BARU ]]
 
 function RandomFloat()
@@ -1769,61 +1769,6 @@ _G.FishAdvenc:Button({
 
 _G.FishSec:Space()
 
-_G.FishAdvenc:Button({
-    Title = "Auto Enchant Rod",
-    Justify = "Center",
-    Icon = "",
-    Callback = function()
-        local ENCHANT_POSITION = Vector3.new(3231, -1303, 1402)
-        local char = workspace:WaitForChild("Characters"):FindFirstChild(LocalPlayer.Name)
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-        if not hrp then
-            NotifyError("Auto Enchant Rod", "Failed to get character HRP.")
-            return
-        end
-
-        NotifyInfo("Preparing Enchant...", "Please manually place Enchant Stone into slot 5 before we begin...", 5)
-
-        task.wait(3)
-
-        local Player = game:GetService("Players").LocalPlayer
-        local slot5 = Player.PlayerGui.Backpack.Display:GetChildren()[10]
-
-        local itemName = slot5 and slot5:FindFirstChild("Inner") and slot5.Inner:FindFirstChild("Tags") and
-        slot5.Inner.Tags:FindFirstChild("ItemName")
-
-        if not itemName or not itemName.Text:lower():find("enchant") then
-            NotifyError("Auto Enchant Rod", "Slot 5 does not contain an Enchant Stone.")
-            return
-        end
-
-        NotifyInfo("Enchanting...", "It is in the process of Enchanting, please wait until the Enchantment is complete",
-            7)
-
-        local originalPosition = hrp.Position
-        task.wait(1)
-        hrp.CFrame = CFrame.new(ENCHANT_POSITION + Vector3.new(0, 5, 0))
-        task.wait(1.2)
-
-        local equipRod = net:WaitForChild("RE/EquipToolFromHotbar")
-        local activateEnchant = net:WaitForChild("RE/ActivateEnchantingAltar")
-
-        pcall(function()
-            equipRod:FireServer(5)
-            task.wait(0.5)
-            activateEnchant:FireServer()
-            task.wait(7)
-            NotifySuccess("Enchant", "Successfully Enchanted!", 3)
-        end)
-
-        task.wait(0.9)
-        hrp.CFrame = CFrame.new(originalPosition + Vector3.new(0, 3, 0))
-    end
-})
-
-_G.FishSec:Space()
-
 -- =======================================================
 -- AUTO ENCHANT (GLOBAL VARIABLE VERSION)
 -- =======================================================
@@ -1857,6 +1802,7 @@ do
     _G.autoEnchantToggle = nil
     _G.targetEnchantDropdown = nil
     _G.stoneLimitInput = nil
+    _G.autoEnchantState.startCFrame = nil
     
     _G.altarPosition = Vector3.new(3234, -1300, 1401)
     
@@ -2052,6 +1998,9 @@ do
                     local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                     if hrp and (hrp.Position - _G.altarPosition).Magnitude > 10 then
                         if _G.enchantStatusParagraph then _G.enchantStatusParagraph:SetDesc("Teleporting to Altar...") end
+                        if hrp and not _G.autoEnchantState.startCFrame then
+                            _G.autoEnchantState.startCFrame = hrp.CFrame
+                        end
                         hrp.CFrame = CFrame.new(_G.altarPosition) * CFrame.new(0, 5, 0)
                         task.wait(1.5)
                     end
@@ -2182,6 +2131,20 @@ do
                                 NotifySuccess("Auto Enchant", "Successfully got " .. resultEnchantName, 5)
                                 _G.autoEnchantState.enabled = false
                                 pcall(function() _G.autoEnchantToggle:SetValue(false) end)
+                                -- 🔙 Return to original position
+                                pcall(function()
+                                    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                                    if hrp and _G.autoEnchantState.startCFrame then
+                                        hrp.CFrame = _G.autoEnchantState.startCFrame
+                                    end
+                                end)
+                                
+                                _G.autoEnchantState.startCFrame = nil
+                                if autofish5x then
+                                    StopAutoFish5X()
+                                    task.wait(1)
+                                    StartAutoFish5X()
+                                end
                                 _G.populateRodDropdown() -- Refresh nama rod
                                 break
                             end
