@@ -1505,7 +1505,6 @@ local v6 = {
 }
 
 _G.BlatantState = {
-    enabled = false,
     mode = "Fast",
     fishingDelay = 1.0,
     reelDelay = 1.9
@@ -1540,7 +1539,7 @@ end
 
 task.spawn(function()
     while true do
-        if _G.BlatantState.enabled then
+        if _G.BlatantSet then
             if _G.BlatantState.mode == "Fast" then
                 Fastest()
             end
@@ -1598,7 +1597,7 @@ _G.BlatantSec:Toggle({
     Title = "Enable Blatant",
     Value = false,
     Callback = function(state)
-        _G.BlatantState.enabled = state
+        _G.BlatantSet = state
     end
 })
 
