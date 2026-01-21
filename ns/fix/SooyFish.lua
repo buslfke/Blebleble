@@ -2578,6 +2578,10 @@ task.spawn(function()
 
                     task.wait(1.5)
 
+                    if not _G.BlatantSet then
+                        StartAutoFish5X()
+                    end
+
                     -- Stay fishing until disabled or island changed
                     while _G.AUTO_FARM and _G.FARM_ISLAND == islandName do
                         task.wait(0.5)
