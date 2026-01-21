@@ -1506,8 +1506,6 @@ local v6 = {
 
 _G.BlatantState = {
     mode = "Fast",
-    fishingDelay = 1.0,
-    reelDelay = 1.9
 }
 
 _G.ForceEquipRod = function()
@@ -1530,7 +1528,7 @@ function Fastest()
         pcall(function()
             v6.Functions.StartMini:InvokeServer(-1, 0.999)
         end)
-        task.wait(_G.BlatantState.fishingDelay)
+        task.wait(_G.fishingDelay)
         pcall(function()
             v6.Events.REFishDone:FireServer()
         end)
@@ -1543,7 +1541,7 @@ task.spawn(function()
             if _G.BlatantState.mode == "Fast" then
                 Fastest()
             end
-            task.wait(_G.BlatantState.reelDelay)
+            task.wait(_G..reelDelay)
         else
             task.wait(0.2)
         end
@@ -1577,7 +1575,7 @@ _G.BlatantSec:Input({
     Callback = function(v)
         local num = tonumber(v)
         if num and num > 0 then
-            _G.BlatantState.reelDelay = num
+            _G.reelDelay = num
         end
     end
 })
@@ -1588,7 +1586,7 @@ _G.BlatantSec:Input({
     Callback = function(v)
         local num = tonumber(v)
         if num and num > 0 then
-            _G.BlatantState.fishingDelay = num
+            _G.fishingDelay = num
         end
     end
 })
