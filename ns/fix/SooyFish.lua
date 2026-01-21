@@ -2578,17 +2578,9 @@ task.spawn(function()
 
                     task.wait(1.5)
 
-                    if StartAutoFish5X then
-                        StartAutoFish5X()
-                    end
-
                     -- Stay fishing until disabled or island changed
                     while _G.AUTO_FARM and _G.FARM_ISLAND == islandName do
                         task.wait(0.5)
-                    end
-
-                    if StopAutoFish5X then
-                        StopAutoFish5X()
                     end
 
                     task.wait(1)
@@ -2603,10 +2595,6 @@ task.spawn(function()
         if not _G.AUTO_FARM and _G.__AUTO_FARM_THREAD then
             task.cancel(_G.__AUTO_FARM_THREAD)
             _G.__AUTO_FARM_THREAD = nil
-
-            if StopAutoFish5X then
-                StopAutoFish5X()
-            end
 
             warn("[AUTO FARM] Force stopped")
         end
