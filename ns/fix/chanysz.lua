@@ -4283,24 +4283,20 @@ table.insert(_G.TradeV2Elements, {Element = amountInputV2})
 local statusParagraphV2 = Trade:Paragraph({ Title = "Status V2", Desc = "Waiting to start..." })
 table.insert(_G.TradeV2Elements, {Element = statusParagraphV2})
 
+-- Toggle Start Mass Trade (V2)
 Trade:Toggle({
     Title = "Start Mass Trade V2",
     Value = false,
     Callback = function(value)
         tradeState.autoTradeV2 = value
-
-        if tradeState.mode == "V2" and value then
+        if value then
             task.spawn(function()
-                if not tradeState.selectedItemName
-                    or not tradeState.selectedPlayerId
-                    or tradeState.tradeAmount <= 0
-                then
-                    statusParagraphV2:SetDesc("Error: Select item, amount, and player.")
+                if not tradeState.selectedItemName or not tradeState.selectedPlayerId then
+                    statusParagraphV2:SetDesc("Error: Select item and player.")
                     tradeState.autoTradeV2 = false
                     return
                 end
 
-                -- 🧼 CLEAN NAME
                 local cleanItemName =
                     tradeState.selectedItemName:match("^(.*) %((%d+)x%)$")
                 if cleanItemName then
@@ -4315,7 +4311,7 @@ Trade:Toggle({
                     tradeState.autoTradeV2 = false
                     return
                 end
-
+                
                 -- 📦 VALIDASI JUMLAH
                 if itemData.Mode == "UUID" then
                     if #itemData.UUIDs < tradeState.tradeAmount then
@@ -4330,11 +4326,28 @@ Trade:Toggle({
                         return
                     end
                 end
+                
+                local resolvedAmount
+                if tradeState.tradeAmount and tradeState.tradeAmount > 0 then
+                    resolvedAmount = tradeState.tradeAmount
+                else
+                    if itemData.Mode == "UUID" then
+                        resolvedAmount = #itemData.UUIDs
+                    elseif itemData.Mode == "Quantity" then
+                        resolvedAmount = itemData.Quantity
+                    else
+                        statusParagraphV2:SetDesc("Error: Unknown item mode.")
+                        tradeState.autoTradeV2 = false
+                        return
+                    end
+                end
+
 
                 local successCount, failCount = 0, 0
                 local targetName = tradeState.selectedPlayerName
+                
 
-                for i = 1, tradeState.tradeAmount do
+                for i = 1, resolvedAmount do
                     if not tradeState.autoTradeV2 then
                         statusParagraphV2:SetDesc("Process stopped by user.")
                         break
@@ -4347,19 +4360,31 @@ Trade:Toggle({
                     else
                         uuid = itemData.UUID -- SAME UUID, MANY TIMES
                     end
-
+                    
                     statusParagraphV2:SetDesc(string.format(
                         "Progress: %d/%d | Sending to: %s | Status: <font color='#eab308'>Waiting...</font>",
-                        i, tradeState.tradeAmount, targetName
-                    ))
+                        i, resolvedAmount, targetName))
 
-                    local success, result = pcall(
-                        InitiateTrade.InvokeServer,
-                        InitiateTrade,
-                        tradeState.selectedPlayerId,
-                        uuid
-                    )
-
+                    local success, result
+                    local attempts = 0
+                    local maxRetries = 999999999999
+                    
+                    repeat
+                        attempts += 1
+                        success, result = pcall(
+                            InitiateTrade.InvokeServer,
+                            InitiateTrade,
+                            tradeState.selectedPlayerId,
+                            uuid
+                        )
+                    
+                        if success and result then
+                            break
+                        end
+                    
+                        task.wait(3) -- retry delay
+                    until attempts >= maxRetries
+                    
                     if success and result then
                         successCount += 1
                     else
@@ -4368,21 +4393,14 @@ Trade:Toggle({
 
                     statusParagraphV2:SetDesc(string.format(
                         "Progress: %d/%d | Sent: %s | Success: %d | Failed: %d",
-                        i,
-                        tradeState.tradeAmount,
-                        success and "✔" or "✖",
-                        successCount,
-                        failCount
-                    ))
-
-                    task.wait(5)
+                        i, resolvedAmount, success and "âœ…" or "âŒ", successCount, failCount))
+                    
+                    task.wait(5) 
                 end
 
                 statusParagraphV2:SetDesc(string.format(
-                    "Trade V2 Complete.\nSuccessful: %d | Failed: %d",
-                    successCount,
-                    failCount
-                ))
+                    "Trade V2 Process Complete.\nSuccessful: %d | Failed: %d",
+                    successCount, failCount))
 
                 tradeState.autoTradeV2 = false
                 refreshInventory()
