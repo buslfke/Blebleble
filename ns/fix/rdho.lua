@@ -3838,6 +3838,259 @@ myConfig:Register("JumpPower", Jp)
 ----- =======[ UTILITY TAB ]
 -------------------------------------------
 
+_G.CharmShop = Utils:Section({
+    Title = "Charm Shop",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false,
+})
+
+--------------------------------------------------------------------
+-- ========== [ CHARM SHOP ] ==========
+--------------------------------------------------------------------
+
+_G.CharmIndex = {}         -- name -> data
+_G.CharmIdIndex = {}      -- id -> name
+_G.CharmNames = {}        -- dropdown list
+
+_G.selectedCharmName = nil
+_G.buyCharmAmount = 1
+
+_G.TIER_LABELS = {
+    [5] = "Legendary",
+    [6] = "Mythic",
+    [7] = "SECRET"
+}
+
+for _, charmModule in ipairs(ReplicatedStorage.Charms:GetChildren()) do
+    local ok, charmData = pcall(require, charmModule)
+    if ok and charmData and charmData.Data then
+        local name = charmData.Data.Name
+        local id = charmData.Data.Id
+
+        _G.CharmIndex[name] = charmData
+        _G.CharmIdIndex[id] = name
+        table.insert(_G.CharmNames, name)
+    end
+end
+
+table.sort(_G.CharmNames)
+
+_G.CharmDetailParagraph = _G.CharmShop:Paragraph({
+    Title = "Charm Detail",
+    Desc = "Select a charm to view details"
+})
+
+_G.getCharmData = function()
+    local replion = _G.Replion.Client:WaitReplion("Data")
+    local inv = replion:Get({"Inventory","Charms"}) or {}
+
+    local owned = {}
+
+    for _, c in ipairs(inv) do
+        local name = _G.CharmIdIndex[c.Id]
+        if name then
+            owned[name] = {
+                Quantity = c.Quantity,
+                UUID = c.UUID
+            }
+        end
+    end
+
+    return owned
+end
+
+_G.updateCharmParagraph = function()
+    local owned = _G.getCharmData()
+
+    local lines = {}
+    for name, charm in pairs(_G.CharmIndex) do
+        local qty = owned[name] and owned[name].Quantity or 0
+        local price = charm.Price or 0
+        local tier = charm.Data.Tier or "?"
+
+        table.insert(lines,
+            string.format(
+                "%s | Owned: %d | Tier: %s | Price: %s",
+                name,
+                qty,
+                tier,
+                tostring(price)
+            )
+        )
+    end
+
+    _G.CharmInfoParagraph:SetDesc(table.concat(lines, "\n"))
+end
+
+_G.PurchaseCharmRF = ReplicatedStorage
+    .Packages._Index["sleitnick_net@0.2.0"].net["RF/PurchaseCharm"]
+
+_G.EquipCharmRE = ReplicatedStorage
+    .Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipCharm"]
+    
+--------------------------------------------------------------------
+-- ========== [ CHARM DETAIL DROPDOWN ] ==========
+--------------------------------------------------------------------
+
+_G.getCharmBonus = function(name)
+    local replion = _G.Replion.Client:WaitReplion("Data")
+    local mods = replion:Get({"CharmModifiers"}) or {}
+    return mods[name] or 0
+end
+
+_G.selectedCharmName = nil
+
+_G.CharmDropdown = _G.CharmShop:Dropdown({
+    Title = "Select Charm",
+    Values = _G.CharmNames,
+    AllowNone = true,
+    Callback = function(name)
+        _G.selectedCharmName = name
+        if not name then return end
+
+        local charm = _G.CharmIndex[name]
+        if not charm then return end
+
+        local owned = _G.getCharmData()[name]
+        local qty = owned and owned.Quantity or 0
+        local bonus = _G.getCharmBonus(name)
+
+        local tierNum = charm.Data.Tier
+        local tierLabel = _G.TIER_LABELS[tierNum] or ("Tier " .. tostring(tierNum))
+
+        local fishMods = {}
+        if charm.FishModifiers then
+            for fish, val in pairs(charm.FishModifiers) do
+                table.insert(fishMods, fish .. " +" .. math.floor(val * 100) .. "%")
+            end
+        end
+
+        _G.CharmDetailParagraph:SetDesc(string.format(
+            [[Name : %s
+Rarity : %s
+Price : %s
+Owned : %d
+Bonus : %d
+
+Description:
+%s
+
+Fish Buffs:
+%s]],
+            name,
+            tierLabel,
+            tostring(charm.Price),
+            qty,
+            bonus,
+            charm.Data.Description or "-",
+            #fishMods > 0 and table.concat(fishMods, "\n") or "None"
+        ))
+    end
+})
+
+--------------------------------------------------------------------
+-- 🔄 AUTO UPDATE BONUS REAL-TIME
+--------------------------------------------------------------------
+_G.CharmReplion = _G.Replion.Client:WaitReplion("Data")
+_G.CharmReplion:OnChange({"CharmModifiers"}, function()
+    if not _G.selectedCharmName then return end
+
+    local name = _G.selectedCharmName
+    local charm = _G.CharmIndex[name]
+    if not charm then return end
+
+    local owned = _G.getCharmData()[name]
+    local qty = owned and owned.Quantity or 0
+    local bonus = _G.getCharmBonus(name)
+
+    local tierNum = charm.Data.Tier
+    local tierLabel = _G.TIER_LABELS[tierNum] or ("Tier " .. tostring(tierNum))
+
+    local fishMods = {}
+    if charm.FishModifiers then
+        for fish, val in pairs(charm.FishModifiers) do
+            table.insert(fishMods, fish .. " +" .. math.floor(val * 100) .. "%")
+        end
+    end
+
+    _G.CharmDetailParagraph:SetDesc(string.format(
+        [[Name : %s
+Rarity : %s
+Price : %s
+Owned : %d
+Bonus : %d
+
+Description:
+%s
+
+Fish Buffs:
+%s]],
+        name,
+        tierLabel,
+        tostring(charm.Price),
+        qty,
+        bonus,
+        charm.Data.Description or "-",
+        #fishMods > 0 and table.concat(fishMods, "\n") or "None"
+    ))
+end)
+
+_G.CharmShop:Input({
+    Title = "Buy Amount",
+    Placeholder = "Enter amount",
+    Callback = function(val)
+        local num = tonumber(val)
+        if num and num > 0 then
+            _G.buyCharmAmount = math.floor(num)
+        else
+            _G.buyCharmAmount = 1
+        end
+    end
+})
+
+_G.CharmShop:Button({
+    Title = "Buy & Auto Equip Charm",
+    Callback = function()
+        if not _G.selectedCharmName then
+            NotifyError("Charm", "Select charm first")
+            return
+        end
+
+        local charm = _G.CharmIndex[_G.selectedCharmName]
+        if not charm then return end
+
+        local id = charm.Data.Id
+
+        for i = 1, _G.buyCharmAmount do
+            local ok = pcall(function()
+                _G.PurchaseCharmRF:InvokeServer(id)
+            end)
+
+            if not ok then
+                NotifyError("Charm", "Purchase failed at #" .. i)
+                break
+            end
+
+            task.wait(0.25)
+        end
+
+        task.wait(0.3)
+        pcall(function()
+            _G.EquipCharmRE:FireServer(_G.selectedCharmName)
+        end)
+
+        NotifySuccess("Charm", "Purchased x" .. _G.buyCharmAmount .. " & Equipped")
+
+        task.wait(0.6)
+        _G.updateCharmParagraph()
+    end
+})
+
+_G.CharmReplion:OnChange({"Inventory","Charms"}, function()
+    _G.updateCharmParagraph()
+end)
+
 --------------------------------------------------------------------
 -- ========== [ TRAVELING MERCHANT DISPLAY V1 (Clean UI) ] ==========
 --------------------------------------------------------------------
