@@ -4800,6 +4800,122 @@ DStones:Button({
 ----- =======[ UTILITY TAB ]
 -------------------------------------------
 
+_G.FPSPingEnabled = false
+_G.__FPSPingLoop = nil
+_G.__FPSPingGui = nil
+_G.CoreGui = game:GetService("CoreGui")
+_G.Stats = game:GetService("Stats")
+
+function createFPSPingHUD()
+    if _G.__FPSPingGui then return end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "FPSPingHUD"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.IgnoreGuiInset = true
+    ScreenGui.Parent = _G.CoreGui
+
+    -- Container TANPA background
+    local Holder = Instance.new("Frame")
+    Holder.Size = UDim2.fromScale(0.18, 0.08)
+    Holder.Position = UDim2.fromScale(0.02, 0.46) -- kiri tengah
+    Holder.BackgroundTransparency = 1
+    Holder.BorderSizePixel = 0
+    Holder.Parent = ScreenGui
+
+    local Layout = Instance.new("UIListLayout")
+    Layout.Padding = UDim.new(0, 4)
+    Layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    Layout.VerticalAlignment = Enum.VerticalAlignment.Center
+    Layout.Parent = Holder
+
+    local function makeLabel(text)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, 0, 0, 22)
+        lbl.BackgroundTransparency = 1
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.TextYAlignment = Enum.TextYAlignment.Center
+
+        lbl.Font = Enum.Font.GothamSemibold
+        lbl.TextSize = 14
+        lbl.Text = text
+
+        -- Text utama
+        lbl.TextColor3 = Color3.fromRGB(235, 245, 255)
+
+        -- Stroke halus agar tetap kebaca tanpa background
+        lbl.TextStrokeTransparency = 0.75
+        lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+
+        lbl.Parent = Holder
+        return lbl
+    end
+
+    _G.__FPSLabel = makeLabel("FPS: --")
+    _G.__PingLabel = makeLabel("Ping: -- ms")
+
+    _G.__FPSPingGui = ScreenGui
+end
+
+function startFPSPingLoop()
+    if _G.__FPSPingLoop then return end
+
+    createFPSPingHUD()
+
+    _G.__FPSPingLoop = task.spawn(function()
+        local frames = 0
+        local last = tick()
+
+        while _G.FPSPingEnabled do
+            RunService.RenderStepped:Wait()
+            frames = frames +  1
+
+            if tick() - last >= 1 then
+                local fps = frames
+                frames = 0
+                last = tick()
+
+                local ping = math.floor(
+                    _G.Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+                )
+
+                if _G.__FPSLabel then
+                    _G.__FPSLabel.Text = "FPS: " .. fps
+                end
+                if _G.__PingLabel then
+                    _G.__PingLabel.Text = "Ping: " .. ping .. " ms"
+                end
+            end
+        end
+    end)
+end
+
+function stopFPSPingLoop()
+    if _G.__FPSPingLoop then
+        task.cancel(_G.__FPSPingLoop)
+        _G.__FPSPingLoop = nil
+    end
+    if _G.__FPSPingGui then
+        _G.__FPSPingGui:Destroy()
+        _G.__FPSPingGui = nil
+    end
+end
+
+Utils:Toggle({
+    Title = "FPS & Ping Counter",
+    Desc = "Show realtime FPS & Ping",
+    Value = false,
+    Callback = function(state)
+        _G.FPSPingEnabled = state
+
+        if state then
+            startFPSPingLoop()
+        else
+            stopFPSPingLoop()
+        end
+    end
+})
+
 _G.RFRedeemCode = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/RedeemCode"]
 
 _G.RedeemCodes = {
