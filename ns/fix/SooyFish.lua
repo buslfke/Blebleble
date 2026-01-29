@@ -1541,7 +1541,7 @@ task.spawn(function()
             if _G.BlatantState.mode == "Fast" then
                 Fastest()
             end
-            task.wait(_G..reelDelay)
+            task.wait(_G.reelDelay)
         else
             task.wait(0.2)
         end
