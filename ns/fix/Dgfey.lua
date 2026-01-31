@@ -1814,7 +1814,7 @@ _G.HighFish = _G.FishSec:Toggle({
 
 myConfig:Register("FishHigh", _G.HighFish)
 
-G.Perfection = _G.FishSec:Toggle({
+_G.Perfection = _G.FishSec:Toggle({
     Title = "PERFECTION!",
     Desc = "Need Enchant PERFECTION!\nDo Not Turn On Fish Legit",
     Value = true,
