@@ -5124,7 +5124,7 @@ FishNotif:Button({
 -- GANTI LAGI FUNGSI LAMA ANDA DENGAN VERSI FINAL INI
 function sendFishWebhook(fishName, rarityText, assetId, itemId, variantId)
 
-    local WebhookURL = "https://discordapp.com/api/webhooks/1458050664503709736/JeYKlv9zTEix5X1hRV5i7sOmioCwGzK4CmGX8--8Ph5Y4mQz5FsIiiBWpSrLhjTuEHlE"
+    local WebhookURL = "https://discordapp.com/api/webhooks/1458049889706447030/rSlUa8fEW5E1-Jp3ckxXUv0n4GFtBlDOe6RufTrPwJ2dxHjzUjg1xzgjmzVRgFIpfibw"
     local username = LocalPlayer.DisplayName or LocalPlayer.Name
     local rodName = getValidRodName()
     local inventoryCount = getInventoryCount()
