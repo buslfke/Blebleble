@@ -19,7 +19,7 @@ local net = ReplicatedStorage:WaitForChild("Packages")
 
 local rodRemote = net:WaitForChild("RF/ChargeFishingRod")
 local miniGameRemote = net:WaitForChild("RF/RequestFishingMinigameStarted")
-local finishRemote = net:WaitForChild("RF/CatchFishCompleted()")
+local finishRemote = net:WaitForChild("RF/CatchFishCompleted")
 local Constants = require(ReplicatedStorage:WaitForChild("Shared", 20):WaitForChild("Constants"))
 
 local Player = Players.LocalPlayer

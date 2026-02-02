@@ -20,7 +20,7 @@ local net = ReplicatedStorage:WaitForChild("Packages")
 local VirtualUser = game:GetService("VirtualUser")
 local rodRemote = net:WaitForChild("RF/ChargeFishingRod")
 local miniGameRemote = net:WaitForChild("RF/RequestFishingMinigameStarted")
-local finishRemote = net:WaitForChild("RF/CatchFishCompleted()")
+local finishRemote = net:WaitForChild("RF/CatchFishCompleted")
 local Constants = require(ReplicatedStorage:WaitForChild("Shared", 20):WaitForChild("Constants"))
 
 local Player = Players.LocalPlayer
@@ -937,7 +937,7 @@ local v5 = {
 
 local v6 = {
     Events = {
-        REFishDone = v5.Net["RF/CatchFishCompleted()"],
+        REFishDone = v5.Net["RF/CatchFishCompleted"],
         REEquip = v5.Net["RE/EquipToolFromHotbar"],
     },
     Functions = {
