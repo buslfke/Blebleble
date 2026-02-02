@@ -17,7 +17,7 @@ local net = ReplicatedStorage:WaitForChild("Packages")
 local VirtualUser = game:GetService("VirtualUser")
 local rodRemote = net:WaitForChild("RF/ChargeFishingRod")
 local miniGameRemote = net:WaitForChild("RF/RequestFishingMinigameStarted")
-local finishRemote = net:WaitForChild("RE/FishingCompleted")
+local finishRemote = net:WaitForChild("RF/CatchFishCompleted()")
 local Constants = require(ReplicatedStorage:WaitForChild("Shared", 20):WaitForChild("Constants"))
 
 _G.Characters = workspace:FindFirstChild("Characters"):WaitForChild(LocalPlayer.Name)
@@ -1350,7 +1350,7 @@ local v5 = {
 
 local v6 = {
     Events = {
-        REFishDone = v5.Net["RE/FishingCompleted"],
+        REFishDone = v5.Net["RF/CatchFishCompleted()"],
         REEquip = v5.Net["RE/EquipToolFromHotbar"],
     },
     Functions = {
@@ -1389,7 +1389,7 @@ function Fastest()
         end)
         task.wait(_G.BlatantState.fishingDelay)
         pcall(function()
-            v6.Events.REFishDone:FireServer()
+            v6.Events.REFishDone:InvokeServer()
         end)
     end)
 end
