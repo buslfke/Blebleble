@@ -776,7 +776,7 @@ function _G.startSpam()
     _G.isSpamming = true
     _G.spamThread = task.spawn(function()
         task.wait(tonumber(_G.FINISH_DELAY))
-        finishRemote:FireServer()
+        finishRemote:InvokeServer()
     end)
 end
     
