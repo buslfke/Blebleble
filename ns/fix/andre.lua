@@ -837,10 +837,10 @@ _G.lastFishTime = tick()
 _G.FINISH_DELAY = 1
 _G.fishCounter = 0
 _G.sellThreshold = 30
-_G.sellActive = false
+_G.sellActive = true
 _G.AutoFishHighQuality = false
 _G.CastTimeoutMode = "Fast"
-_G.CastTimeoutValue = 0.01
+_G.CastTimeoutValue = 1
 
 function RandomFloat()
     return 0.01 + math.random() * 0.99
@@ -1572,7 +1572,7 @@ _G.SetCast = _G.FishSec:Dropdown({
     Title = "Cast Mode",
     Desc = "Choose casting speed",
     Values = {"Perfect", "Fast", "Random"},
-    Value = "Fast",
+    Value = "Perfect",
     Multi = false,
     Callback = function(selected)
         _G.CastTimeoutMode = selected
@@ -2916,7 +2916,7 @@ _G.FarmSec:Space()
 _G.CodeIsland = _G.FarmSec:Dropdown({
     Title = "Farm Island",
     Values = nameList,
-    Value = nameList[9],
+    Value = nameList[15],
     SearchBarEnabled = true,
     Callback = _G.ProtectCallback(function(selectedName)
         local code = islandNamesToCode[selectedName]
@@ -4317,10 +4317,6 @@ for _, element in ipairs(_G.TradeV2Elements) do
     if element.Element then element.Element.Visible = false end
 end
 
--- Pastikan elemen Quiet terlihat
-for _, element in ipairs(_G.TradeQuietElements) do
-    if element.Element then element.Element.Visible = true end
-end
 
 -------------------------------------------
 ----- ======= V3 - MASS TRADE BY CATEGORY
