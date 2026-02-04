@@ -4510,6 +4510,234 @@ myConfig:Register("JumpPower", Jp)
 ----- =======[ UTILITY TAB ]
 -------------------------------------------
 
+_G.PotionsSec = Utils:Section({
+    Title = "Potion Menu",
+    TextSize = 22,
+    TextXAlignment = "Center",
+    Opened = false,
+})
+
+-- Remote for consuming potions
+_G.RFConsumePotion = ReplicatedStorage
+    .Packages._Index["sleitnick_net@0.2.0"]
+    .net["RF/ConsumePotion"]
+
+-- Global states
+_G.PotionInventoryCache = {} -- { ["Potion Name"] = {uuid1, uuid2, ...} }
+_G.PotionList = {}
+
+_G.AutoPotionState = {
+    IsRunning = false,
+    DelayMinutes = 5,
+    Amount = 1,
+    SelectedPotionName = nil,
+    LoopThread = nil
+}
+
+function _G.RefreshPotionInventory()
+    if not _G.DataReplion then return end
+
+    _G.PotionInventoryCache = {}
+    _G.PotionList = {}
+
+    local potions = _G.DataReplion:Get({ "Inventory", "Potions" })
+    if not potions then
+        if _G.PotionDropdown then _G.PotionDropdown:Refresh({}) end
+        return
+    end
+
+    for _, item in ipairs(potions) do
+        local potionData = _G.ItemUtilityModule:GetPotionData(item.Id)
+        if potionData and potionData.Data then
+            local name = potionData.Data.Name
+
+            -- Format baru: setiap nama menyimpan 1 UUID + Quantity
+            _G.PotionInventoryCache[name] = {
+                UUID = item.UUID,
+                Quantity = item.Quantity or 1,
+                Id = item.Id
+            }
+
+            table.insert(_G.PotionList, string.format("%s (x%d)", name, item.Quantity or 1))
+        end
+    end
+
+    table.sort(_G.PotionList)
+    if _G.PotionDropdown then
+        _G.PotionDropdown:Refresh(_G.PotionList)
+    end
+    
+    if _G.PotionStatusParagraph then
+        _G.PotionStatusParagraph:SetDesc(
+            string.format("Inventory refreshed. Found %d types of potions.", #_G.PotionList)
+        )
+    end
+end
+
+function _G.StopAutoPotion()
+    _G.AutoPotionState.IsRunning = false
+    if _G.AutoPotionState.LoopThread then
+        task.cancel(_G.AutoPotionState.LoopThread)
+        _G.AutoPotionState.LoopThread = nil
+    end
+
+    if _G.PotionStatusParagraph then
+        _G.PotionStatusParagraph:SetDesc("Auto Potion Stopped.")
+    end
+end
+
+function _G.StartAutoPotion()
+    _G.AutoPotionState.IsRunning = true
+
+    _G.AutoPotionState.LoopThread = task.spawn(function()
+        while _G.AutoPotionState.IsRunning do
+
+            -- Validasi pilihan
+            local raw = _G.AutoPotionState.SelectedPotionName
+            if not raw then
+                NotifyError("Auto Potion", "No potion selected.")
+                return _G.StopAutoPotion()
+            end
+
+            local cleanName = raw:match("^(.-) %(") or raw
+            local potionInfo = _G.PotionInventoryCache[cleanName]
+
+            if not potionInfo then
+                NotifyError("Auto Potion", "Potion not found: " .. cleanName)
+                _G.RefreshPotionInventory()
+                return _G.StopAutoPotion()
+            end
+
+            local uuid = potionInfo.UUID
+            local quantity = potionInfo.Quantity or 0
+            local amount = tonumber(_G.AutoPotionState.Amount) or 1
+
+            -- ============== PERBAIKAN UTAMA ==============
+            -- amount tidak boleh lebih besar dari stack
+            if amount > quantity then
+                amount = quantity
+            end
+            -- =============================================
+
+            if quantity <= 0 then
+                NotifyError("Auto Potion", cleanName .. " is out of stock.")
+                _G.RefreshPotionInventory()
+                return _G.StopAutoPotion()
+            end
+
+            local success, result = pcall(function()
+                return _G.RFConsumePotion:InvokeServer(uuid, amount)
+            end)
+
+            if success then
+                NotifySuccess("Potion", "Consumed " .. amount .. "x " .. cleanName)
+                potionInfo.Quantity = potionInfo.Quantity - amount
+            else
+                NotifyError("Potion", "Failed consuming potion.")
+            end    
+
+            -- Delay
+            local delaySeconds = (_G.AutoPotionState.DelayMinutes or 1) * 60
+            local waited = 0
+
+            while waited < delaySeconds and _G.AutoPotionState.IsRunning do
+                local remaining = delaySeconds - waited
+                local m = math.floor(remaining / 60)
+                local s = remaining % 60
+
+                _G.PotionStatusParagraph:SetDesc(
+                    string.format("Next: %02d:%02d | %s left: %d", 
+                        m, s, cleanName, potionInfo.Quantity)
+                )
+
+                local step = math.min(5, remaining)
+                task.wait(step)
+                waited = waited + step
+            end
+
+            -- refresh supaya UI dan cache update benar setelah konsumsi
+            _G.RefreshPotionInventory()
+        end
+    end)
+end
+
+_G.PotionStatusParagraph = _G.PotionsSec:Paragraph({
+    Title = "Auto Potion Status",
+    Desc = "Waiting for data..."
+})
+
+_G.PotionDropdown = _G.PotionsSec:Dropdown({
+    Title = "Select Potion",
+    Values = { "Loading..." },
+    SearchBarEnabled = true,
+    AllowNone = true,
+    Callback = function(val)
+        if not val then
+            _G.AutoPotionState.SelectedPotionName = nil
+            return
+        end
+
+        local clean = val:match("^(.-) %(") or val
+        _G.AutoPotionState.SelectedPotionName = clean
+    end
+})
+
+_G.PotionsSec:Input({
+    Title = "Amount",
+    Placeholder = "e.g. 1",
+    Default = 1,
+    Type = "Input",
+    Callback = function(val)
+        _G.AutoPotionState.Amount = tonumber(val) or 1
+    end
+})
+
+_G.PotionsSec:Input({
+    Title = "Delay (Minutes)",
+    Placeholder = "e.g. 5",
+    Default = 5,
+    Type = "Input",
+    Callback = function(val)
+        _G.AutoPotionState.DelayMinutes = tonumber(val) or 5
+    end
+})
+
+_G.PotionsSec:Button({
+    Title = "Refresh Potions",
+    Icon = "refresh-cw",
+    Callback = _G.RefreshPotionInventory
+})
+
+_G.PotionsSec:Toggle({
+    Title = "Enable Auto Potion",
+    Value = false,
+    Callback = function(state)
+        if state then
+            _G.StartAutoPotion()
+        else
+            _G.StopAutoPotion()
+        end
+    end
+})
+
+task.spawn(function()
+    while not _G.Replion do
+        _G.PotionStatusParagraph:SetDesc("Waiting for _G.Replion...")
+        task.wait(1)
+    end
+
+    if not _G.DataReplion then
+        _G.DataReplion = _G.Replion.Client:WaitReplion("Data")
+    end
+
+    if not _G.DataReplion then
+        _G.PotionStatusParagraph:SetDesc("Failed to read inventory.")
+        return
+    end
+
+    _G.RefreshPotionInventory()
+end)
+
 
 _G.RFRedeemCode = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/RedeemCode"]
 
