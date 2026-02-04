@@ -4856,36 +4856,6 @@ end)
 -- DEFINISI UI
 -- =======================================================
 
-Trade:Section({Title = "Trade Mode Selection"})
-
-local modeDropdown = Trade:Dropdown({
-    Title = "Select Trade Mode",
-    Values = {"V2", "V3"},
-    Callback = _G.ProtectCallback(function(v)
-        tradeState.mode = v
-        NotifySuccess("Mode Changed", "Trade mode set to: " .. v, 3)
-
-        -- Logika Baru untuk Menampilkan/Menyembunyikan UI
-        local isV2 = (v == "V2")
-        local isV3 = (v == "V3")
-
-        
-        -- Sembunyikan/Tampilkan Elemen V2
-        if _G.TradeV2Elements then
-            for _, element in ipairs(_G.TradeV2Elements) do
-                if element.Element then element.Element.Visible = isV2 end
-            end
-        end
-
-        -- Sembunyikan/Tampilkan Elemen V3
-        if _G.TradeV3Elements then
-            for _, element in ipairs(_G.TradeV3Elements) do
-                if element.Element then element.Element.Visible = isV3 end
-            end
-        end
-    end)
-})
-
 _G.PlayerDropdownTrade = Trade:Dropdown({
     Title = "Select Player",
     Values = getPlayerListV2(),
@@ -4973,7 +4943,7 @@ Trade:Toggle({
     Callback = function(value)
         tradeState.autoTradeV2 = value
 
-        if tradeState.mode == "V2" and value then
+        if value then
             task.spawn(function()
                 if not tradeState.selectedItemName
                     or not tradeState.selectedPlayerId
