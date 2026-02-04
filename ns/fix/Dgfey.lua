@@ -1452,31 +1452,83 @@ task.spawn(function()
     end
 end)
 
+_G._CancelCycleRunning = false
+_G._CancelFirstRun = true
+_G.CycleDelay = 10
+
+_G.StartCancelCycle = function()
+    if _G._CancelCycleRunning then return end
+    _G._CancelCycleRunning = true
+    _G._CancelFirstRun = true
+
+    task.spawn(function()
+        while _G.BlatantState.enabled do
+
+            -- === FIRST EXECUTION ===
+            if _G._CancelFirstRun then
+                task.wait(math.random(1, 100) / 100) -- 1 - 2 detik
+
+                pcall(function()
+                    v6.Functions.Cancel:InvokeServer()
+                end)
+
+                _G._CancelFirstRun = false
+
+            else
+                -- === NEXT CYCLES ===
+                task.wait(tonumber(_G.CycleDelay))
+
+                task.wait(math.random(1, 100) / 100) -- 0.1 - 1 detik
+
+                pcall(function()
+                    v6.Functions.Cancel:InvokeServer()
+                end)
+            end
+        end
+
+        -- reset saat disabled
+        _G._CancelCycleRunning = false
+        _G._CancelFirstRun = true
+    end)
+end
+
 function Fastest()
     task.spawn(function()
+
         pcall(function()
-            v6.Functions.Cancel:InvokeServer()
+            firesignal(_G.REFishingStopped.OnClientEvent)
         end)
-        local l_workspace_ServerTimeNow_0 = workspace:GetServerTimeNow()
+        
+        _G.StartCancelCycle()
+
+        local serverTime = workspace:GetServerTimeNow()
+
         pcall(function()
-            v6.Functions.ChargeRod:InvokeServer(l_workspace_ServerTimeNow_0)
+            v6.Functions.ChargeRod:InvokeServer(serverTime)
         end)
+
         pcall(function()
             v6.Functions.StartMini:InvokeServer(-1, 0.999)
         end)
+
         task.wait(_G.BlatantState.fishingDelay)
+
         pcall(function()
             v6.Events.REFishDone:InvokeServer()
         end)
+        
+
     end)
 end
 
 task.spawn(function()
     while true do
         if _G.BlatantState.enabled then
+
             if _G.BlatantState.mode == "Fast" then
                 Fastest()
             end
+
             task.wait(_G.BlatantState.reelDelay)
         else
             task.wait(0.2)
@@ -1487,7 +1539,7 @@ end)
 AutoFish:Divider()
 
 _G.FishAdvenc = AutoFish:Section({
-    Title = "Advenced Settings",
+    Title = "Advanced Settings",
     TextSize = 22,
     TextXAlignment = "Center",
     Opened = false
@@ -1540,6 +1592,17 @@ _G.BlatantSec:Input({
         local num = tonumber(v)
         if num and num > 0 then
             _G.BlatantState.fishingDelay = num
+        end
+    end
+})
+
+_G.BlatantSec:Input({
+    Title = "Cycle Delay",
+    Value = tostring(_G.CycleDelay),
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            _G.CycleDelay = num
         end
     end
 })
