@@ -3178,7 +3178,7 @@ _G.FishList = AutoFav:Dropdown({
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = _G.ProtectCallback(function(selectedNames)
+    Callback = function(selectedNames)
         GlobalFav.SelectedFishIds = {}
 
         for _, nameWithId in ipairs(selectedNames) do
@@ -3189,7 +3189,7 @@ _G.FishList = AutoFav:Dropdown({
         end
 
         NotifyInfo("Auto Favorite", "Favoriting fish: " .. HttpService:JSONEncode(selectedNames))
-    end)
+    end
 })
 
 GlobalFav.VariantList = {}
@@ -3207,7 +3207,7 @@ _G.FavVariantDropdown = AutoFav:Dropdown({
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = _G.ProtectCallback(function(selectedVariants)
+    Callback = function(selectedVariants)
         GlobalFav.SelectedVariants = {}
 
         for _, vName in ipairs(selectedVariants) do
@@ -3218,7 +3218,7 @@ _G.FavVariantDropdown = AutoFav:Dropdown({
             "Auto Favorite",
             "Favoriting variants: " .. table.concat(selectedVariants, ", ")
         )
-    end)
+    end
 })
 
 myConfig:Register("FavVariants", _G.FavVariantDropdown)
@@ -3235,7 +3235,7 @@ _G.FavRarityDropdown = AutoFav:Dropdown({
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
-    Callback = _G.ProtectCallback(function(selectedRarities)
+    Callback = function(selectedRarities)
         GlobalFav.SelectedRarities = {}
         for _, rarityName in ipairs(selectedRarities) do
             for tier, name in pairs(TierToRarityName) do
@@ -3245,7 +3245,7 @@ _G.FavRarityDropdown = AutoFav:Dropdown({
             end
         end
         NotifyInfo("Auto Favorite", "Favoriting active for rarities: " .. HttpService:JSONEncode(selectedRarities))
-    end)
+    end
 })
 
 myConfig:Register("FavRarity", _G.FavRarityDropdown)
@@ -8269,7 +8269,7 @@ FishNotif:Toggle({
     end
 })
 
-FishNotif:Dropdown({
+_G.NotifDrop = FishNotif:Dropdown({
     Title = "Select Fish Categories",
     Desc = "Choose which categories to send to webhook",
     Values = { "Secret", "Legendary", "Mythic" },
@@ -8278,6 +8278,8 @@ FishNotif:Dropdown({
         SelectedCategories = selected
     end
 })
+
+myConfig:Register("CategoryFish", _G.NotifDrop)
 
 FishNotif:Space()
 
