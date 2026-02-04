@@ -6115,26 +6115,28 @@ Utils:Button({
 })
 
 local islandCoords = {
-	["01"] = { name = "Weather Machine", position = Vector3.new(-1471, -3, 1929) },
-	["02"] = { name = "Esoteric Depths", position = Vector3.new(3157, -1303, 1439) },
-	["03"] = { name = "Tropical Grove", position = Vector3.new(-2038, 3, 3650) },
-	["04"] = { name = "Stingray Shores", position = Vector3.new(-32, 4, 2773) },
-	["05"] = { name = "Kohana Volcano", position = Vector3.new(-519, 24, 189) },
-	["06"] = { name = "Coral Reefs", position = Vector3.new(-3095, 1, 2177) },
-	["07"] = { name = "Crater Island", position = Vector3.new(968, 1, 4854) },
-	["08"] = { name = "Kohana", position = Vector3.new(-658, 3, 719) },
-	["09"] = { name = "Winter Fest", position = Vector3.new(1611, 4, 3280) },
-	["10"] = { name = "Isoteric Island", position = Vector3.new(1987, 4, 1400) },
-	["11"] = { name = "Treasure Hall", position = Vector3.new(-3600, -267, -1558) },
-	["12"] = { name = "Lost Shore", position = Vector3.new(-3663, 38, -989 ) },
-	["13"] = { name = "Sishypus Statue", position = Vector3.new(-3792, -135, -986) },
-	["14"] = { name = "Ancient Jungle", position = Vector3.new(1478, 131, -613) },
-	["15"] = { name = "The Temple", position = Vector3.new(1477, -22, -631) },
-	["16"] = { name = "Underground Cellar", position = Vector3.new(2133, -91, -674)},
-	["17"] = { name = "Ancient Ruin", position = Vector3.new(6052, -546, 4427) },
+    ["01"] = { name = "Weather Machine", position = Vector3.new(-1471, -3, 1929) },
+    ["02"] = { name = "Esoteric Depths", position = Vector3.new(3157, -1303, 1439) },
+    ["03"] = { name = "Tropical Grove", position = Vector3.new(-2038, 3, 3650) },
+    ["04"] = { name = "Fisherman Island", position = Vector3.new(-32, 4, 2773) },
+    ["05"] = { name = "Kohana Volcano", position = Vector3.new(-519, 24, 189) },
+    ["06"] = { name = "Coral Reefs", position = Vector3.new(-3095, 1, 2177) },
+    ["07"] = { name = "Crater Island", position = Vector3.new(968, 1, 4854) },
+    ["08"] = { name = "Kohana", position = Vector3.new(-658, 3, 719) },
+    ["09"] = { name = "Winter Fest", position = Vector3.new(1611, 4, 3280) },
+    ["10"] = { name = "Isoteric Island", position = Vector3.new(1987, 4, 1400) },
+    ["11"] = { name = "Treasure Hall", position = Vector3.new(-3600, -267, -1558) },
+    ["12"] = { name = "Lost Shore", position = Vector3.new(-3663, 38, -989) },
+    ["13"] = { name = "Sishypus Statue", position = Vector3.new(-3792, -135, -986) },
+    ["14"] = { name = "Ancient Jungle", position = Vector3.new(1478, 131, -613) },
+    ["15"] = { name = "The Temple", position = Vector3.new(1477, -22, -631) },
+    ["16"] = { name = "Underground Cellar", position = Vector3.new(2133, -91, -674) },
+    ["17"] = {name = "Ancient Ruin", position = Vector3.new(6052, -546, 4427) },
     ["21"] = {name = "Pirate Cove", position = Vector3.new(3497, 4, 3447) },
+    ["99"] = {name = "Pirate Treasure Room", position = Vector3.new(3343, -298, 3118) },
     ["83"] = {name = "Crystal Pessage", position = Vector3.new(3433, -299, 3365) },
-    ["72"] = {name = "Crystal Depths", position = Vector3.new(5494, -905, 15389) }
+    ["72"] = {name = "Crystal Depths", position = Vector3.new(5494, -905, 15389) },
+    ["22"] = {name = "Volcanic Cavern", position = Vector3.new(1146, 73, -10260)}
 }
 
 local islandNames = {}
