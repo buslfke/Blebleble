@@ -3174,7 +3174,7 @@ local fishName = GlobalFav.FishIdToName[itemId]
 _G.FishList = AutoFav:Dropdown({
     Title = "Auto Favorite Fishes",
     Values = GlobalFav.FishNames,
-    Value = {},
+    Value = { "Ruby" },
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
@@ -3204,6 +3204,7 @@ table.sort(GlobalFav.VariantList)
 _G.FavVariantDropdown = AutoFav:Dropdown({
     Title = "Auto Favorite Variants",
     Values = GlobalFav.VariantList,
+    Value = { "Gemstone" },
     Multi = true,
     AllowNone = true,
     SearchBarEnabled = true,
