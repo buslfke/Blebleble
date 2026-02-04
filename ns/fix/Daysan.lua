@@ -1033,6 +1033,24 @@ _G.FishSec:Toggle({
     end
 })
 
+_G.Perfection = _G.FishSec:Toggle({
+    Title = "PERFECTION!",
+    Desc = "Need Enchant PERFECTION!\nDo Not Turn On Fish Legit",
+    Value = true,
+    Callback = function(state)
+        local Players = game:GetService("Players") 
+        local LocalPlayer = Players.LocalPlayer
+        if state then
+            LocalPlayer:SetAttribute("Loading", nil)
+            game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0"):WaitForChild("net"):WaitForChild("RF/UpdateAutoFishingState"):InvokeServer(true)
+
+        else
+            game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0"):WaitForChild("net"):WaitForChild("RF/UpdateAutoFishingState"):InvokeServer(false)
+            LocalPlayer:SetAttribute("Loading", true)
+        end
+    end
+})
+
 _G.FishSec:Toggle({
     Title = "Auto Fish Legit",
     Value = false,
