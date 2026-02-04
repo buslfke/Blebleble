@@ -1415,8 +1415,8 @@ local v6 = {
 _G.BlatantState = {
     enabled = false,
     mode = "Fast",
-    fishingDelay = 1.0,
-    reelDelay = 1.9
+    fishingDelay = 0,
+    reelDelay = 0.1
 }
 
 _G.__RodEquipped = false
