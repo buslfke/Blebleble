@@ -4711,7 +4711,7 @@ local function refreshInventory()
 
     local inventoryItems = DataReplion:Get({ "Inventory", "Items" })
     local inventoryPotions = DataReplion:Get({ "Inventory", "Potions" }) or {}
-    local rodSkins = DataReplion:Get({ "Inventory", "Fishing Rods" })
+
     inventoryCache = {}
     fullInventoryDropdownList = {}
 
@@ -4784,25 +4784,6 @@ local function refreshInventory()
         end
     end
     
-    ------------------------------------------------
-    -- ROD SKINS
-    ------------------------------------------------
-    if rodSkins then
-        for _, skinsData in ipairs(rodSkins) do
-            local baseSkins = ItemUtility:GetItemData(skinsData.Id)
-    
-            if baseSkins and baseSkins.IsSkin then
-                local name = baseSkins.Data.Name
-    
-                inventoryCache[name] = inventoryCache[name] or {
-                    Mode = "UUID",
-                    UUIDs = {}
-                }
-    
-                table.insert(inventoryCache[name].UUIDs, skinsData.UUID)
-            end
-        end
-    end
 
     ------------------------------------------------
     -- FINAL LIST (TERMAsuk POTION)
