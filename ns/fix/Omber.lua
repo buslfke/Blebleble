@@ -3115,7 +3115,7 @@ for _, item in ipairs(ReplicatedStorage.Items:GetChildren()) do
         local name = data.Data.Name
         local tier = data.Data.Tier or 1
 
-        local nameWithId = name .. " [ID:" .. id .. "]"
+        local nameWithId = name
 
         GlobalFav.FishIdToName[id] = nameWithId
         GlobalFav.FishNameToId[nameWithId] = id
