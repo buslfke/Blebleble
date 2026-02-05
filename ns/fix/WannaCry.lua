@@ -6403,6 +6403,7 @@ local RodDelays = {
     ["Ghostfinn Rod"] = true,
     ["Bamboo Rod"] = true,
     ["Element Rod"] = true,
+    ["Diamond Rod"] = true
 
     ["Fluorescent Rod"] = true,
     ["Astral Rod"] = true,
