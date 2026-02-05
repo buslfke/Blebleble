@@ -3097,7 +3097,7 @@ local GlobalFav = {
     SelectedFishIds = {},
     SelectedVariants = {},
     SelectedRarities = {},
-    AutoFavoriteEnabled = true
+    AutoFavoriteEnabled = false
 }
 
 local TierToRarityName = {
